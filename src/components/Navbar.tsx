@@ -17,7 +17,7 @@ const Navbar: React.FC = () => {
   if (!user) return null
 
   return (
-    <nav className="navbar navbar-expand-lg navbar-dark navbar-custom">
+    <nav className="navbar navbar-expand-md navbar-dark navbar-custom">
       <div className="container-fluid">
         <Link className="navbar-brand" href={user.rol === "admin" ? "/admin" : "/profesor"}>
           Gestión de Guardias
@@ -36,15 +36,74 @@ const Navbar: React.FC = () => {
         </button>
 
         <div className="collapse navbar-collapse" id="navbarNav">
-          <ul className="navbar-nav me-auto">
+          {/* Menú móvil - Solo visible en pantallas pequeñas */}
+          <ul className="navbar-nav d-md-none">
+            {user.rol === "admin" ? (
+              <>
+                <li className="nav-item">
+                  <Link className="nav-link" href="/admin">
+                    <i className="bi bi-speedometer2 me-2"></i>Dashboard
+                  </Link>
+                </li>
+                <li className="nav-item">
+                  <Link className="nav-link" href="/admin/users">
+                    <i className="bi bi-people me-2"></i>Usuarios
+                  </Link>
+                </li>
+                <li className="nav-item">
+                  <Link className="nav-link" href="/admin/horarios">
+                    <i className="bi bi-calendar3 me-2"></i>Horarios
+                  </Link>
+                </li>
+                <li className="nav-item">
+                  <Link className="nav-link" href="/admin/lugares">
+                    <i className="bi bi-geo-alt me-2"></i>Lugares
+                  </Link>
+                </li>
+                <li className="nav-item">
+                  <Link className="nav-link" href="/admin/guardias">
+                    <i className="bi bi-clipboard-check me-2"></i>Guardias
+                  </Link>
+                </li>
+                <li className="nav-item">
+                  <Link className="nav-link" href="/admin/estadisticas">
+                    <i className="bi bi-bar-chart me-2"></i>Estadísticas
+                  </Link>
+                </li>
+              </>
+            ) : (
+              <>
+                <li className="nav-item">
+                  <Link className="nav-link" href="/profesor">
+                    <i className="bi bi-speedometer2 me-2"></i>Dashboard
+                  </Link>
+                </li>
+                <li className="nav-item">
+                  <Link className="nav-link" href="/profesor/ausencias">
+                    <i className="bi bi-calendar-x me-2"></i>Mis Ausencias
+                  </Link>
+                </li>
+                <li className="nav-item">
+                  <Link className="nav-link" href="/profesor/guardias-pendientes">
+                    <i className="bi bi-list-check me-2"></i>Guardias Pendientes
+                  </Link>
+                </li>
+                <li className="nav-item">
+                  <Link className="nav-link" href="/profesor/firmar-guardia">
+                    <i className="bi bi-check-circle me-2"></i>Firmar Guardia
+                  </Link>
+                </li>
+              </>
+            )}
             <li className="nav-item">
               <Link className="nav-link" href="/sala-guardias">
-                Sala de Guardias
+                <i className="bi bi-display me-2"></i>Sala de Guardias
               </Link>
             </li>
           </ul>
 
-          <ul className="navbar-nav">
+          {/* Menú de usuario - Visible en todas las pantallas */}
+          <ul className="navbar-nav ms-auto">
             <li className="nav-item dropdown">
               <a
                 className="nav-link dropdown-toggle"

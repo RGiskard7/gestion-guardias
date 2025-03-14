@@ -2,6 +2,7 @@
 
 import type React from "react"
 import { createContext, useState, useContext, useEffect, type ReactNode } from "react"
+import Cookies from "js-cookie"
 
 // Define user type
 export interface User {
@@ -58,27 +59,42 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
 
-  // Check if user is already logged in (from localStorage)
+  // Check if user is already logged in (from localStorage and cookies)
   useEffect(() => {
     const storedUser = localStorage.getItem("user")
-    if (storedUser) {
+    const cookieUser = Cookies.get("user")
+    
+    if (storedUser && cookieUser) {
       setUser(JSON.parse(storedUser))
+    } else {
+      // If there's a mismatch, clear both
+      localStorage.removeItem("user")
+      Cookies.remove("user")
     }
     setLoading(false)
   }, [])
 
   // Login function
   const login = async (email: string, password: string): Promise<boolean> => {
+    console.log("Intentando login con:", email)
     // In a real app, this would be an API call
     const foundUser = mockUsers.find((u) => u.email === email && u.password === password && u.activo)
 
     if (foundUser) {
+      console.log("Usuario encontrado:", foundUser.email)
       // Remove password before storing user
       const { password, ...userWithoutPassword } = foundUser
       setUser(userWithoutPassword)
-      localStorage.setItem("user", JSON.stringify(userWithoutPassword))
+      
+      // Store in both localStorage and cookies
+      const userString = JSON.stringify(userWithoutPassword)
+      localStorage.setItem("user", userString)
+      Cookies.set("user", userString, { expires: 7 }) // Cookie expires in 7 days
+      
+      console.log("Login exitoso")
       return true
     }
+    console.log("Usuario no encontrado")
     return false
   }
 
@@ -86,6 +102,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const logout = () => {
     setUser(null)
     localStorage.removeItem("user")
+    Cookies.remove("user")
   }
 
   return (
