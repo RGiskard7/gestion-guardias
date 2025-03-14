@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { useGuardias } from "../../../src/contexts/GuardiasContext"
 import { useAuth } from "../../../src/contexts/AuthContext"
-import GuardiaCard from "../../../src/components/GuardiaCard"
+import GuardiaCard from "@/app/guardia/guardia-card"
 
 export default function FirmarGuardiaPage() {
   const { user } = useAuth()

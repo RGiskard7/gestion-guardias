@@ -3,7 +3,7 @@
 import type React from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useAuth } from "../contexts/AuthContext"
+import { useAuth } from "@/src/contexts/AuthContext"
 
 const Navbar: React.FC = () => {
   const { user, logout } = useAuth()
@@ -138,5 +138,4 @@ const Navbar: React.FC = () => {
   )
 }
 
-export default Navbar
-
+export default Navbar 

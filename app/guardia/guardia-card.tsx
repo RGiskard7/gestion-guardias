@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { type Guardia, type Lugar, type Usuario, type TareaGuardia, useGuardias } from "../contexts/GuardiasContext"
+import { type Guardia, type Lugar, type Usuario, type TareaGuardia, useGuardias } from "@/src/contexts/GuardiasContext"
 
 interface GuardiaCardProps {
   guardia: Guardia
@@ -120,5 +120,4 @@ const GuardiaCard: React.FC<GuardiaCardProps> = ({ guardia, showActions = false,
   )
 }
 
-export default GuardiaCard
-
+export default GuardiaCard 

@@ -1,16 +1,18 @@
 "use client"
 
-import { useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import { useAuth } from '@/src/contexts/AuthContext'
-import Navbar from '@/src/components/Navbar'
-import Sidebar from '@/src/components/Sidebar'
+import type React from "react"
+import { useAuth } from "@/src/contexts/AuthContext"
+import { useRouter } from "next/navigation"
+import { useEffect } from "react"
+import Navbar from "@/components/common/Navbar"
+import Sidebar from "@/components/common/Sidebar"
 
 interface ProtectedLayoutProps {
   children: React.ReactNode
+  title?: string
 }
 
-export default function ProtectedLayout({ children }: ProtectedLayoutProps) {
+export default function ProtectedLayout({ children, title }: ProtectedLayoutProps) {
   const { user, loading } = useAuth()
   const router = useRouter()
 
@@ -34,6 +36,11 @@ export default function ProtectedLayout({ children }: ProtectedLayoutProps) {
       <div className="flex-grow-1">
         <Navbar />
         <main className="container-fluid py-4">
+          {title && (
+            <div className="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+              <h1 className="h2">{title}</h1>
+            </div>
+          )}
           {children}
         </main>
       </div>
