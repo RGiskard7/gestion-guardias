@@ -171,6 +171,70 @@ body {
   margin-bottom: 30px;
 }
 
+/* Estilos para la sala de guardias */
+.sala-guardias-card {
+  transition: all 0.3s ease;
+  border-width: 2px !important;
+}
+
+.sala-guardias-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Estilos para los estados de las guardias */
+.bg-warning.bg-opacity-10 {
+  background-color: rgba(255, 193, 7, 0.1) !important;
+}
+
+.bg-info.bg-opacity-10 {
+  background-color: rgba(13, 202, 240, 0.1) !important;
+}
+
+.bg-success.bg-opacity-10 {
+  background-color: rgba(25, 135, 84, 0.1) !important;
+}
+
+.bg-secondary.bg-opacity-10 {
+  background-color: rgba(108, 117, 125, 0.1) !important;
+}
+
+.bg-primary.bg-opacity-10 {
+  background-color: rgba(13, 110, 253, 0.1) !important;
+}
+
+/* Estilos para los badges */
+.badge {
+  font-weight: 500;
+  padding: 0.35em 0.65em;
+  border-radius: 0.25rem;
+}
+
+/* Estilos para los iconos */
+.bi {
+  vertical-align: -0.125em;
+}
+
+/* Estilos para el acordeón en vista móvil */
+.accordion-button:not(.collapsed) {
+  background-color: rgba(13, 110, 253, 0.1);
+  color: #0d6efd;
+}
+
+.accordion-button:focus {
+  box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+/* Estilos para la tabla de la vista semanal */
+.table-bordered {
+  border-color: #dee2e6;
+}
+
+.table-bordered > :not(caption) > * > * {
+  border-width: 1px;
+  border-color: #dee2e6;
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
   /* Ajustes para el sidebar */
@@ -212,6 +276,16 @@ body {
   /* Ajustes para los formularios */
   .form-container {
     padding: 15px;
+  }
+  
+  /* Ajustes para la sala de guardias */
+  .sala-guardias-card {
+    margin-bottom: 10px;
+  }
+  
+  /* Ajustes para el acordeón en vista móvil */
+  .accordion-body {
+    padding: 0.5rem;
   }
 }
 
