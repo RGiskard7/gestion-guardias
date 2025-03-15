@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { testSupabaseConnection } from '@/lib/authService'
 import { getUsuarios } from '@/lib/usuariosService'
-import { getGuardias } from '@/lib/guardiasService'
+import { getAllGuardias } from '@/lib/guardiasService'
 import { getLugares } from '@/lib/lugaresService'
 import { getHorarios } from '@/lib/horariosService'
 import { getTareasGuardia } from '@/lib/tareasGuardiaService'
@@ -47,7 +47,7 @@ export default function TestSupabasePage() {
         
         // Guardias
         try {
-          const guardias = await getGuardias()
+          const guardias = await getAllGuardias()
           results.guardias = {
             success: true,
             count: guardias.length,
