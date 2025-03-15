@@ -6,7 +6,6 @@ import { useAuth } from "@/src/contexts/AuthContext"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
 
@@ -16,8 +15,8 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!email || !password) {
-      setError("Por favor, introduce email y contraseña")
+    if (!email) {
+      setError("Por favor, introduce tu email")
       return
     }
 
@@ -26,19 +25,24 @@ export default function LoginPage() {
       setLoading(true)
       console.log("Intentando login con:", email)
 
-      const success = await login(email, password)
+      const success = await login(email)
       console.log("Resultado login:", success)
 
       if (success) {
         console.log("Login exitoso, redirigiendo...")
-        // Redirect based on user role
-        if (email === "admin@instituto.es") {
-          await router.replace("/admin")
-        } else {
-          await router.replace("/profesor")
+        // Obtenemos el usuario del localStorage para determinar su rol
+        const userString = localStorage.getItem("user")
+        if (userString) {
+          const user = JSON.parse(userString)
+          // Redirect based on user role
+          if (user.rol === "admin") {
+            await router.replace("/admin")
+          } else {
+            await router.replace("/profesor")
+          }
         }
       } else {
-        setError("Email o contraseña incorrectos")
+        setError("Email no encontrado o usuario inactivo")
       }
     } catch (err) {
       console.error("Error en login:", err)
@@ -78,18 +82,11 @@ export default function LoginPage() {
                   />
                 </div>
 
-                <div className="mb-3">
-                  <label htmlFor="password" className="form-label">
-                    Contraseña
-                  </label>
-                  <input
-                    type="password"
-                    className="form-control"
-                    id="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                  />
+                <div className="alert alert-info">
+                  <small>
+                    <i className="bi bi-info-circle me-2"></i>
+                    Por el momento, solo se requiere el email para iniciar sesión. No es necesario introducir contraseña.
+                  </small>
                 </div>
 
                 <div className="d-grid gap-2">
@@ -108,9 +105,9 @@ export default function LoginPage() {
             </div>
             <div className="card-footer text-center py-3">
               <div className="small">
-                <p className="mb-0">Credenciales de prueba:</p>
-                <p className="mb-0">Admin: admin@instituto.es / admin123</p>
-                <p className="mb-0">Profesor: profesor@instituto.es / profesor123</p>
+                <p className="mb-0">Emails de prueba:</p>
+                <p className="mb-0">Admin: admin@instituto.es</p>
+                <p className="mb-0">Profesor: profesor@instituto.es</p>
               </div>
             </div>
           </div>

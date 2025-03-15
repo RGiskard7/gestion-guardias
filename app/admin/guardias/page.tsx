@@ -87,63 +87,32 @@ export default function GuardiasPage() {
   }
 
   // Manejar envío del formulario
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
     if (editingId) {
       // Actualizar guardia existente
       const { tarea, ...guardiaData } = formData
       updateGuardia(editingId, guardiaData)
-
-      // Añadir tarea si se proporciona
-      if (tarea) {
-        addTareaGuardia({
-          guardiaId: editingId,
-          descripcionTarea: tarea,
-        })
-      }
+      setEditingId(null)
     } else if (isRangeMode) {
       // Crear guardias para un rango de fechas
-      const dateRange = generateDateRange(rangoFechas.fechaInicio, rangoFechas.fechaFin)
-
-      dateRange.forEach((fecha) => {
+      const fechas = generateDateRange(rangoFechas.fechaInicio, rangoFechas.fechaFin)
+      
+      // Crear una guardia para cada fecha
+      fechas.forEach(async (fecha) => {
         const { tarea, ...guardiaData } = formData
-        const newGuardia = {
-          ...guardiaData,
-          fecha,
-        }
-
-        // Añadir guardia
-        addGuardia(newGuardia)
-
-        // Obtener el ID de la guardia recién añadida
-        const newGuardiaId = Math.max(...guardias.map((g: Guardia) => g.id)) + 1
-
-        // Añadir tarea si se proporciona
-        if (tarea) {
-          addTareaGuardia({
-            guardiaId: newGuardiaId,
-            descripcionTarea: tarea,
-          })
-        }
+        const guardiaWithDate = { ...guardiaData, fecha }
+        
+        // Añadir guardia con tarea
+        await addGuardia(guardiaWithDate, tarea)
       })
     } else {
       // Añadir una sola guardia
       const { tarea, ...guardiaData } = formData
-
-      // Añadir guardia
-      addGuardia(guardiaData)
-
-      // Obtener el ID de la guardia recién añadida
-      const newGuardiaId = Math.max(...guardias.map((g: Guardia) => g.id)) + 1
-
-      // Añadir tarea si se proporciona
-      if (tarea) {
-        addTareaGuardia({
-          guardiaId: newGuardiaId,
-          descripcionTarea: tarea,
-        })
-      }
+      
+      // Añadir guardia con tarea
+      await addGuardia(guardiaData, tarea)
     }
 
     // Resetear formulario

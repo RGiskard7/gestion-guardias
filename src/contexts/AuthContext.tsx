@@ -3,8 +3,11 @@
 import type React from "react"
 import { createContext, useState, useContext, useEffect, type ReactNode } from "react"
 import Cookies from "js-cookie"
+import { loginUser, type Usuario as UsuarioDB } from "@/lib/authService"
+import { supabase } from "@/lib/supabaseClient"
+import { DB_CONFIG, getTableName } from "@/lib/db-config"
 
-// Define user type
+// Define user type (mantenemos la misma estructura para compatibilidad)
 export interface User {
   id: number
   nombre: string
@@ -17,7 +20,7 @@ export interface User {
 interface AuthContextType {
   user: User | null
   loading: boolean
-  login: (email: string, password: string) => Promise<boolean>
+  login: (email: string) => Promise<boolean>
   logout: () => void
   isAuthenticated: boolean
 }
@@ -30,26 +33,6 @@ const AuthContext = createContext<AuthContextType>({
   logout: () => {},
   isAuthenticated: false,
 })
-
-// Mock user data for demonstration
-const mockUsers = [
-  {
-    id: 1,
-    nombre: "Admin Usuario",
-    email: "admin@instituto.es",
-    rol: "admin" as const,
-    activo: true,
-    password: "admin123",
-  },
-  {
-    id: 2,
-    nombre: "Profesor Ejemplo",
-    email: "profesor@instituto.es",
-    rol: "profesor" as const,
-    activo: true,
-    password: "profesor123",
-  },
-]
 
 interface AuthProviderProps {
   children: ReactNode
@@ -74,28 +57,60 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setLoading(false)
   }, [])
 
-  // Login function
-  const login = async (email: string, password: string): Promise<boolean> => {
+  // Login function - Actualizada para usar Supabase
+  const login = async (email: string): Promise<boolean> => {
     console.log("Intentando login con:", email)
-    // In a real app, this would be an API call
-    const foundUser = mockUsers.find((u) => u.email === email && u.password === password && u.activo)
-
-    if (foundUser) {
-      console.log("Usuario encontrado:", foundUser.email)
-      // Remove password before storing user
-      const { password, ...userWithoutPassword } = foundUser
-      setUser(userWithoutPassword)
+    
+    try {
+      // Verificamos si el usuario existe en la base de datos
+      const userExists = await loginUser(email)
+      
+      if (!userExists) {
+        console.log("Usuario no encontrado o inactivo")
+        return false
+      }
+      
+      // Si el usuario existe, obtenemos sus datos completos
+      const { data, error } = await supabase
+        .from(getTableName('USUARIOS'))
+        .select('*')
+        .eq('email', email)
+        .single();
+      
+      if (error || !data) {
+        console.error("Error al obtener datos del usuario:", error?.message)
+        return false
+      }
+      
+      // Convertimos los datos a nuestro tipo User
+      const userData: User = {
+        id: data.id,
+        nombre: data.nombre,
+        email: data.email,
+        rol: data.rol as "admin" | "profesor",
+        activo: data.activo
+      }
+      
+      // Verificamos que el usuario esté activo
+      if (!userData.activo) {
+        console.log("Usuario inactivo")
+        return false
+      }
+      
+      console.log("Usuario encontrado:", userData.email)
+      setUser(userData)
       
       // Store in both localStorage and cookies
-      const userString = JSON.stringify(userWithoutPassword)
+      const userString = JSON.stringify(userData)
       localStorage.setItem("user", userString)
       Cookies.set("user", userString, { expires: 7 }) // Cookie expires in 7 days
       
       console.log("Login exitoso")
       return true
+    } catch (error) {
+      console.error("Error en el proceso de login:", error)
+      return false
     }
-    console.log("Usuario no encontrado")
-    return false
   }
 
   // Logout function
