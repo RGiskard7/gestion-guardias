@@ -27,6 +27,9 @@ export default function UsersPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage, setItemsPerPage] = useState(10)
 
+  // Añadir log para depuración
+  console.log("Estado actual:", { showForm, editingId, error })
+
   // Calcular el número total de páginas
   const totalPages = Math.max(1, Math.ceil(profesores.length / itemsPerPage))
   
@@ -101,6 +104,7 @@ export default function UsersPage() {
 
   // Resetear formulario y estado
   const resetForm = () => {
+    console.log("Reseteando formulario")
     setFormData({
       nombre: "",
       email: "",
@@ -108,8 +112,9 @@ export default function UsersPage() {
       activo: true,
     })
     setEditingId(null)
-    setShowForm(false)
+    // No resetear showForm aquí para evitar conflictos con el botón
     setInheritFromId(null)
+    console.log("Formulario reseteado")
   }
 
   // Comenzar edición de usuario
@@ -140,17 +145,34 @@ export default function UsersPage() {
         <button
           className="btn btn-primary"
           onClick={() => {
-            setShowForm(!showForm)
+            console.log("Botón Nuevo Usuario clickeado, showForm actual:", showForm)
+            setShowForm(true)
             setEditingId(null)
             resetForm()
+            console.log("showForm después de click: true")
           }}
         >
-          {showForm ? "Cancelar" : "Nuevo Usuario"}
+          Nuevo Usuario
         </button>
+        
+        {showForm && (
+          <button
+            className="btn btn-secondary ms-2"
+            onClick={() => {
+              console.log("Botón Cancelar clickeado")
+              setShowForm(false)
+              console.log("showForm después de cancelar: false")
+            }}
+          >
+            Cancelar
+          </button>
+        )}
       </div>
 
       {error && <div className="alert alert-danger">{error}</div>}
 
+      {/* Log para depurar: {showForm ? "Mostrar formulario" : "No mostrar formulario"} */}
+      
       {showForm && (
         <div className="card mb-4">
           <div className="card-header">{editingId ? "Editar Profesor" : "Añadir Nuevo Profesor"}</div>

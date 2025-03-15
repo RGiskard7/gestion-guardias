@@ -18,6 +18,9 @@ export default function LugaresPage() {
   const [showForm, setShowForm] = useState(false)
   const [error, setError] = useState<string | null>(null)
   
+  // Añadir log para depuración
+  console.log("Estado actual de lugares:", { showForm, editingId, error })
+  
   // Estado para la paginación
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 10
@@ -66,13 +69,15 @@ export default function LugaresPage() {
 
   // Resetear formulario y estado
   const resetForm = () => {
+    console.log("Reseteando formulario de lugares")
     setFormData({
       codigo: "",
       descripcion: "",
       tipoLugar: "aula",
     })
     setEditingId(null)
-    setShowForm(false)
+    // No resetear showForm aquí para evitar conflictos con el botón
+    console.log("Formulario de lugares reseteado")
   }
 
   // Comenzar edición de lugar
@@ -101,13 +106,29 @@ export default function LugaresPage() {
         <button
           className="btn btn-primary"
           onClick={() => {
-            setShowForm(!showForm)
+            console.log("Botón Nuevo Lugar clickeado, showForm actual:", showForm)
+            // Cambiar directamente a true en lugar de alternar
+            setShowForm(true)
             setEditingId(null)
             resetForm()
+            console.log("showForm después de click: true")
           }}
         >
-          {showForm ? "Cancelar" : "Nuevo Lugar"}
+          Nuevo Lugar
         </button>
+        
+        {showForm && (
+          <button
+            className="btn btn-secondary ms-2"
+            onClick={() => {
+              console.log("Botón Cancelar clickeado")
+              setShowForm(false)
+              console.log("showForm después de cancelar: false")
+            }}
+          >
+            Cancelar
+          </button>
+        )}
       </div>
 
       {error && <div className="alert alert-danger">{error}</div>}

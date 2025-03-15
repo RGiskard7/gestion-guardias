@@ -4,7 +4,11 @@ services:
     env: node
     plan: free
     repo: https://github.com/RGiskard7/gestion-guardias.git
-    buildCommand: npm install --legacy-peer-deps && npm run build
+    buildCommand: |
+      ls -la
+      find . -type d -name "components" | xargs ls -la
+      find . -type d -name "contexts" | xargs ls -la
+      npm install --legacy-peer-deps && npm run build
     startCommand: npm start
     healthCheckPath: /
     envVars:
@@ -12,6 +16,8 @@ services:
         value: 18.x
       - key: NODE_ENV
         value: production
+      - key: NEXT_PUBLIC_BASE_PATH
+        value: "."
       - key: NEXT_PUBLIC_SUPABASE_URL
         sync: false
       - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
