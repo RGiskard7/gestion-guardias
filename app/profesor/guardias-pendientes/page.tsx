@@ -1,13 +1,14 @@
 "use client"
 
 import { useState } from "react"
-import { useGuardias } from "../../../src/contexts/GuardiasContext"
-import { useAuth } from "../../../src/contexts/AuthContext"
+import { useGuardias, type Guardia, type Usuario } from "@/src/contexts/GuardiasContext"
+import { useAuth } from "@/src/contexts/AuthContext"
+import { Pagination } from "@/components/ui/pagination"
 import GuardiaCard from "@/app/guardia/guardia-card"
 
 export default function GuardiasPendientesPage() {
   const { user } = useAuth()
-  const { guardias, horarios, asignarGuardia } = useGuardias()
+  const { guardias, horarios, usuarios, lugares, asignarGuardia } = useGuardias()
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split("T")[0])
 
   if (!user) return null
@@ -16,7 +17,7 @@ export default function GuardiasPendientesPage() {
   const misHorarios = horarios.filter((h) => h.profesorId === user.id)
 
   // Filter guardias pendientes for selected date
-  const guardiasPendientes = guardias.filter((g) => {
+  const guardiasPendientes = guardias.filter((g: Guardia) => {
     // La guardia debe estar pendiente y ser de la fecha seleccionada
     const esPendiente = g.estado === "Pendiente" && g.fecha === selectedDate
 
@@ -33,21 +34,50 @@ export default function GuardiasPendientesPage() {
     return esPendiente && tieneHorarioGuardia
   })
 
+  // Estado para la paginación
+  const [currentPage, setCurrentPage] = useState(1)
+  const itemsPerPage = 6 // Ajustado para mostrar 6 tarjetas por página (2 filas de 3)
+  const totalPages = Math.ceil(guardiasPendientes.length / itemsPerPage)
+  
+  // Obtener los elementos de la página actual
+  const getCurrentPageItems = () => {
+    const startIndex = (currentPage - 1) * itemsPerPage
+    const endIndex = startIndex + itemsPerPage
+    return guardiasPendientes.slice(startIndex, endIndex)
+  }
+  
+  // Cambiar de página
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page)
+  }
+
+  // Obtener nombre del profesor por ID
+  const getProfesorName = (id: number) => {
+    const profesor = usuarios.find((u: Usuario) => u.id === id)
+    return profesor ? profesor.nombre : "Desconocido"
+  }
+
+  // Obtener nombre del lugar por ID
+  const getLugarName = (id: number) => {
+    const lugar = lugares.find((l) => l.id === id)
+    return lugar ? lugar.descripcion : "Desconocido"
+  }
+
   // Handle asignar guardia
-  const handleAsignarGuardia = (guardiaId: number) => {
-    if (window.confirm("¿Estás seguro de que quieres asignarte esta guardia?")) {
-      asignarGuardia(guardiaId, user.id)
+  const handleAsignarGuardia = async (guardiaId: number) => {
+    if (!user) return
+    
+    try {
+      await asignarGuardia(guardiaId, user.id)
+    } catch (error) {
+      console.error("Error al asignar guardia:", error)
     }
   }
 
-  // Format date for display
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("es-ES", {
-      weekday: "long",
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    })
+  // Handle date change
+  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSelectedDate(e.target.value)
+    setCurrentPage(1) // Resetear a la primera página cuando cambia la fecha
   }
 
   return (
@@ -62,7 +92,7 @@ export default function GuardiasPendientesPage() {
               type="date"
               className="form-control"
               value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
+              onChange={handleDateChange}
               aria-label="Seleccionar fecha para ver guardias pendientes"
             />
           </div>
@@ -70,7 +100,12 @@ export default function GuardiasPendientesPage() {
       </div>
 
       <div className="alert alert-info">
-        Mostrando guardias pendientes para: <strong>{formatDate(selectedDate)}</strong>
+        Mostrando guardias pendientes para: <strong>{new Date(selectedDate).toLocaleDateString("es-ES", {
+          weekday: "long",
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        })}</strong>
       </div>
 
       {guardiasPendientes.length === 0 ? (
@@ -79,12 +114,12 @@ export default function GuardiasPendientesPage() {
         </div>
       ) : (
         <div className="row">
-          {guardiasPendientes.map((guardia) => (
+          {getCurrentPageItems().map((guardia: Guardia) => (
             <div key={guardia.id} className="col-md-6 col-lg-4 mb-3">
               <GuardiaCard
                 guardia={guardia}
                 showActions={true}
-                onAsignar={handleAsignarGuardia}
+                onAsignar={() => handleAsignarGuardia(guardia.id)}
               />
             </div>
           ))}
@@ -118,6 +153,15 @@ export default function GuardiasPendientesPage() {
           )}
         </div>
       </div>
+
+      {/* Componente de paginación */}
+      {guardiasPendientes.length > 0 && (
+        <Pagination 
+          currentPage={currentPage} 
+          totalPages={totalPages} 
+          onPageChange={handlePageChange} 
+        />
+      )}
     </div>
   )
 } 

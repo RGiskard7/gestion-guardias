@@ -1,8 +1,9 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useGuardias } from "../../src/contexts/GuardiasContext"
 import GuardiaCard from "@/app/guardia/guardia-card"
+import { Pagination } from "@/components/ui/pagination"
 
 export default function SalaGuardiasPage() {
   const { guardias, getUsuarioById, getLugarById } = useGuardias()
@@ -171,10 +172,44 @@ export default function SalaGuardiasPage() {
     }
   }
 
+  // Estado para la paginación (solo para vista diaria)
+  const [currentPage, setCurrentPage] = useState(1)
+  const itemsPerPage = 10
+  
+  // Obtener los elementos de la página actual para la vista de tarjetas
+  const getCurrentPageItems = () => {
+    if (viewMode !== "day" || !tramosOrdenados.length) return [];
+    
+    // Aplanar todas las guardias de todos los tramos
+    const allGuardias = tramosOrdenados.flatMap(tramo => guardiasByTramo[tramo]);
+    
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = Math.min(startIndex + itemsPerPage, allGuardias.length);
+    
+    return allGuardias.slice(startIndex, endIndex);
+  }
+  
+  // Calcular el número total de páginas para la vista de tarjetas
+  const totalGuardias = viewMode === "day" 
+    ? tramosOrdenados.flatMap(tramo => guardiasByTramo[tramo]).length 
+    : 0;
+  
+  const totalPages = Math.ceil(totalGuardias / itemsPerPage);
+  
+  // Cambiar de página
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  }
+  
+  // Resetear la página cuando cambia la fecha o el modo de vista
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedDate, viewMode]);
+
   return (
     <div className="container-fluid">
       <h1 className="h3 mb-4">Sala de Guardias</h1>
-
+      
       <div className="row mb-4">
         <div className="col-md-6">
           <div className="input-group mb-3">
@@ -242,7 +277,7 @@ export default function SalaGuardiasPage() {
           </div>
         </div>
       </div>
-
+      
       {viewMode === "day" && (
         <>
           <div className="alert alert-info">
@@ -268,6 +303,17 @@ export default function SalaGuardiasPage() {
                 </div>
               </div>
             ))
+          )}
+          
+          {/* Paginación para la vista diaria cuando hay muchas guardias */}
+          {totalGuardias > itemsPerPage && (
+            <div className="mt-4">
+              <Pagination 
+                currentPage={currentPage} 
+                totalPages={totalPages} 
+                onPageChange={handlePageChange} 
+              />
+            </div>
           )}
         </>
       )}

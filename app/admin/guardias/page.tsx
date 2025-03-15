@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { useGuardias, type Guardia, type Usuario, type Lugar } from "../../../src/contexts/GuardiasContext"
+import { Pagination } from "@/components/ui/pagination"
 
 export default function GuardiasPage() {
   const { 
@@ -45,6 +46,59 @@ export default function GuardiasPage() {
   const [isRangeMode, setIsRangeMode] = useState(false)
   const [filterEstado, setFilterEstado] = useState<string>("")
   const [filterFecha, setFilterFecha] = useState<string>("")
+
+  // Filtrar guardias según los criterios
+  const filteredGuardias = guardias
+    .filter((guardia: Guardia) => {
+      // Filtrar por estado
+      if (filterEstado && guardia.estado !== filterEstado) {
+        return false
+      }
+      // Filtrar por fecha
+      if (filterFecha && guardia.fecha !== filterFecha) {
+        return false
+      }
+      return true
+    })
+    .sort((a: Guardia, b: Guardia) => {
+      // Ordenar por fecha (más reciente primero) y luego por tramo horario
+      if (a.fecha !== b.fecha) {
+        return new Date(b.fecha).getTime() - new Date(a.fecha).getTime()
+      }
+
+      // Extraer número del tramo horario (ej: "1ª hora" -> 1)
+      const getTramoNumber = (tramo: string) => {
+        const match = tramo.match(/(\d+)/)
+        return match ? Number.parseInt(match[1]) : 0
+      }
+
+      return getTramoNumber(a.tramoHorario) - getTramoNumber(b.tramoHorario)
+    })
+
+  // Estado para la paginación
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage, setItemsPerPage] = useState(10)
+
+  // Calcular el número total de páginas
+  const totalPages = Math.max(1, Math.ceil(filteredGuardias.length / itemsPerPage))
+
+  // Obtener los elementos de la página actual
+  const getCurrentPageItems = () => {
+    const startIndex = (currentPage - 1) * itemsPerPage
+    const endIndex = Math.min(startIndex + itemsPerPage, filteredGuardias.length)
+    return filteredGuardias.slice(startIndex, endIndex)
+  }
+
+  // Cambiar de página
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page)
+  }
+
+  // Cambiar elementos por página
+  const handleItemsPerPageChange = (newItemsPerPage: number) => {
+    setItemsPerPage(newItemsPerPage)
+    setCurrentPage(1) // Resetear a la primera página cuando cambia el número de elementos
+  }
 
   // Tramos horarios
   const tramosHorarios = ["1ª hora", "2ª hora", "3ª hora", "4ª hora", "5ª hora", "6ª hora"]
@@ -179,25 +233,6 @@ export default function GuardiasPage() {
       }
     }
   }
-
-  // Filtrar guardias por estado y fecha
-  const filteredGuardias = guardias
-    .filter((g: Guardia) => !filterEstado || g.estado === filterEstado)
-    .filter((g: Guardia) => !filterFecha || g.fecha === filterFecha)
-    .sort((a: Guardia, b: Guardia) => {
-      // Ordenar por fecha (más reciente primero) y luego por tramo horario
-      if (a.fecha !== b.fecha) {
-        return new Date(b.fecha).getTime() - new Date(a.fecha).getTime()
-      }
-
-      // Extraer número del tramo horario (ej: "1ª hora" -> 1)
-      const getTramoNumber = (tramo: string) => {
-        const match = tramo.match(/(\d+)/)
-        return match ? Number.parseInt(match[1]) : 0
-      }
-
-      return getTramoNumber(a.tramoHorario) - getTramoNumber(b.tramoHorario)
-    })
 
   // Obtener nombre del profesor por ID
   const getProfesorName = (id: number | null) => {
@@ -527,7 +562,7 @@ export default function GuardiasPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredGuardias.map((guardia: Guardia) => (
+                  {getCurrentPageItems().map((guardia: Guardia) => (
                     <tr key={guardia.id}>
                       <td>{guardia.id}</td>
                       <td>{guardia.fecha}</td>
@@ -565,6 +600,18 @@ export default function GuardiasPage() {
                   ))}
                 </tbody>
               </table>
+              
+              {/* Componente de paginación */}
+              {filteredGuardias.length > 0 && (
+                <Pagination 
+                  currentPage={currentPage} 
+                  totalPages={totalPages} 
+                  onPageChange={handlePageChange} 
+                  onItemsPerPageChange={handleItemsPerPageChange}
+                  itemsPerPage={itemsPerPage}
+                  totalItems={filteredGuardias.length}
+                />
+              )}
             </div>
           )}
         </div>

@@ -289,3 +289,48 @@ body {
   }
 }
 
+/* Estilos para la paginación */
+.pagination {
+  margin: 1rem 0;
+}
+
+.pagination .page-item .page-link {
+  padding: 0.5rem 0.75rem;
+  font-size: 0.95rem;
+  color: var(--bs-primary);
+  background-color: var(--bs-body-bg);
+  border: 1px solid var(--bs-border-color);
+  transition: all 0.2s ease-in-out;
+}
+
+.pagination .page-item.active .page-link {
+  background-color: var(--bs-primary);
+  border-color: var(--bs-primary);
+  color: white;
+  font-weight: 500;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.pagination .page-item .page-link:hover:not(.disabled) {
+  background-color: var(--bs-primary-bg-subtle);
+  border-color: var(--bs-primary);
+  color: var(--bs-primary);
+}
+
+.pagination .page-item.disabled .page-link {
+  color: var(--bs-secondary);
+  background-color: var(--bs-body-bg);
+  border-color: var(--bs-border-color);
+  opacity: 0.6;
+}
+
+/* Añadir un poco de espacio entre los botones */
+.pagination .page-item:not(:first-child) .page-link {
+  margin-left: 3px;
+}
+
+/* Hacer los botones más redondeados */
+.pagination .page-link {
+  border-radius: 0.25rem;
+}
+

@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { useGuardias, type Usuario, type Horario } from "@/src/contexts/GuardiasContext"
+import { Pagination } from "@/components/ui/pagination"
 
 export default function UsersPage() {
   const { usuarios, addUsuario, updateUsuario, deleteUsuario, horarios, addHorario } = useGuardias()
@@ -21,6 +22,31 @@ export default function UsersPage() {
   const [showForm, setShowForm] = useState(false)
   const [inheritFromId, setInheritFromId] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
+  
+  // Estado para la paginación
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage, setItemsPerPage] = useState(10)
+
+  // Calcular el número total de páginas
+  const totalPages = Math.max(1, Math.ceil(profesores.length / itemsPerPage))
+  
+  // Obtener los elementos de la página actual
+  const getCurrentPageItems = () => {
+    const startIndex = (currentPage - 1) * itemsPerPage
+    const endIndex = Math.min(startIndex + itemsPerPage, profesores.length)
+    return profesores.slice(startIndex, endIndex)
+  }
+  
+  // Cambiar de página
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page)
+  }
+
+  // Cambiar elementos por página
+  const handleItemsPerPageChange = (newItemsPerPage: number) => {
+    setItemsPerPage(newItemsPerPage)
+    setCurrentPage(1) // Resetear a la primera página cuando cambia el número de elementos
+  }
 
   // Manejar cambios en el formulario
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -107,31 +133,28 @@ export default function UsersPage() {
   }
 
   return (
-    <div className="container-fluid">
-      <h1 className="h3 mb-4">Gestión de Usuarios</h1>
-      
+    <div className="container mt-4">
+      <h1 className="mb-4">Gestión de Usuarios</h1>
+
       <div className="mb-4">
         <button
           className="btn btn-primary"
           onClick={() => {
-            resetForm()
             setShowForm(!showForm)
+            setEditingId(null)
+            resetForm()
           }}
         >
-          {showForm ? "Cancelar" : "Añadir Nuevo Profesor"}
+          {showForm ? "Cancelar" : "Nuevo Usuario"}
         </button>
       </div>
+
+      {error && <div className="alert alert-danger">{error}</div>}
 
       {showForm && (
         <div className="card mb-4">
           <div className="card-header">{editingId ? "Editar Profesor" : "Añadir Nuevo Profesor"}</div>
           <div className="card-body">
-            {error && (
-              <div className="alert alert-danger" role="alert">
-                {error}
-              </div>
-            )}
-            
             <form onSubmit={handleSubmit}>
               <div className="mb-3">
                 <label htmlFor="nombre" className="form-label">
@@ -227,7 +250,7 @@ export default function UsersPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {profesores.map((profesor: Usuario) => (
+                  {getCurrentPageItems().map((profesor: Usuario) => (
                     <tr key={profesor.id}>
                       <td>{profesor.id}</td>
                       <td>{profesor.nombre}</td>
@@ -240,26 +263,37 @@ export default function UsersPage() {
                         )}
                       </td>
                       <td>
-                        <button className="btn btn-sm btn-primary me-2" onClick={() => handleEdit(profesor)}>
-                          Editar
-                        </button>
-                        {profesor.activo ? (
-                          <button className="btn btn-sm btn-danger" onClick={() => handleDeactivate(profesor.id)}>
-                            Desactivar
-                          </button>
-                        ) : (
+                        <div className="btn-group">
                           <button
-                            className="btn btn-sm btn-success"
-                            onClick={() => updateUsuario(profesor.id, { activo: true })}
+                            className="btn btn-sm btn-outline-primary"
+                            onClick={() => handleEdit(profesor)}
                           >
-                            Activar
+                            Editar
                           </button>
-                        )}
+                          <button
+                            className="btn btn-sm btn-outline-danger"
+                            onClick={() => handleDeactivate(profesor.id)}
+                          >
+                            {profesor.activo ? "Desactivar" : "Activar"}
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
+              
+              {/* Componente de paginación */}
+              {profesores.length > 0 && (
+                <Pagination 
+                  currentPage={currentPage} 
+                  totalPages={totalPages} 
+                  onPageChange={handlePageChange} 
+                  onItemsPerPageChange={handleItemsPerPageChange}
+                  itemsPerPage={itemsPerPage}
+                  totalItems={profesores.length}
+                />
+              )}
             </div>
           )}
         </div>

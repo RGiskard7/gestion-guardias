@@ -1,8 +1,9 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useGuardias, type Guardia, type Usuario } from "../../../src/contexts/GuardiasContext"
 import { useAuth } from "../../../src/contexts/AuthContext"
+import { Pagination } from "@/components/ui/pagination"
 
 export default function AusenciasPage() {
   const { user } = useAuth()
@@ -12,8 +13,7 @@ export default function AusenciasPage() {
 
   // State for the form
   const [formData, setFormData] = useState({
-    fechaInicio: new Date().toISOString().split("T")[0],
-    fechaFin: new Date().toISOString().split("T")[0],
+    fecha: new Date().toISOString().split("T")[0],
     tramosHorarios: [] as string[],
     tipoGuardia: "Aula",
     lugarId: "",
@@ -23,6 +23,7 @@ export default function AusenciasPage() {
 
   const [showForm, setShowForm] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [formErrors, setFormErrors] = useState<{[key: string]: string}>({})
 
   // Tramos horarios
   const tramosHorariosOptions = ["1ª hora", "2ª hora", "3ª hora", "4ª hora", "5ª hora", "6ª hora"]
@@ -35,6 +36,55 @@ export default function AusenciasPage() {
     .filter((g) => g.profesorAusenteId === user.id)
     .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())
 
+  // Imprimir la cantidad de ausencias encontradas
+  console.log(`Total de ausencias encontradas: ${misAusencias.length}`)
+
+  // Estado para la paginación
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage, setItemsPerPage] = useState(10)
+
+  // Calcular el número total de páginas de forma explícita
+  let totalPages = 1
+  if (misAusencias.length > 0) {
+    totalPages = Math.max(1, Math.ceil(misAusencias.length / itemsPerPage))
+  }
+
+  // Añadir console.log para depuración
+  console.log("Paginación ausencias:", { 
+    totalAusencias: misAusencias.length, 
+    itemsPerPage, 
+    totalPages, 
+    currentPage 
+  })
+
+  // Obtener los elementos de la página actual con depuración
+  const getCurrentPageItems = () => {
+    const startIndex = (currentPage - 1) * itemsPerPage
+    const endIndex = Math.min(startIndex + itemsPerPage, misAusencias.length)
+    
+    console.log("Calculando elementos de la página actual:", {
+      startIndex,
+      endIndex,
+      currentPage,
+      itemsPerPage,
+      totalItems: misAusencias.length,
+      itemsToShow: misAusencias.slice(startIndex, endIndex).length
+    })
+    
+    return misAusencias.slice(startIndex, endIndex)
+  }
+  
+  // Cambiar de página
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page)
+  }
+
+  // Cambiar elementos por página
+  const handleItemsPerPageChange = (newItemsPerPage: number) => {
+    setItemsPerPage(newItemsPerPage)
+    setCurrentPage(1) // Resetear a la primera página cuando cambia el número de elementos
+  }
+
   // Handle form input changes
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
@@ -43,6 +93,15 @@ export default function AusenciasPage() {
       ...prev,
       [name]: value,
     }))
+
+    // Limpiar errores cuando el usuario cambia un valor
+    if (formErrors[name]) {
+      setFormErrors(prev => {
+        const newErrors = {...prev}
+        delete newErrors[name]
+        return newErrors
+      })
+    }
   }
 
   // Handle checkbox changes for tramos horarios
@@ -62,6 +121,15 @@ export default function AusenciasPage() {
         }
       }
     })
+
+    // Limpiar errores de tramos horarios
+    if (formErrors.tramosHorarios) {
+      setFormErrors(prev => {
+        const newErrors = {...prev}
+        delete newErrors.tramosHorarios
+        return newErrors
+      })
+    }
   }
 
   // Handle "Todo el día" checkbox
@@ -72,28 +140,66 @@ export default function AusenciasPage() {
       ...prev,
       tramosHorarios: checked ? [...tramosHorariosOptions] : [],
     }))
+
+    // Limpiar errores de tramos horarios
+    if (formErrors.tramosHorarios) {
+      setFormErrors(prev => {
+        const newErrors = {...prev}
+        delete newErrors.tramosHorarios
+        return newErrors
+      })
+    }
   }
 
-  // Generate dates between start and end date
-  const generateDateRange = (start: string, end: string) => {
-    const dates = []
-    const currentDate = new Date(start)
-    const endDate = new Date(end)
-
-    while (currentDate <= endDate) {
-      dates.push(new Date(currentDate).toISOString().split("T")[0])
-      currentDate.setDate(currentDate.getDate() + 1)
+  // Validar el formulario
+  const validateForm = (): boolean => {
+    const errors: {[key: string]: string} = {}
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    
+    const selectedDate = new Date(formData.fecha)
+    selectedDate.setHours(0, 0, 0, 0)
+    
+    // Validar fecha (no puede ser en el pasado)
+    if (selectedDate < today) {
+      errors.fecha = "No puedes registrar ausencias en fechas pasadas"
     }
-
-    return dates
+    
+    // Validar que se ha seleccionado al menos un tramo horario
+    if (formData.tramosHorarios.length === 0) {
+      errors.tramosHorarios = "Debes seleccionar al menos un tramo horario"
+    }
+    
+    // Validar que no exista ya una ausencia para la misma fecha y tramos
+    for (const tramo of formData.tramosHorarios) {
+      const existeAusencia = misAusencias.some(
+        ausencia => 
+          ausencia.fecha === formData.fecha && 
+          ausencia.tramoHorario === tramo &&
+          ausencia.estado !== "Anulada"
+      )
+      
+      if (existeAusencia) {
+        errors.tramosHorarios = `Ya tienes una ausencia registrada para el ${new Date(formData.fecha).toLocaleDateString("es-ES")} en el tramo ${tramo}`
+        break
+      }
+    }
+    
+    // Validar que se ha seleccionado un lugar
+    if (!formData.lugarId) {
+      errors.lugarId = "Debes seleccionar un lugar"
+    }
+    
+    setFormErrors(errors)
+    return Object.keys(errors).length === 0
   }
 
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (formData.tramosHorarios.length === 0) {
-      alert("Debes seleccionar al menos un tramo horario")
+    // Validar el formulario
+    if (!validateForm()) {
       return
     }
 
@@ -102,45 +208,40 @@ export default function AusenciasPage() {
     setIsSubmitting(true)
 
     try {
-      // Generate dates
-      const dateRange = generateDateRange(formData.fechaInicio, formData.fechaFin)
-
       // Crear guardias secuencialmente para evitar problemas de concurrencia
-      for (const fecha of dateRange) {
-        for (const tramoHorario of formData.tramosHorarios) {
-          // Add guardia
-          const newGuardia: Omit<Guardia, "id"> = {
-            fecha,
-            tramoHorario,
-            tipoGuardia: formData.tipoGuardia,
-            firmada: false,
-            estado: "Pendiente" as const,
-            observaciones: formData.observaciones,
-            lugarId: Number.parseInt(formData.lugarId),
-            profesorAusenteId: user.id,
-            profesorCubridorId: null,
-          }
-
-          try {
-            // Esperar a que se cree la guardia y obtener el ID devuelto
-            const guardiaId = await addGuardia(newGuardia)
-            
-            // Add tarea if provided and if guardia was created successfully
-            if (formData.tarea && guardiaId !== null) {
-              await addTareaGuardia({
-                guardiaId: guardiaId,
-                descripcionTarea: formData.tarea,
-              })
-            }
-          } catch (error) {
-            console.error("Error al crear guardia:", error)
-            alert(`Error al crear guardia para ${fecha}, ${tramoHorario}: ${error}`)
-            // Continuamos con la siguiente guardia en lugar de detener todo el proceso
-          }
-          
-          // Pequeña pausa para evitar problemas de concurrencia
-          await new Promise(resolve => setTimeout(resolve, 100))
+      for (const tramoHorario of formData.tramosHorarios) {
+        // Add guardia
+        const newGuardia: Omit<Guardia, "id"> = {
+          fecha: formData.fecha,
+          tramoHorario,
+          tipoGuardia: formData.tipoGuardia,
+          firmada: false,
+          estado: "Pendiente" as const,
+          observaciones: formData.observaciones,
+          lugarId: Number.parseInt(formData.lugarId),
+          profesorAusenteId: user.id,
+          profesorCubridorId: null,
         }
+
+        try {
+          // Esperar a que se cree la guardia y obtener el ID devuelto
+          const guardiaId = await addGuardia(newGuardia)
+          
+          // Add tarea if provided and if guardia was created successfully
+          if (formData.tarea && guardiaId !== null) {
+            await addTareaGuardia({
+              guardiaId: guardiaId,
+              descripcionTarea: formData.tarea,
+            })
+          }
+        } catch (error) {
+          console.error("Error al crear guardia:", error)
+          alert(`Error al crear guardia para ${formData.fecha}, ${tramoHorario}: ${error}`)
+          // Continuamos con la siguiente guardia en lugar de detener todo el proceso
+        }
+        
+        // Pequeña pausa para evitar problemas de concurrencia
+        await new Promise(resolve => setTimeout(resolve, 100))
       }
 
       // Reset form
@@ -158,14 +259,14 @@ export default function AusenciasPage() {
   // Reset form
   const resetForm = () => {
     setFormData({
-      fechaInicio: new Date().toISOString().split("T")[0],
-      fechaFin: new Date().toISOString().split("T")[0],
+      fecha: new Date().toISOString().split("T")[0],
       tramosHorarios: [],
       tipoGuardia: "Aula",
       lugarId: "",
       observaciones: "",
       tarea: "",
     })
+    setFormErrors({})
   }
 
   // Handle guardia cancellation
@@ -184,11 +285,16 @@ export default function AusenciasPage() {
     return lugar ? `${lugar.codigo} - ${lugar.descripcion}` : "Desconocido"
   }
 
+  // Resetear la página cuando cambia la lista de ausencias
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [misAusencias.length])
+
   return (
     <div className="container-fluid">
       <h1 className="h3 mb-4">Mis Ausencias</h1>
 
-      <div className="mb-4">
+      <div className="mb-4 d-flex justify-content-between align-items-center">
         <button
           className="btn btn-primary"
           onClick={() => {
@@ -198,6 +304,17 @@ export default function AusenciasPage() {
         >
           {showForm ? "Cancelar" : "Registrar Nueva Ausencia"}
         </button>
+        
+        <button 
+          className="btn btn-outline-secondary"
+          onClick={() => {
+            // Forzar recarga de la página
+            window.location.reload()
+          }}
+        >
+          <i className="bi bi-arrow-clockwise me-1"></i>
+          Actualizar
+        </button>
       </div>
 
       {showForm && (
@@ -205,35 +322,24 @@ export default function AusenciasPage() {
           <div className="card-header">Registrar Nueva Ausencia</div>
           <div className="card-body">
             <form onSubmit={handleSubmit}>
-              <div className="row mb-3">
-                <div className="col-md-6">
-                  <label htmlFor="fechaInicio" className="form-label">
-                    Fecha Inicio
-                  </label>
-                  <input
-                    type="date"
-                    className="form-control"
-                    id="fechaInicio"
-                    name="fechaInicio"
-                    value={formData.fechaInicio}
-                    onChange={handleChange}
-                    required
-                  />
-                </div>
-                <div className="col-md-6">
-                  <label htmlFor="fechaFin" className="form-label">
-                    Fecha Fin
-                  </label>
-                  <input
-                    type="date"
-                    className="form-control"
-                    id="fechaFin"
-                    name="fechaFin"
-                    value={formData.fechaFin}
-                    onChange={handleChange}
-                    required
-                  />
-                </div>
+              <div className="mb-3">
+                <label htmlFor="fecha" className="form-label">
+                  Fecha de la Ausencia
+                </label>
+                <input
+                  type="date"
+                  className={`form-control ${formErrors.fecha ? 'is-invalid' : ''}`}
+                  id="fecha"
+                  name="fecha"
+                  value={formData.fecha}
+                  onChange={handleChange}
+                  required
+                />
+                {formErrors.fecha && (
+                  <div className="invalid-feedback">
+                    {formErrors.fecha}
+                  </div>
+                )}
               </div>
 
               <div className="mb-3">
@@ -257,7 +363,7 @@ export default function AusenciasPage() {
                     <div key={tramo} className="col-md-4 mb-2">
                       <div className="form-check">
                         <input
-                          className="form-check-input"
+                          className={`form-check-input ${formErrors.tramosHorarios ? 'is-invalid' : ''}`}
                           type="checkbox"
                           id={`tramo-${tramo}`}
                           value={tramo}
@@ -271,6 +377,11 @@ export default function AusenciasPage() {
                     </div>
                   ))}
                 </div>
+                {formErrors.tramosHorarios && (
+                  <div className="text-danger small mt-1">
+                    {formErrors.tramosHorarios}
+                  </div>
+                )}
               </div>
 
               <div className="mb-3">
@@ -298,7 +409,7 @@ export default function AusenciasPage() {
                   Lugar
                 </label>
                 <select
-                  className="form-select"
+                  className={`form-select ${formErrors.lugarId ? 'is-invalid' : ''}`}
                   id="lugarId"
                   name="lugarId"
                   value={formData.lugarId}
@@ -312,6 +423,11 @@ export default function AusenciasPage() {
                     </option>
                   ))}
                 </select>
+                {formErrors.lugarId && (
+                  <div className="invalid-feedback">
+                    {formErrors.lugarId}
+                  </div>
+                )}
               </div>
 
               <div className="mb-3">
@@ -362,27 +478,25 @@ export default function AusenciasPage() {
         </div>
       )}
 
-      <div className="card">
-        <div className="card-header">Mis Ausencias Registradas</div>
+      <div className="card mt-4">
+        <div className="card-header">Mis Ausencias</div>
         <div className="card-body">
           {misAusencias.length === 0 ? (
-            <div className="alert alert-info">No tienes ausencias registradas.</div>
+            <div className="alert alert-info">No has registrado ninguna ausencia.</div>
           ) : (
             <div className="table-responsive">
               <table className="table table-striped">
                 <thead>
                   <tr>
                     <th>Fecha</th>
-                    <th>Tramo</th>
-                    <th>Lugar</th>
+                    <th>Tramo Horario</th>
                     <th>Estado</th>
-                    <th>Profesor Cubridor</th>
-                    <th>Tarea</th>
+                    <th>Observaciones</th>
                     <th>Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {misAusencias.map((ausencia) => {
+                  {getCurrentPageItems().map((ausencia: Guardia) => {
                     const tareas = getTareasByGuardia(ausencia.id)
                     const tieneTarea = tareas.length > 0
 
@@ -390,7 +504,6 @@ export default function AusenciasPage() {
                       <tr key={ausencia.id}>
                         <td>{new Date(ausencia.fecha).toLocaleDateString("es-ES")}</td>
                         <td>{ausencia.tramoHorario}</td>
-                        <td>{getLugarName(ausencia.lugarId)}</td>
                         <td>
                           <span
                             className={`badge ${
@@ -406,24 +519,7 @@ export default function AusenciasPage() {
                             {ausencia.estado}
                           </span>
                         </td>
-                        <td>
-                          {ausencia.profesorCubridorId
-                            ? usuarios.find((u: Usuario) => u.id === ausencia.profesorCubridorId)?.nombre || "Desconocido"
-                            : "Sin asignar"}
-                        </td>
-                        <td>
-                          {tieneTarea ? (
-                            <button
-                              className="btn btn-sm btn-outline-info"
-                              data-bs-toggle="tooltip"
-                              title={tareas[0].descripcionTarea}
-                            >
-                              Ver tarea
-                            </button>
-                          ) : (
-                            "Sin tarea"
-                          )}
-                        </td>
+                        <td>{ausencia.observaciones}</td>
                         <td>
                           {ausencia.estado === "Pendiente" && (
                             <button className="btn btn-sm btn-danger" onClick={() => handleAnular(ausencia.id)}>
@@ -436,6 +532,18 @@ export default function AusenciasPage() {
                   })}
                 </tbody>
               </table>
+              
+              {/* Componente de paginación */}
+              {misAusencias.length > 0 && (
+                <Pagination 
+                  currentPage={currentPage} 
+                  totalPages={totalPages} 
+                  onPageChange={handlePageChange} 
+                  onItemsPerPageChange={handleItemsPerPageChange}
+                  itemsPerPage={itemsPerPage}
+                  totalItems={misAusencias.length}
+                />
+              )}
             </div>
           )}
         </div>

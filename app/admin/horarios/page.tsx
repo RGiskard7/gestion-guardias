@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { useGuardias, type Usuario, type Horario } from "@/src/contexts/GuardiasContext"
+import { Pagination } from "@/components/ui/pagination"
 
 export default function HorariosPage() {
   const { horarios, usuarios, addHorario, updateHorario, deleteHorario } = useGuardias()
@@ -19,6 +20,34 @@ export default function HorariosPage() {
   const [editingId, setEditingId] = useState<number | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [selectedProfesor, setSelectedProfesor] = useState<number | null>(null)
+
+  // Estado para la paginación
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage, setItemsPerPage] = useState(10)
+
+  // Filtrar horarios por profesor
+  const filteredHorarios = selectedProfesor ? horarios.filter((h: Horario) => h.profesorId === selectedProfesor) : horarios
+
+  // Calcular el número total de páginas
+  const totalPages = Math.max(1, Math.ceil(filteredHorarios.length / itemsPerPage))
+  
+  // Obtener los elementos de la página actual
+  const getCurrentPageItems = () => {
+    const startIndex = (currentPage - 1) * itemsPerPage
+    const endIndex = Math.min(startIndex + itemsPerPage, filteredHorarios.length)
+    return filteredHorarios.slice(startIndex, endIndex)
+  }
+  
+  // Cambiar de página
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page)
+  }
+
+  // Cambiar elementos por página
+  const handleItemsPerPageChange = (newItemsPerPage: number) => {
+    setItemsPerPage(newItemsPerPage)
+    setCurrentPage(1) // Resetear a la primera página cuando cambia el número de elementos
+  }
 
   // Días de la semana
   const diasSemana = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes"]
@@ -80,9 +109,6 @@ export default function HorariosPage() {
       deleteHorario(id)
     }
   }
-
-  // Filtrar horarios por profesor seleccionado
-  const filteredHorarios = selectedProfesor ? horarios.filter((h: Horario) => h.profesorId === selectedProfesor) : horarios
 
   // Obtener nombre del profesor por ID
   const getProfesorName = (id: number) => {
@@ -220,7 +246,7 @@ export default function HorariosPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredHorarios.map((horario: Horario) => (
+                  {getCurrentPageItems().map((horario: Horario) => (
                     <tr key={horario.id}>
                       <td>{horario.id}</td>
                       <td>{getProfesorName(horario.profesorId)}</td>
@@ -238,6 +264,18 @@ export default function HorariosPage() {
                   ))}
                 </tbody>
               </table>
+              
+              {/* Componente de paginación */}
+              {filteredHorarios.length > 0 && (
+                <Pagination 
+                  currentPage={currentPage} 
+                  totalPages={totalPages} 
+                  onPageChange={handlePageChange} 
+                  onItemsPerPageChange={handleItemsPerPageChange}
+                  itemsPerPage={itemsPerPage}
+                  totalItems={filteredHorarios.length}
+                />
+              )}
             </div>
           )}
         </div>
