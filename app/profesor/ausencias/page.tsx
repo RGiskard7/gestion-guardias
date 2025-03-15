@@ -141,7 +141,10 @@ export default function AusenciasPage() {
   // Handle guardia cancellation
   const handleAnular = (id: number) => {
     if (window.confirm("¿Estás seguro de que quieres anular esta ausencia?")) {
-      anularGuardia(id)
+      const motivo = prompt("Por favor, indica el motivo de la anulación:", "");
+      if (motivo !== null) {
+        anularGuardia(id, motivo);
+      }
     }
   }
 

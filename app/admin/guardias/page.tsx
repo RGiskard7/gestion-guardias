@@ -4,8 +4,18 @@ import { useState } from "react"
 import { useGuardias, type Guardia, type Usuario, type Lugar } from "../../../src/contexts/GuardiasContext"
 
 export default function GuardiasPage() {
-  const { guardias, lugares, usuarios, addGuardia, updateGuardia, deleteGuardia, addTareaGuardia, anularGuardia } =
-    useGuardias()
+  const { 
+    guardias, 
+    lugares, 
+    usuarios, 
+    horarios,
+    addGuardia, 
+    updateGuardia, 
+    deleteGuardia, 
+    addTareaGuardia, 
+    anularGuardia,
+    canProfesorAsignarGuardia 
+  } = useGuardias()
 
   // Obtener solo profesores (no admins)
   const profesores = usuarios.filter((u: Usuario) => u.rol === "profesor" && u.activo)
@@ -163,7 +173,10 @@ export default function GuardiasPage() {
   // Manejar anulación de guardia
   const handleAnular = (id: number) => {
     if (window.confirm("¿Estás seguro de que quieres anular esta guardia?")) {
-      anularGuardia(id)
+      const motivo = prompt("Por favor, indica el motivo de la anulación:", "");
+      if (motivo !== null) {
+        anularGuardia(id, motivo);
+      }
     }
   }
 
@@ -397,6 +410,62 @@ export default function GuardiasPage() {
                     </option>
                   ))}
                 </select>
+              </div>
+
+              <div className="mb-3">
+                <label htmlFor="profesorCubridorId" className="form-label">
+                  Profesor Cubridor
+                </label>
+                <select
+                  className="form-select"
+                  id="profesorCubridorId"
+                  name="profesorCubridorId"
+                  value={formData.profesorCubridorId || ""}
+                  onChange={handleChange}
+                >
+                  <option value="">No asignado</option>
+                  {profesores.map((profesor: Usuario) => {
+                    let puedeAsignar = true;
+                    
+                    if (editingId) {
+                      // Para guardias existentes, usar la función del contexto
+                      puedeAsignar = canProfesorAsignarGuardia(editingId, profesor.id);
+                    } else if (formData.fecha && formData.tramoHorario) {
+                      // Para nuevas guardias, verificar manualmente
+                      const diaSemana = new Date(formData.fecha).toLocaleDateString("es-ES", { weekday: "long" });
+                      const profesorHorarios = horarios.filter(h => h.profesorId === profesor.id);
+                      
+                      // Verificar si el profesor tiene horario en este tramo
+                      const tieneHorario = profesorHorarios.some(
+                        (h: any) => h.diaSemana.toLowerCase() === diaSemana.toLowerCase() && 
+                             h.tramoHorario === formData.tramoHorario
+                      );
+                      
+                      // Verificar si el profesor ya tiene una guardia en este tramo
+                      const tieneGuardia = guardias.some(
+                        (g: any) => g.fecha === formData.fecha &&
+                            g.tramoHorario === formData.tramoHorario &&
+                            g.profesorCubridorId === profesor.id &&
+                            g.estado !== "Anulada"
+                      );
+                      
+                      puedeAsignar = tieneHorario && !tieneGuardia;
+                    }
+                    
+                    return (
+                      <option 
+                        key={profesor.id} 
+                        value={profesor.id}
+                        disabled={!puedeAsignar}
+                      >
+                        {profesor.nombre} {!puedeAsignar ? "(No disponible)" : ""}
+                      </option>
+                    );
+                  })}
+                </select>
+                <small className="form-text text-muted">
+                  Solo se pueden asignar profesores que tengan horario de guardia en este tramo.
+                </small>
               </div>
 
               <div className="mb-3">

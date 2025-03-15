@@ -89,14 +89,52 @@ body {
 
 .navbar-custom {
   background-color: #343a40;
+  position: fixed;
+  top: 0;
+  right: 0;
+  left: 0;
+  z-index: 1030;
+  height: 56px;
+}
+
+/* Estilos para el menú móvil */
+.navbar-collapse {
+  background-color: #343a40;
+}
+
+@media (max-width: 767.98px) {
+  .navbar-collapse {
+    position: absolute;
+    top: 56px;
+    left: 0;
+    right: 0;
+    padding: 1rem;
+    z-index: 1020;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  }
+  
+  .navbar-nav .nav-link {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  }
+  
+  .navbar-nav .nav-link:last-child {
+    border-bottom: none;
+  }
 }
 
 /* Sidebar styles */
 .sidebar {
-  min-height: calc(100vh - 56px);
+  position: fixed;
+  top: 56px; /* Altura del navbar */
+  left: 0;
+  bottom: 0;
+  width: 250px; /* Ancho del sidebar */
   background-color: #343a40;
   color: white;
   padding-top: 20px;
+  overflow-y: auto; /* Permitir scroll dentro del sidebar si es necesario */
+  z-index: 1000; /* Asegurar que esté por encima del contenido */
 }
 
 .sidebar .nav-link {
@@ -115,6 +153,13 @@ body {
   margin-right: 10px;
 }
 
+/* Ajustar el contenido principal para que no se solape con el sidebar y el navbar */
+.flex-grow-1 {
+  margin-left: 250px; /* Mismo ancho que el sidebar */
+  width: calc(100% - 250px);
+  padding-top: 56px; /* Altura del navbar */
+}
+
 /* Login page */
 .login-container {
   max-width: 400px;
@@ -128,9 +173,45 @@ body {
 
 /* Responsive adjustments */
 @media (max-width: 768px) {
+  /* Ajustes para el sidebar */
   .sidebar {
-    min-height: auto;
+    position: static;
+    width: 100%;
+    height: auto;
     margin-bottom: 20px;
+  }
+  
+  /* Ajustes para el contenido principal */
+  .flex-grow-1 {
+    margin-left: 0;
+    width: 100%;
+    padding-top: 56px; /* Mantener el padding-top para el navbar fijo */
+  }
+  
+  /* Ajustes para el navbar */
+  .navbar-custom {
+    position: fixed; /* Mantener el navbar fijo en móviles */
+  }
+  
+  /* Ajustes para el menú móvil */
+  .navbar-collapse {
+    max-height: calc(100vh - 56px);
+    overflow-y: auto;
+  }
+  
+  /* Ajustes para las tarjetas en el dashboard */
+  .dashboard-card {
+    margin-bottom: 15px;
+  }
+  
+  /* Ajustes para las tablas */
+  .table-container {
+    padding: 10px;
+  }
+  
+  /* Ajustes para los formularios */
+  .form-container {
+    padding: 15px;
   }
 }
 

@@ -31,7 +31,7 @@ export default function ProtectedLayout({ children, title }: ProtectedLayoutProp
   }
 
   return (
-    <div className="d-flex">
+    <div className="d-flex min-vh-100">
       <Sidebar role={user.rol} />
       <div className="flex-grow-1">
         <Navbar />

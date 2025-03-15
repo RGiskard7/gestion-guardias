@@ -100,6 +100,14 @@ const Navbar: React.FC = () => {
                 <i className="bi bi-display me-2"></i>Sala de Guardias
               </Link>
             </li>
+            <li className="nav-item">
+              <hr className="dropdown-divider bg-secondary my-2" />
+            </li>
+            <li className="nav-item">
+              <button className="nav-link text-danger w-100 text-start" onClick={handleLogout}>
+                <i className="bi bi-box-arrow-right me-2"></i>Cerrar sesión
+              </button>
+            </li>
           </ul>
 
           {/* Menú de usuario - Visible en todas las pantallas */}

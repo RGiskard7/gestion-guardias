@@ -20,14 +20,17 @@ export default function GuardiasPendientesPage() {
     // La guardia debe estar pendiente y ser de la fecha seleccionada
     const esPendiente = g.estado === "Pendiente" && g.fecha === selectedDate
 
-    // Verificar si el profesor tiene horario disponible en ese tramo
-    const tieneHorarioOcupado = misHorarios.some(
-      (h) => h.diaSemana === new Date(g.fecha).toLocaleDateString("es-ES", { weekday: "long" }) && 
+    // Obtener el día de la semana de la fecha de la guardia
+    const diaSemana = new Date(g.fecha).toLocaleDateString("es-ES", { weekday: "long" })
+    
+    // Verificar si el profesor tiene horario de guardia en ese tramo
+    const tieneHorarioGuardia = misHorarios.some(
+      (h) => h.diaSemana.toLowerCase() === diaSemana.toLowerCase() && 
              h.tramoHorario === g.tramoHorario
     )
 
-    // Solo mostrar las guardias donde el profesor no tiene clase
-    return esPendiente && !tieneHorarioOcupado
+    // Solo mostrar las guardias donde el profesor SÍ tiene horario de guardia
+    return esPendiente && tieneHorarioGuardia
   })
 
   // Handle asignar guardia
