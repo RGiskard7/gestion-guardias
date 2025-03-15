@@ -157,6 +157,18 @@ export default function HorarioProfesorPage() {
       <div className="row mb-4">
         <div className="col-md-6">
           <div className="input-group mb-3">
+            <button 
+              className="btn btn-outline-secondary" 
+              type="button"
+              onClick={() => {
+                const date = new Date(selectedDate);
+                date.setDate(date.getDate() - 7);
+                setSelectedDate(date.toISOString().split("T")[0]);
+              }}
+              aria-label="Semana anterior"
+            >
+              <i className="bi bi-chevron-left"></i>
+            </button>
             <span className="input-group-text">Semana del</span>
             <input
               type="date"
@@ -165,6 +177,18 @@ export default function HorarioProfesorPage() {
               onChange={(e) => setSelectedDate(e.target.value)}
               aria-label="Seleccionar semana para ver horario"
             />
+            <button 
+              className="btn btn-outline-secondary" 
+              type="button"
+              onClick={() => {
+                const date = new Date(selectedDate);
+                date.setDate(date.getDate() + 7);
+                setSelectedDate(date.toISOString().split("T")[0]);
+              }}
+              aria-label="Semana siguiente"
+            >
+              <i className="bi bi-chevron-right"></i>
+            </button>
           </div>
           
           <div className="btn-group mb-3" role="group" aria-label="Seleccionar vista">

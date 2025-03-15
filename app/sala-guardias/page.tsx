@@ -213,6 +213,18 @@ export default function SalaGuardiasPage() {
       <div className="row mb-4">
         <div className="col-md-6">
           <div className="input-group mb-3">
+            <button 
+              className="btn btn-outline-secondary" 
+              type="button"
+              onClick={() => {
+                const date = new Date(selectedDate);
+                date.setDate(date.getDate() - (viewMode === "week" ? 7 : 1));
+                setSelectedDate(date.toISOString().split("T")[0]);
+              }}
+              aria-label={viewMode === "week" ? "Semana anterior" : "Día anterior"}
+            >
+              <i className="bi bi-chevron-left"></i>
+            </button>
             <span className="input-group-text">Fecha</span>
             <input
               type="date"
@@ -221,6 +233,18 @@ export default function SalaGuardiasPage() {
               onChange={(e) => setSelectedDate(e.target.value)}
               aria-label="Seleccionar fecha para ver guardias"
             />
+            <button 
+              className="btn btn-outline-secondary" 
+              type="button"
+              onClick={() => {
+                const date = new Date(selectedDate);
+                date.setDate(date.getDate() + (viewMode === "week" ? 7 : 1));
+                setSelectedDate(date.toISOString().split("T")[0]);
+              }}
+              aria-label={viewMode === "week" ? "Semana siguiente" : "Día siguiente"}
+            >
+              <i className="bi bi-chevron-right"></i>
+            </button>
           </div>
           
           <div className="btn-group mb-3" role="group" aria-label="Seleccionar vista">
