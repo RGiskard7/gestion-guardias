@@ -4,7 +4,7 @@ import { useState } from "react"
 import { useGuardias, type Usuario } from "../../../src/contexts/GuardiasContext"
 
 export default function EstadisticasPage() {
-  const { guardias, usuarios } = useGuardias()
+  const { guardias, usuarios, lugares } = useGuardias()
   const [periodoInicio, setPeriodoInicio] = useState<string>(
     new Date(new Date().setDate(new Date().getDate() - 30)).toISOString().split("T")[0],
   )
@@ -36,6 +36,33 @@ export default function EstadisticasPage() {
     }
   })
 
+  // Contar guardias por tipo
+  const tiposGuardia = ["Aula", "Patio", "Recreo"]
+  const guardiasPorTipo = tiposGuardia.map((tipo) => {
+    const guardiasFiltradas = guardiasEnPeriodo.filter((g) => g.tipoGuardia === tipo)
+    return {
+      tipo,
+      total: guardiasFiltradas.length,
+      pendientes: guardiasFiltradas.filter((g) => g.estado === "Pendiente").length,
+      asignadas: guardiasFiltradas.filter((g) => g.estado === "Asignada").length,
+      firmadas: guardiasFiltradas.filter((g) => g.estado === "Firmada").length,
+    }
+  })
+
+  // Contar guardias por lugar
+  const guardiasPorLugar = lugares.map((lugar) => {
+    const guardiasFiltradas = guardiasEnPeriodo.filter((g) => g.lugarId === lugar.id)
+    return {
+      lugarId: lugar.id,
+      lugarCodigo: lugar.codigo,
+      lugarDescripcion: lugar.descripcion,
+      total: guardiasFiltradas.length,
+      pendientes: guardiasFiltradas.filter((g) => g.estado === "Pendiente").length,
+      asignadas: guardiasFiltradas.filter((g) => g.estado === "Asignada").length,
+      firmadas: guardiasFiltradas.filter((g) => g.estado === "Firmada").length,
+    }
+  }).sort((a, b) => b.total - a.total)
+
   // Contar guardias por profesor
   const guardiasPorProfesor = profesores
     .map((profesor) => {
@@ -52,6 +79,16 @@ export default function EstadisticasPage() {
           tramo,
           total: guardiasCubiertas.filter((g) => g.tramoHorario === tramo).length,
         })),
+        porLugar: lugares.map((lugar) => ({
+          lugarId: lugar.id,
+          lugarCodigo: lugar.codigo,
+          lugarDescripcion: lugar.descripcion,
+          total: guardiasCubiertas.filter((g) => g.lugarId === lugar.id).length,
+          porTramo: tramosHorarios.map((tramo) => ({
+            tramo,
+            total: guardiasCubiertas.filter((g) => g.lugarId === lugar.id && g.tramoHorario === tramo).length,
+          })),
+        })).filter(l => l.total > 0), // Solo incluir lugares donde el profesor ha realizado guardias
       }
     })
     .sort((a, b) => b.total - a.total)
@@ -154,6 +191,86 @@ export default function EstadisticasPage() {
         </div>
       </div>
 
+      <div className="row mb-4">
+        <div className="col-12">
+          <div className="card">
+            <div className="card-header">Guardias por tipo</div>
+            <div className="card-body">
+              <div className="table-responsive">
+                <table className="table table-striped">
+                  <thead>
+                    <tr>
+                      <th>Tipo</th>
+                      <th>Total</th>
+                      <th>Pendientes</th>
+                      <th>Asignadas</th>
+                      <th>Firmadas</th>
+                      <th>% Cobertura</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {guardiasPorTipo.map((item) => (
+                      <tr key={item.tipo}>
+                        <td>{item.tipo}</td>
+                        <td>{item.total}</td>
+                        <td>{item.pendientes}</td>
+                        <td>{item.asignadas}</td>
+                        <td>{item.firmadas}</td>
+                        <td>
+                          {item.total > 0
+                            ? `${Math.round(((item.asignadas + item.firmadas) / item.total) * 100)}%`
+                            : "0%"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="row mb-4">
+        <div className="col-12">
+          <div className="card">
+            <div className="card-header">Guardias por lugar</div>
+            <div className="card-body">
+              <div className="table-responsive">
+                <table className="table table-striped">
+                  <thead>
+                    <tr>
+                      <th>Lugar</th>
+                      <th>Total</th>
+                      <th>Pendientes</th>
+                      <th>Asignadas</th>
+                      <th>Firmadas</th>
+                      <th>% Cobertura</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {guardiasPorLugar.filter(item => item.total > 0).map((item) => (
+                      <tr key={item.lugarId}>
+                        <td>{item.lugarCodigo} - {item.lugarDescripcion}</td>
+                        <td>{item.total}</td>
+                        <td>{item.pendientes}</td>
+                        <td>{item.asignadas}</td>
+                        <td>{item.firmadas}</td>
+                        <td>
+                          {item.total > 0
+                            ? `${Math.round(((item.asignadas + item.firmadas) / item.total) * 100)}%`
+                            : "0%"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div className="row">
         <div className="col-12">
           <div className="card">
@@ -184,6 +301,66 @@ export default function EstadisticasPage() {
                     ))}
                   </tbody>
                 </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="row mt-4">
+        <div className="col-12">
+          <div className="card">
+            <div className="card-header">Tiempo de guardia por profesor y lugar</div>
+            <div className="card-body">
+              <div className="accordion" id="accordionProfesores">
+                {guardiasPorProfesor.filter(p => p.total > 0).map((profesor) => (
+                  <div className="accordion-item" key={profesor.profesorId}>
+                    <h2 className="accordion-header">
+                      <button
+                        className="accordion-button collapsed"
+                        type="button"
+                        data-bs-toggle="collapse"
+                        data-bs-target={`#collapse${profesor.profesorId}`}
+                        aria-expanded="false"
+                        aria-controls={`collapse${profesor.profesorId}`}
+                      >
+                        {profesor.profesorNombre} - {profesor.total} guardias
+                      </button>
+                    </h2>
+                    <div
+                      id={`collapse${profesor.profesorId}`}
+                      className="accordion-collapse collapse"
+                      data-bs-parent="#accordionProfesores"
+                    >
+                      <div className="accordion-body">
+                        <div className="table-responsive">
+                          <table className="table table-sm">
+                            <thead>
+                              <tr>
+                                <th>Lugar</th>
+                                <th>Total</th>
+                                {tramosHorarios.map((tramo) => (
+                                  <th key={tramo}>{tramo}</th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {profesor.porLugar.map((lugar) => (
+                                <tr key={lugar.lugarId}>
+                                  <td>{lugar.lugarCodigo} - {lugar.lugarDescripcion}</td>
+                                  <td>{lugar.total}</td>
+                                  {lugar.porTramo.map((tramoData) => (
+                                    <td key={tramoData.tramo}>{tramoData.total}</td>
+                                  ))}
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           </div>

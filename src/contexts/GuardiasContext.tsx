@@ -655,6 +655,31 @@ export const GuardiasProvider: React.FC<GuardiasProviderProps> = ({ children }) 
 
     if (guardiasMismoTramo.length > 0) return false
 
+    // Check if profesor already has 6 guardias in this week
+    const fechaGuardia = new Date(guardia.fecha)
+    const inicioSemana = new Date(fechaGuardia)
+    inicioSemana.setDate(fechaGuardia.getDate() - fechaGuardia.getDay() + (fechaGuardia.getDay() === 0 ? -6 : 1)) // Lunes
+    inicioSemana.setHours(0, 0, 0, 0)
+    
+    const finSemana = new Date(inicioSemana)
+    finSemana.setDate(inicioSemana.getDate() + 6) // Domingo
+    finSemana.setHours(23, 59, 59, 999)
+    
+    const guardiasEnSemana = guardias.filter(
+      g => {
+        const fechaG = new Date(g.fecha)
+        return fechaG >= inicioSemana && 
+               fechaG <= finSemana && 
+               g.profesorCubridorId === profesorId && 
+               (g.estado === "Asignada" || g.estado === "Firmada")
+      }
+    )
+    
+    if (guardiasEnSemana.length >= 6) {
+      console.log(`El profesor ${profesorId} ya tiene ${guardiasEnSemana.length} guardias esta semana. No puede asignarse más.`)
+      return false
+    }
+
     // All checks passed
     return true
   }
