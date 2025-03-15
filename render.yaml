@@ -18,12 +18,3 @@ services:
         sync: false
       - key: SUPABASE_SERVICE_ROLE_KEY
         sync: false
-      - key: DATABASE_URL
-        fromDatabase:
-          name: gestion-guardias-db
-          property: connectionString
-
-databases:
-  - name: gestion-guardias-db
-    plan: free
-    ipAllowList: [] 
