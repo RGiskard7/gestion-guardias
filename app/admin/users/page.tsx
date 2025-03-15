@@ -20,6 +20,7 @@ export default function UsersPage() {
   const [editingId, setEditingId] = useState<number | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [inheritFromId, setInheritFromId] = useState<number | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   // Manejar cambios en el formulario
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -32,37 +33,44 @@ export default function UsersPage() {
   }
 
   // Manejar envío del formulario
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setError(null)
 
     if (editingId) {
       // Actualizar usuario existente
       updateUsuario(editingId, formData)
+      resetForm()
     } else {
       // Añadir nuevo usuario
-      addUsuario(formData)
+      const result = await addUsuario(formData)
+      
+      if (result.success) {
+        // Si hereda horarios de otro profesor
+        if (inheritFromId) {
+          // Obtener el ID del usuario recién añadido
+          const newUserId = Math.max(...usuarios.map((u: Usuario) => u.id)) + 1
 
-      // Si hereda horarios de otro profesor
-      if (inheritFromId) {
-        // Obtener el ID del usuario recién añadido
-        const newUserId = Math.max(...usuarios.map((u: Usuario) => u.id)) + 1
+          // Obtener horarios del profesor a heredar
+          const horariosToCopy = horarios.filter((h: Horario) => h.profesorId === inheritFromId)
 
-        // Obtener horarios del profesor a heredar
-        const horariosToCopy = horarios.filter((h: Horario) => h.profesorId === inheritFromId)
-
-        // Crear nuevos horarios para el nuevo profesor
-        horariosToCopy.forEach((horario: Horario) => {
-          addHorario({
-            profesorId: newUserId,
-            diaSemana: horario.diaSemana,
-            tramoHorario: horario.tramoHorario,
+          // Crear nuevos horarios para el nuevo profesor
+          horariosToCopy.forEach((horario: Horario) => {
+            addHorario({
+              profesorId: newUserId,
+              diaSemana: horario.diaSemana,
+              tramoHorario: horario.tramoHorario,
+            })
           })
-        })
+        }
+        
+        // Resetear formulario
+        resetForm()
+      } else {
+        // Mostrar mensaje de error
+        setError(result.error || "Error al crear usuario")
       }
     }
-
-    // Resetear formulario
-    resetForm()
   }
 
   // Resetear formulario y estado
@@ -118,6 +126,12 @@ export default function UsersPage() {
         <div className="card mb-4">
           <div className="card-header">{editingId ? "Editar Profesor" : "Añadir Nuevo Profesor"}</div>
           <div className="card-body">
+            {error && (
+              <div className="alert alert-danger" role="alert">
+                {error}
+              </div>
+            )}
+            
             <form onSubmit={handleSubmit}>
               <div className="mb-3">
                 <label htmlFor="nombre" className="form-label">

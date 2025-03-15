@@ -4,7 +4,7 @@ import type React from "react"
 import { createContext, useState, useContext, useEffect, type ReactNode } from "react"
 import { useAuth } from "./AuthContext"
 import { getAllGuardias, getGuardiaById, getGuardiasByFecha, getGuardiasByProfesorCubridor as fetchGuardiasByProfesor, firmarGuardia as firmarGuardiaService, createGuardia as createGuardiaService, updateGuardia as updateGuardiaService, deleteGuardia as deleteGuardiaService, type Guardia as GuardiaDB } from "@/lib/guardiasService"
-import { getUsuarios, getUsuarioById as fetchUsuarioById, createUsuario, updateUsuario as updateUsuarioService, deleteUsuario as deleteUsuarioService, type Usuario as UsuarioDB } from "@/lib/usuariosService"
+import { getUsuarios, getUsuarioById as fetchUsuarioById, getUsuarioByEmail, createUsuario, updateUsuario as updateUsuarioService, deleteUsuario as deleteUsuarioService, type Usuario as UsuarioDB } from "@/lib/usuariosService"
 import { getHorarios, getHorariosByProfesor as fetchHorariosByProfesor, createHorario, updateHorario as updateHorarioService, deleteHorario as deleteHorarioService, type Horario as HorarioDB } from "@/lib/horariosService"
 import { getLugares, getLugarById as fetchLugarById, createLugar, updateLugar as updateLugarService, deleteLugar as deleteLugarService, type Lugar as LugarDB } from "@/lib/lugaresService"
 import { getTareasGuardia, getTareasByGuardia as fetchTareasByGuardia, createTareaGuardia, updateTareaGuardia as updateTareaGuardiaService, deleteTareaGuardia as deleteTareaGuardiaService, type TareaGuardia as TareaGuardiaDB } from "@/lib/tareasGuardiaService"
@@ -156,7 +156,7 @@ interface GuardiasContextType {
   loading: boolean
 
   // CRUD operations for usuarios
-  addUsuario: (usuario: Omit<Usuario, "id">) => Promise<void>
+  addUsuario: (usuario: Omit<Usuario, "id">) => Promise<{ success: boolean, error?: string }>
   updateUsuario: (id: number, usuario: Partial<Usuario>) => Promise<void>
   deleteUsuario: (id: number) => Promise<void>
 
@@ -203,7 +203,7 @@ const GuardiasContext = createContext<GuardiasContextType>({
   tareasGuardia: [],
   loading: true,
 
-  addUsuario: async () => {},
+  addUsuario: async () => ({ success: false }),
   updateUsuario: async () => {},
   deleteUsuario: async () => {},
 
@@ -290,18 +290,30 @@ export const GuardiasProvider: React.FC<GuardiasProviderProps> = ({ children }) 
   // CRUD operations for usuarios
   const addUsuario = async (usuario: Omit<Usuario, "id">) => {
     try {
+      // Verificar si ya existe un usuario con el mismo email
+      const existingUser = await getUsuarioByEmail(usuario.email);
+      
+      if (existingUser) {
+        console.error("Error: Ya existe un usuario con este email");
+        return { success: false, error: "Ya existe un usuario con este email" };
+      }
+      
       const newUsuario = await createUsuario({
         nombre: usuario.nombre,
         email: usuario.email,
         rol: usuario.rol,
         activo: usuario.activo
-      })
+      });
       
       if (newUsuario) {
-        setUsuarios([...usuarios, mapUsuarioFromDB(newUsuario)])
+        setUsuarios([...usuarios, mapUsuarioFromDB(newUsuario)]);
+        return { success: true };
+      } else {
+        return { success: false, error: "No se pudo crear el usuario" };
       }
     } catch (error) {
-      console.error("Error al añadir usuario:", error)
+      console.error("Error al añadir usuario:", error);
+      return { success: false, error: "Error al añadir usuario" };
     }
   }
 

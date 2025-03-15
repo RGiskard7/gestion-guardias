@@ -79,6 +79,11 @@ const Navbar: React.FC = () => {
                   </Link>
                 </li>
                 <li className="nav-item">
+                  <Link className="nav-link" href="/profesor/horario">
+                    <i className="bi bi-calendar-week me-2"></i>Mi Horario
+                  </Link>
+                </li>
+                <li className="nav-item">
                   <Link className="nav-link" href="/profesor/ausencias">
                     <i className="bi bi-calendar-x me-2"></i>Mis Ausencias
                   </Link>

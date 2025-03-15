@@ -22,6 +22,7 @@ export default function AusenciasPage() {
   })
 
   const [showForm, setShowForm] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   // Tramos horarios
   const tramosHorariosOptions = ["1ª hora", "2ª hora", "3ª hora", "4ª hora", "5ª hora", "6ª hora"]
@@ -63,6 +64,16 @@ export default function AusenciasPage() {
     })
   }
 
+  // Handle "Todo el día" checkbox
+  const handleTodoDiaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { checked } = e.target
+
+    setFormData((prev) => ({
+      ...prev,
+      tramosHorarios: checked ? [...tramosHorariosOptions] : [],
+    }))
+  }
+
   // Generate dates between start and end date
   const generateDateRange = (start: string, end: string) => {
     const dates = []
@@ -78,7 +89,7 @@ export default function AusenciasPage() {
   }
 
   // Handle form submission
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
     if (formData.tramosHorarios.length === 0) {
@@ -86,43 +97,62 @@ export default function AusenciasPage() {
       return
     }
 
-    // Generate dates
-    const dateRange = generateDateRange(formData.fechaInicio, formData.fechaFin)
+    // Evitar múltiples envíos simultáneos
+    if (isSubmitting) return
+    setIsSubmitting(true)
 
-    // Create guardias for each date and tramo
-    dateRange.forEach((fecha) => {
-      formData.tramosHorarios.forEach((tramoHorario) => {
-        // Add guardia
-        const newGuardia: Omit<Guardia, "id"> = {
-          fecha,
-          tramoHorario,
-          tipoGuardia: formData.tipoGuardia,
-          firmada: false,
-          estado: "Pendiente" as const,
-          observaciones: formData.observaciones,
-          lugarId: Number.parseInt(formData.lugarId),
-          profesorAusenteId: user.id,
-          profesorCubridorId: null,
+    try {
+      // Generate dates
+      const dateRange = generateDateRange(formData.fechaInicio, formData.fechaFin)
+
+      // Crear guardias secuencialmente para evitar problemas de concurrencia
+      for (const fecha of dateRange) {
+        for (const tramoHorario of formData.tramosHorarios) {
+          // Add guardia
+          const newGuardia: Omit<Guardia, "id"> = {
+            fecha,
+            tramoHorario,
+            tipoGuardia: formData.tipoGuardia,
+            firmada: false,
+            estado: "Pendiente" as const,
+            observaciones: formData.observaciones,
+            lugarId: Number.parseInt(formData.lugarId),
+            profesorAusenteId: user.id,
+            profesorCubridorId: null,
+          }
+
+          try {
+            // Esperar a que se cree la guardia y obtener el ID devuelto
+            const guardiaId = await addGuardia(newGuardia)
+            
+            // Add tarea if provided and if guardia was created successfully
+            if (formData.tarea && guardiaId !== null) {
+              await addTareaGuardia({
+                guardiaId: guardiaId,
+                descripcionTarea: formData.tarea,
+              })
+            }
+          } catch (error) {
+            console.error("Error al crear guardia:", error)
+            alert(`Error al crear guardia para ${fecha}, ${tramoHorario}: ${error}`)
+            // Continuamos con la siguiente guardia en lugar de detener todo el proceso
+          }
+          
+          // Pequeña pausa para evitar problemas de concurrencia
+          await new Promise(resolve => setTimeout(resolve, 100))
         }
+      }
 
-        addGuardia(newGuardia)
-
-        // Get the ID of the newly added guardia
-        const newGuardiaId = Math.max(...guardias.map((g) => g.id)) + 1
-
-        // Add tarea if provided
-        if (formData.tarea) {
-          addTareaGuardia({
-            guardiaId: newGuardiaId,
-            descripcionTarea: formData.tarea,
-          })
-        }
-      })
-    })
-
-    // Reset form
-    resetForm()
-    setShowForm(false)
+      // Reset form
+      resetForm()
+      setShowForm(false)
+      alert("Ausencias registradas correctamente")
+    } catch (error) {
+      console.error("Error al registrar ausencias:", error)
+      alert("Ha ocurrido un error al registrar las ausencias. Por favor, inténtalo de nuevo.")
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   // Reset form
@@ -207,7 +237,21 @@ export default function AusenciasPage() {
               </div>
 
               <div className="mb-3">
-                <label className="form-label">Tramos Horarios</label>
+                <div className="d-flex justify-content-between align-items-center mb-2">
+                  <label className="form-label mb-0">Tramos Horarios</label>
+                  <div className="form-check">
+                    <input
+                      className="form-check-input"
+                      type="checkbox"
+                      id="todo-dia"
+                      checked={formData.tramosHorarios.length === tramosHorariosOptions.length}
+                      onChange={handleTodoDiaChange}
+                    />
+                    <label className="form-check-label" htmlFor="todo-dia">
+                      <strong>Todo el día</strong>
+                    </label>
+                  </div>
+                </div>
                 <div className="row">
                   {tramosHorariosOptions.map((tramo) => (
                     <div key={tramo} className="col-md-4 mb-2">
@@ -299,8 +343,19 @@ export default function AusenciasPage() {
                 ></textarea>
               </div>
 
-              <button type="submit" className="btn btn-primary">
-                Registrar Ausencia
+              <button 
+                type="submit" 
+                className="btn btn-primary"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? (
+                  <>
+                    <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                    Registrando...
+                  </>
+                ) : (
+                  "Registrar Ausencia"
+                )}
               </button>
             </form>
           </div>
