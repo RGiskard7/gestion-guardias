@@ -5,9 +5,17 @@ import { useGuardias } from "../../../src/contexts/GuardiasContext"
 import { useAuth } from "../../../src/contexts/AuthContext"
 
 export default function HorarioProfesorPage() {
-  const { horarios, guardias, getHorariosByProfesor, getGuardiasByProfesor } = useGuardias()
+  const { horarios, guardias, getHorariosByProfesor, getGuardiasByProfesor, getLugarById, getUsuarioById } = useGuardias()
   const { user } = useAuth()
-  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split("T")[0])
+  
+  // Función para obtener la fecha actual en formato YYYY-MM-DD sin problemas de zona horaria
+  const getTodayDate = () => {
+    const today = new Date()
+    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+  }
+  
+  // Inicializar con la fecha actual
+  const [selectedDate, setSelectedDate] = useState<string>(getTodayDate())
   const [viewMode, setViewMode] = useState<"disponibilidad" | "guardias">("guardias")
   
   // Días de la semana en español
@@ -16,20 +24,37 @@ export default function HorarioProfesorPage() {
   // Tramos horarios
   const tramosHorarios = ["1ª hora", "2ª hora", "3ª hora", "4ª hora", "5ª hora", "6ª hora"]
   
-  // Calcular fechas de inicio y fin de la semana
-  const getWeekDates = (date: string) => {
-    const selectedDate = new Date(date)
-    const dayOfWeek = selectedDate.getDay()
+  /**
+   * Calcula las fechas de inicio (lunes) y fin (viernes) de la semana que contiene la fecha proporcionada
+   * @param dateStr Fecha en formato ISO string (YYYY-MM-DD)
+   * @returns Objeto con las fechas de lunes y viernes de la semana
+   */
+  const getWeekDates = (dateStr: string) => {
+    // Asegurarse de que la fecha es válida
+    if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+      dateStr = getTodayDate()
+    }
+    
+    // Crear la fecha a las 12:00 para evitar problemas con cambios de hora
+    const [year, month, day] = dateStr.split('-').map(Number)
+    const selectedDate = new Date(year, month - 1, day, 12, 0, 0)
+    
+    // Si la fecha no es válida, usar la fecha actual
+    if (isNaN(selectedDate.getTime())) {
+      console.error("Fecha inválida:", dateStr)
+      return getWeekDates(getTodayDate())
+    }
+    
+    const dayOfWeek = selectedDate.getDay() // 0 = domingo, 1 = lunes, ..., 6 = sábado
     
     // Calcular el lunes (inicio de semana)
     const monday = new Date(selectedDate)
-    monday.setDate(selectedDate.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1))
-    monday.setHours(0, 0, 0, 0)
+    const daysToSubtract = dayOfWeek === 0 ? 6 : dayOfWeek - 1 // Si es domingo, restar 6 días, sino restar (día - 1)
+    monday.setDate(selectedDate.getDate() - daysToSubtract)
     
     // Calcular el viernes (fin de semana laboral)
     const friday = new Date(monday)
     friday.setDate(monday.getDate() + 4)
-    friday.setHours(23, 59, 59, 999)
     
     return { monday, friday }
   }
@@ -37,7 +62,20 @@ export default function HorarioProfesorPage() {
   // Obtener las fechas de la semana actual
   const { monday, friday } = getWeekDates(selectedDate)
   
-  // Obtener las fechas de cada día de la semana
+  // Asegurar que selectedDate esté dentro de la semana mostrada
+  useEffect(() => {
+    const { monday: weekMonday, friday: weekFriday } = getWeekDates(selectedDate)
+    const selected = new Date(selectedDate)
+    
+    // Si la fecha seleccionada está fuera de la semana laboral (lunes a viernes)
+    if (selected < weekMonday || selected > weekFriday) {
+      // Ajustar a la fecha del lunes de esa semana
+      const mondayStr = `${weekMonday.getFullYear()}-${String(weekMonday.getMonth() + 1).padStart(2, '0')}-${String(weekMonday.getDate()).padStart(2, '0')}`
+      setSelectedDate(mondayStr)
+    }
+  }, [selectedDate])
+  
+  // Obtener las fechas de cada día de la semana (lunes a viernes)
   const fechasSemana = diasSemana.map((_, index) => {
     const date = new Date(monday)
     date.setDate(monday.getDate() + index)
@@ -45,7 +83,9 @@ export default function HorarioProfesorPage() {
   })
   
   // Convertir fechas a formato ISO para comparación
-  const fechasISO = fechasSemana.map(fecha => fecha.toISOString().split("T")[0])
+  const fechasISO = fechasSemana.map(fecha => {
+    return `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}-${String(fecha.getDate()).padStart(2, '0')}`
+  })
   
   // Obtener los horarios del profesor logueado (disponibilidad)
   const horarioProfesor = user ? getHorariosByProfesor(user.id) : []
@@ -79,13 +119,13 @@ export default function HorarioProfesorPage() {
   })
   
   // Crear una matriz para representar las guardias asignadas
-  const guardiasAsignadas: { [fecha: string]: { [tramo: string]: { guardia: typeof guardiasEnSemana[0] | null, lugar: string } } } = {}
+  const guardiasAsignadas: { [fecha: string]: { [tramo: string]: { guardia: typeof guardiasEnSemana[0] | null, lugar: string, profesorAusente: string } } } = {}
   
   // Inicializar la matriz de guardias asignadas
   fechasISO.forEach(fecha => {
     guardiasAsignadas[fecha] = {}
     tramosHorarios.forEach(tramo => {
-      guardiasAsignadas[fecha][tramo] = { guardia: null, lugar: "" }
+      guardiasAsignadas[fecha][tramo] = { guardia: null, lugar: "", profesorAusente: "" }
     })
   })
   
@@ -94,15 +134,25 @@ export default function HorarioProfesorPage() {
     const fecha = guardia.fecha
     const tramo = guardia.tramoHorario
     if (fechasISO.includes(fecha) && tramosHorarios.includes(tramo)) {
-      const lugar = guardia.lugarId ? `${guardia.lugarId}` : "Sin lugar"
-      guardiasAsignadas[fecha][tramo] = { guardia, lugar }
+      // Obtener información del lugar
+      const lugar = guardia.lugarId ? getLugarById(guardia.lugarId) : null
+      const lugarNombre = lugar ? `${lugar.codigo} - ${lugar.descripcion}` : "Sin lugar"
+      
+      // Obtener información del profesor ausente
+      const profesorAusente = guardia.profesorAusenteId ? getUsuarioById(guardia.profesorAusenteId) : null
+      const profesorAusenteNombre = profesorAusente ? profesorAusente.nombre : "No especificado"
+      
+      guardiasAsignadas[fecha][tramo] = { 
+        guardia, 
+        lugar: lugarNombre, 
+        profesorAusente: profesorAusenteNombre 
+      }
     }
   })
 
   // Format date for display
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString)
-    return date.toLocaleDateString("es-ES", {
+  const formatDate = (dateObj: Date) => {
+    return dateObj.toLocaleDateString("es-ES", {
       weekday: "long",
       year: "numeric",
       month: "long",
@@ -149,6 +199,22 @@ export default function HorarioProfesorPage() {
         return "bg-primary";
     }
   }
+  
+  // Función para navegar a la semana anterior
+  const goToPreviousWeek = () => {
+    const prevMonday = new Date(monday)
+    prevMonday.setDate(monday.getDate() - 7)
+    const prevMondayStr = `${prevMonday.getFullYear()}-${String(prevMonday.getMonth() + 1).padStart(2, '0')}-${String(prevMonday.getDate()).padStart(2, '0')}`
+    setSelectedDate(prevMondayStr)
+  }
+  
+  // Función para navegar a la semana siguiente
+  const goToNextWeek = () => {
+    const nextMonday = new Date(monday)
+    nextMonday.setDate(monday.getDate() + 7)
+    const nextMondayStr = `${nextMonday.getFullYear()}-${String(nextMonday.getMonth() + 1).padStart(2, '0')}-${String(nextMonday.getDate()).padStart(2, '0')}`
+    setSelectedDate(nextMondayStr)
+  }
 
   return (
     <div className="container-fluid">
@@ -160,11 +226,7 @@ export default function HorarioProfesorPage() {
             <button 
               className="btn btn-outline-secondary" 
               type="button"
-              onClick={() => {
-                const date = new Date(selectedDate);
-                date.setDate(date.getDate() - 7);
-                setSelectedDate(date.toISOString().split("T")[0]);
-              }}
+              onClick={goToPreviousWeek}
               aria-label="Semana anterior"
             >
               <i className="bi bi-chevron-left"></i>
@@ -180,11 +242,7 @@ export default function HorarioProfesorPage() {
             <button 
               className="btn btn-outline-secondary" 
               type="button"
-              onClick={() => {
-                const date = new Date(selectedDate);
-                date.setDate(date.getDate() + 7);
-                setSelectedDate(date.toISOString().split("T")[0]);
-              }}
+              onClick={goToNextWeek}
               aria-label="Semana siguiente"
             >
               <i className="bi bi-chevron-right"></i>
@@ -236,7 +294,7 @@ export default function HorarioProfesorPage() {
 
       <div className="alert alert-info">
         <i className="bi bi-calendar-week me-2"></i>
-        Mostrando {viewMode === "guardias" ? "guardias asignadas" : "disponibilidad"} para la semana del: <strong>{formatDate(monday.toISOString())}</strong>
+        Mostrando {viewMode === "guardias" ? "guardias asignadas" : "disponibilidad"} para la semana del: <strong>{formatDate(monday)}</strong> al <strong>{formatDate(friday)}</strong>
       </div>
 
       {/* Vista para pantallas grandes */}
@@ -305,11 +363,11 @@ export default function HorarioProfesorPage() {
                                 </div>
                                 <small className="d-block mt-2 text-center">
                                   <i className="bi bi-geo-alt me-1"></i>
-                                  {guardiaInfo.guardia.lugarId ? `Lugar: ${guardiaInfo.guardia.lugarId}` : "Sin lugar"}
+                                  {guardiaInfo.lugar}
                                 </small>
                                 <small className="d-block text-center">
                                   <i className="bi bi-person-dash me-1"></i>
-                                  {guardiaInfo.guardia.profesorAusenteId ? `Ausente: ${guardiaInfo.guardia.profesorAusenteId}` : ""}
+                                  {guardiaInfo.profesorAusente}
                                 </small>
                               </div>
                             </div>
@@ -399,11 +457,11 @@ export default function HorarioProfesorPage() {
                               </div>
                               <small className="d-block mt-2 text-center">
                                 <i className="bi bi-geo-alt me-1"></i>
-                                {guardiaInfo.guardia.lugarId ? `Lugar: ${guardiaInfo.guardia.lugarId}` : "Sin lugar"}
+                                {guardiaInfo.lugar}
                               </small>
                               <small className="d-block text-center">
                                 <i className="bi bi-person-dash me-1"></i>
-                                {guardiaInfo.guardia.profesorAusenteId ? `Ausente: ${guardiaInfo.guardia.profesorAusenteId}` : ""}
+                                {guardiaInfo.profesorAusente}
                               </small>
                             </div>
                           </div>

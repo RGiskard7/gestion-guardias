@@ -9,24 +9,29 @@ import GuardiaCard from "@/app/guardia/guardia-card"
 export default function GuardiasPendientesPage() {
   const { user } = useAuth()
   const { guardias, horarios, usuarios, lugares, asignarGuardia } = useGuardias()
-  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split("T")[0])
+  
+  // Usar siempre la fecha actual
+  const today = new Date().toISOString().split("T")[0]
+  
+  // Obtener el día de la semana actual
+  const diaSemanaActual = new Date().toLocaleDateString("es-ES", { weekday: "long" }).toLowerCase()
 
   if (!user) return null
 
   // Get profesor's schedules
   const misHorarios = horarios.filter((h) => h.profesorId === user.id)
+  
+  // Filtrar horarios para mostrar solo los del día actual
+  const horariosHoy = misHorarios.filter((h) => h.diaSemana.toLowerCase() === diaSemanaActual)
 
-  // Filter guardias pendientes for selected date
+  // Filter guardias pendientes for today
   const guardiasPendientes = guardias.filter((g: Guardia) => {
-    // La guardia debe estar pendiente y ser de la fecha seleccionada
-    const esPendiente = g.estado === "Pendiente" && g.fecha === selectedDate
+    // La guardia debe estar pendiente y ser de hoy
+    const esPendiente = g.estado === "Pendiente" && g.fecha === today
 
-    // Obtener el día de la semana de la fecha de la guardia
-    const diaSemana = new Date(g.fecha).toLocaleDateString("es-ES", { weekday: "long" })
-    
     // Verificar si el profesor tiene horario de guardia en ese tramo
     const tieneHorarioGuardia = misHorarios.some(
-      (h) => h.diaSemana.toLowerCase() === diaSemana.toLowerCase() && 
+      (h) => h.diaSemana.toLowerCase() === diaSemanaActual && 
              h.tramoHorario === g.tramoHorario
     )
 
@@ -74,33 +79,12 @@ export default function GuardiasPendientesPage() {
     }
   }
 
-  // Handle date change
-  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSelectedDate(e.target.value)
-    setCurrentPage(1) // Resetear a la primera página cuando cambia la fecha
-  }
-
   return (
     <div className="container-fluid">
       <h1 className="h3 mb-4">Guardias Pendientes</h1>
 
-      <div className="row mb-4">
-        <div className="col-md-6">
-          <div className="input-group">
-            <span className="input-group-text">Fecha</span>
-            <input
-              type="date"
-              className="form-control"
-              value={selectedDate}
-              onChange={handleDateChange}
-              aria-label="Seleccionar fecha para ver guardias pendientes"
-            />
-          </div>
-        </div>
-      </div>
-
       <div className="alert alert-info">
-        Mostrando guardias pendientes para: <strong>{new Date(selectedDate).toLocaleDateString("es-ES", {
+        Mostrando guardias pendientes para hoy: <strong>{new Date(today).toLocaleDateString("es-ES", {
           weekday: "long",
           year: "numeric",
           month: "long",
@@ -110,7 +94,7 @@ export default function GuardiasPendientesPage() {
 
       {guardiasPendientes.length === 0 ? (
         <div className="alert alert-warning">
-          No hay guardias pendientes disponibles para la fecha seleccionada o no tienes horario disponible.
+          No hay guardias pendientes disponibles para hoy o no tienes horario disponible.
         </div>
       ) : (
         <div className="row">
@@ -127,10 +111,10 @@ export default function GuardiasPendientesPage() {
       )}
 
       <div className="card mt-4">
-        <div className="card-header">Mi Horario</div>
+        <div className="card-header">Mi Horario de Hoy</div>
         <div className="card-body">
-          {misHorarios.length === 0 ? (
-            <div className="alert alert-info">No tienes horarios asignados.</div>
+          {horariosHoy.length === 0 ? (
+            <div className="alert alert-info">No tienes horario de guardias asignado para hoy.</div>
           ) : (
             <div className="table-responsive">
               <table className="table table-striped">
@@ -141,7 +125,7 @@ export default function GuardiasPendientesPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {misHorarios.map((horario, index) => (
+                  {horariosHoy.map((horario, index) => (
                     <tr key={index}>
                       <td>{horario.diaSemana}</td>
                       <td>{horario.tramoHorario}</td>
