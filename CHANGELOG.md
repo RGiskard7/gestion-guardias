@@ -2,7 +2,7 @@
 
 Este documento registra todos los cambios, mejoras y correcciones realizadas en el proyecto de Sistema de Gestión de Guardias.
 
-## [2025-03-16] - Implementación del modo oscuro y mejoras visuales
+## [2025-03-16] - Implementación del modo oscuro y correcciones funcionales
 
 ### Autor(es)
 - Equipo de Desarrollo
@@ -14,6 +14,10 @@ Este documento registra todos los cambios, mejoras y correcciones realizadas en 
 - Adaptación de componentes y estilos para soportar modo oscuro/claro
 - Mejora en la visualización de tablas en modo oscuro
 - Corrección de problemas de contraste en la interfaz
+- Corrección del problema al quitar un profesor cubridor de una guardia asignada
+- Implementación de la actualización automática del estado de la guardia a "Pendiente" cuando se quita el profesor cubridor
+- Mejora en el manejo de valores nulos en la base de datos para el campo profesor_cubridor_id
+- Optimización del proceso de actualización de guardias en el contexto y en el servicio
 
 ### Archivos modificados
 - `src/contexts/ThemeContext.tsx`: Creación del contexto para gestionar el tema
@@ -21,16 +25,23 @@ Este documento registra todos los cambios, mejoras y correcciones realizadas en 
 - `app/layout.tsx`: Integración del ThemeProvider
 - `src/App.css`: Actualización de estilos para soportar modo oscuro
 - `components/common/Navbar.tsx`: Integración del botón de cambio de tema
+- `src/contexts/GuardiasContext.tsx`: Modificación de la función `updateGuardia` para detectar cuando se quita un profesor cubridor y actualizar el estado a "Pendiente"
+- `lib/guardiasService.ts`: Implementación de una solución para manejar correctamente los valores nulos en la base de datos
 
 ### Problemas resueltos
 - Problemas de contraste en tablas y componentes en modo oscuro
 - Inconsistencias visuales en el menú móvil
 - Problemas de visibilidad en la barra de navegación en modo oscuro
+- Error al quitar un profesor cubridor de una guardia, donde el ID seguía persistiendo en la base de datos
+- Inconsistencia en el estado de la guardia cuando se quitaba el profesor cubridor
+- Problema con la actualización del estado local después de modificar una guardia
 
 ### Notas adicionales
 - Se ha implementado la detección automática de preferencias del sistema para el tema inicial
 - Se ha añadido persistencia del tema seleccionado usando localStorage
 - Se han utilizado variables CSS de Bootstrap para mantener la consistencia visual
+- Se ha implementado una solución específica para Supabase que maneja correctamente los valores nulos en la base de datos
+- Se ha mejorado el manejo de errores en las operaciones de actualización de guardias
 
 ## [2025-03-15] - Mejoras en la visualización de horarios y corrección de errores críticos
 

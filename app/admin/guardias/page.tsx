@@ -118,9 +118,9 @@ export default function GuardiasPage() {
       [name]:
         type === "checkbox"
           ? (e.target as HTMLInputElement).checked
-          : name === "lugarId" || (name === "profesorAusenteId" && value !== "")
+          : name === "lugarId" || (name === "profesorAusenteId" && value !== "") || (name === "profesorCubridorId" && value !== "")
             ? Number.parseInt(value)
-            : name === "profesorAusenteId" && value === ""
+            : (name === "profesorAusenteId" || name === "profesorCubridorId") && value === ""
               ? null
               : value,
     }))

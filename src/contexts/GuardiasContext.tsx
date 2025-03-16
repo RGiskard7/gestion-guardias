@@ -113,11 +113,6 @@ function mapGuardiaFromDB(guardia: GuardiaDB): Guardia {
 }
 
 function mapGuardiaToDB(guardia: Omit<Guardia, "id">): Omit<GuardiaDB, "id"> {
-  // Asegurarnos de que profesorCubridorId tenga un valor válido
-  const profesorCubridorId = guardia.profesorCubridorId === null ? 
-    1 : // Valor por defecto si es null
-    guardia.profesorCubridorId;
-  
   return {
     fecha: guardia.fecha,
     tramo_horario: guardia.tramoHorario,
@@ -127,7 +122,7 @@ function mapGuardiaToDB(guardia: Omit<Guardia, "id">): Omit<GuardiaDB, "id"> {
     observaciones: guardia.observaciones,
     lugar_id: guardia.lugarId,
     profesor_ausente_id: guardia.profesorAusenteId === null ? undefined : guardia.profesorAusenteId,
-    profesor_cubridor_id: profesorCubridorId
+    profesor_cubridor_id: guardia.profesorCubridorId === null ? undefined : guardia.profesorCubridorId
   }
 }
 
@@ -445,18 +440,10 @@ export const GuardiasProvider: React.FC<GuardiasProviderProps> = ({ children }) 
   // CRUD operations for guardias
   const addGuardia = async (guardia: Omit<Guardia, "id">, tarea?: string): Promise<number | null> => {
     try {
-      // Asegurarnos de que profesorCubridorId tenga un valor válido
-      const guardiaToCreate = {
-        ...guardia,
-        // Si profesorCubridorId es null, asignar un valor por defecto (por ejemplo, el primer profesor disponible)
-        profesorCubridorId: guardia.profesorCubridorId === null ? 
-          (usuarios.length > 0 ? usuarios[0].id : 1) : guardia.profesorCubridorId
-      };
-      
-      console.log('Añadiendo guardia:', guardiaToCreate);
+      console.log('Añadiendo guardia:', guardia);
       
       // Convertir al formato de la base de datos
-      const guardiaDB = mapGuardiaToDB(guardiaToCreate);
+      const guardiaDB = mapGuardiaToDB(guardia);
       
       console.log('Guardia mapeada para la BD:', guardiaDB);
 
@@ -487,6 +474,17 @@ export const GuardiasProvider: React.FC<GuardiasProviderProps> = ({ children }) 
 
   const updateGuardia = async (id: number, guardia: Partial<Guardia>) => {
     try {
+      // Verificar si se está quitando el profesor cubridor
+      const guardiaActual = guardias.find(g => g.id === id);
+      const quitandoProfesorCubridor = guardiaActual && 
+                                      guardiaActual.profesorCubridorId !== null && 
+                                      guardia.profesorCubridorId === null;
+      
+      // Si se está quitando el profesor cubridor y el estado no es "Anulada", cambiar a "Pendiente"
+      if (quitandoProfesorCubridor && guardiaActual?.estado !== "Anulada") {
+        guardia.estado = "Pendiente";
+      }
+      
       // Convertir al formato de la base de datos
       const guardiaDB: Partial<GuardiaDB> = {}
       if (guardia.fecha !== undefined) guardiaDB.fecha = guardia.fecha
@@ -506,6 +504,7 @@ export const GuardiasProvider: React.FC<GuardiasProviderProps> = ({ children }) 
       // Usar el servicio para actualizar la guardia
       const success = await updateGuardiaService(id, guardiaDB)
       if (success) {
+        // Actualizar el estado local
         setGuardias(guardias.map(g => g.id === id ? { ...g, ...guardia } : g))
       }
     } catch (error) {

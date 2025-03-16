@@ -287,9 +287,39 @@ export async function updateGuardia(id: number, guardia: Partial<Guardia>): Prom
       throw new Error(`No existe una guardia con ID ${id}`);
     }
 
+    // Crear una copia del objeto para manipularlo
+    const guardiaToUpdate = { ...guardia };
+
+    // Usar SQL directo para establecer profesor_cubridor_id a NULL si es undefined
+    if ('profesor_cubridor_id' in guardiaToUpdate && guardiaToUpdate.profesor_cubridor_id === undefined) {
+      // Eliminar la propiedad del objeto para no enviarla en el update normal
+      delete guardiaToUpdate.profesor_cubridor_id;
+      
+      // Ejecutar SQL directo para establecer el campo a NULL
+      const { error: sqlError } = await supabase
+        .from(getTableName('GUARDIAS'))
+        .update({ profesor_cubridor_id: null })
+        .eq('id', id);
+        
+      if (sqlError) {
+        console.error(`Error al establecer profesor_cubridor_id a NULL para guardia ${id}:`, sqlError);
+        throw sqlError;
+      }
+    }
+
+    // Si no hay más campos que actualizar, devolver la guardia actualizada
+    if (Object.keys(guardiaToUpdate).length === 0) {
+      const guardiaActualizada = await getGuardiaById(id);
+      if (!guardiaActualizada) {
+        throw new Error(`No se pudo encontrar la guardia con ID ${id} después de la actualización`);
+      }
+      return guardiaActualizada;
+    }
+
+    // Actualizar el resto de campos
     const { data, error } = await supabase
       .from(getTableName('GUARDIAS'))
-      .update(guardia)
+      .update(guardiaToUpdate)
       .eq('id', id)
       .select()
       .single();
