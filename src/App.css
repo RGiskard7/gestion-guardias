@@ -1,7 +1,6 @@
-/* General styles */
+/* Estilos generales */
 body {
   font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-  background-color: #f8f9fa;
 }
 
 .app-container {
@@ -10,8 +9,7 @@ body {
 
 .page-title {
   margin-bottom: 25px;
-  color: #343a40;
-  border-bottom: 2px solid #007bff;
+  border-bottom: 2px solid var(--bs-primary);
   padding-bottom: 10px;
 }
 
@@ -41,8 +39,8 @@ body {
 .dashboard-icon {
   font-size: 2.5rem;
   margin-bottom: 15px;
-  color: #007bff;
-  background-color: rgba(0, 123, 255, 0.1);
+  color: var(--bs-primary);
+  background-color: var(--bs-primary-bg-subtle);
   width: 60px;
   height: 60px;
   display: flex;
@@ -155,7 +153,7 @@ body {
 
 /* Table styles */
 .table-container {
-  background-color: white;
+  background-color: var(--bs-body-bg);
   border-radius: 8px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
   padding: 20px;
@@ -216,7 +214,7 @@ body {
 
 /* Form styles */
 .form-container {
-  background-color: white;
+  background-color: var(--bs-body-bg);
   border-radius: 8px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
   padding: 25px;
@@ -250,7 +248,7 @@ body {
 }
 
 .navbar-custom {
-  background-color: #343a40;
+  background-color: var(--bs-primary);
   position: fixed;
   top: 0;
   right: 0;
@@ -259,9 +257,18 @@ body {
   height: 56px;
 }
 
+.navbar-custom .navbar-brand,
+.navbar-custom .nav-link {
+  color: var(--bs-white);
+}
+
+.navbar-custom .nav-link:hover {
+  color: var(--bs-gray-200);
+}
+
 /* Estilos para el menú móvil */
 .navbar-collapse {
-  background-color: #343a40;
+  background-color: var(--bs-primary);
 }
 
 @media (max-width: 767.98px) {
@@ -277,7 +284,7 @@ body {
   
   .navbar-nav .nav-link {
     padding: 0.75rem 1rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: 1px solid var(--bs-border-subtle);
   }
   
   .navbar-nav .nav-link:last-child {
@@ -288,27 +295,28 @@ body {
 /* Sidebar styles */
 .sidebar {
   position: fixed;
-  top: 56px; /* Altura del navbar */
+  top: 56px;
   left: 0;
   bottom: 0;
-  width: 250px; /* Ancho del sidebar */
-  background-color: #343a40;
-  color: white;
+  width: 250px;
+  background-color: var(--bs-primary);
+  color: var(--bs-white);
   padding-top: 20px;
-  overflow-y: auto; /* Permitir scroll dentro del sidebar si es necesario */
-  z-index: 1000; /* Asegurar que esté por encima del contenido */
+  overflow-y: auto;
+  z-index: 1000;
 }
 
 .sidebar .nav-link {
-  color: rgba(255, 255, 255, 0.75);
+  color: var(--bs-white);
+  opacity: 0.75;
   padding: 10px 20px;
   margin-bottom: 5px;
 }
 
 .sidebar .nav-link:hover,
 .sidebar .nav-link.active {
-  color: white;
-  background-color: rgba(255, 255, 255, 0.1);
+  opacity: 1;
+  background-color: var(--bs-primary-border-subtle);
 }
 
 .sidebar .nav-link i {
@@ -387,14 +395,53 @@ body {
   box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
 }
 
-/* Estilos para la tabla de la vista semanal */
+/* Estilos para la tablas (vista semanal de guardias y vista de horario de guardias)*/
 .table-bordered {
-  border-color: #dee2e6;
+  border-color: var(--bs-border-color);
 }
 
 .table-bordered > :not(caption) > * > * {
   border-width: 1px;
-  border-color: #dee2e6;
+  border-color: var(--bs-border-color);
+}
+
+.table {
+  --bs-table-color: var(--bs-body-color);
+  --bs-table-bg: var(--bs-body-bg);
+  --bs-table-border-color: var(--bs-border-color);
+  --bs-table-striped-bg: var(--bs-secondary-bg);
+  --bs-table-striped-color: var(--bs-body-color);
+  --bs-table-hover-bg: var(--bs-secondary-bg);
+  --bs-table-hover-color: var(--bs-body-color);
+  /*--bs-table-accent-bg: var(--bs-secondary-bg);*/
+}
+
+/* Estilos específicos para la columna de tramos */
+.table-weekly-view .table th[scope="row"],
+.table-weekly-view .table  td:first-child {
+  background-color: var(--bs-secondary-bg);
+  color: var(--bs-body-color);
+  font-weight: 500;
+}
+
+/* Ajustar el contraste en modo oscuro */
+[data-bs-theme="dark"] .table-weekly-view .table th[scope="row"],
+[data-bs-theme="dark"] .table-weekly-view .table td:first-child {
+  background-color: var(--bs-tertiary-bg);
+}
+
+/* Asegurar que las celdas de la tabla tengan el color de fondo correcto */
+.table td {
+  background-color: var(--bs-table-bg);
+}
+
+/* Ajustar el contraste de los bordes en modo oscuro */
+[data-bs-theme="dark"] .table-bordered {
+  border-color: var(--bs-border-color-translucent);
+}
+
+[data-bs-theme="dark"] .table-bordered > :not(caption) > * > * {
+  border-color: var(--bs-border-color-translucent);
 }
 
 /* Responsive adjustments */

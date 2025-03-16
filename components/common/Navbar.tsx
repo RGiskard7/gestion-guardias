@@ -4,6 +4,7 @@ import type React from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/src/contexts/AuthContext"
+import { ThemeToggle } from "@/components/common/ThemeToggle"
 
 const Navbar: React.FC = () => {
   const { user, logout } = useAuth()
@@ -17,14 +18,14 @@ const Navbar: React.FC = () => {
   if (!user) return null
 
   return (
-    <nav className="navbar navbar-expand-md navbar-dark navbar-custom">
+    <nav className="navbar navbar-expand-md navbar-custom">
       <div className="container-fluid">
         <Link className="navbar-brand" href={user.rol === "admin" ? "/admin" : "/profesor"}>
           Gestión de Guardias
         </Link>
 
         <button
-          className="navbar-toggler"
+          className="navbar-toggler border-0"
           type="button"
           data-bs-toggle="collapse"
           data-bs-target="#navbarNav"
@@ -32,7 +33,7 @@ const Navbar: React.FC = () => {
           aria-expanded="false"
           aria-label="Toggle navigation"
         >
-          <span className="navbar-toggler-icon"></span>
+          <span className="navbar-toggler-icon text-white"></span>
         </button>
 
         <div className="collapse navbar-collapse" id="navbarNav">
@@ -117,6 +118,9 @@ const Navbar: React.FC = () => {
 
           {/* Menú de usuario - Visible en todas las pantallas */}
           <ul className="navbar-nav ms-auto">
+            <li className="nav-item me-2 d-flex align-items-center">
+              <ThemeToggle />
+            </li>
             <li className="nav-item dropdown">
               <a
                 className="nav-link dropdown-toggle"

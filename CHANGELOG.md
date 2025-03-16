@@ -2,6 +2,36 @@
 
 Este documento registra todos los cambios, mejoras y correcciones realizadas en el proyecto de Sistema de Gestión de Guardias.
 
+## [2025-03-16] - Implementación del modo oscuro y mejoras visuales
+
+### Autor(es)
+- Equipo de Desarrollo
+
+### Cambios realizados
+- Implementación del modo oscuro utilizando Bootstrap 5
+- Creación del contexto ThemeContext para gestionar el estado del tema
+- Adición del botón de cambio de tema en la barra de navegación
+- Adaptación de componentes y estilos para soportar modo oscuro/claro
+- Mejora en la visualización de tablas en modo oscuro
+- Corrección de problemas de contraste en la interfaz
+
+### Archivos modificados
+- `src/contexts/ThemeContext.tsx`: Creación del contexto para gestionar el tema
+- `components/common/ThemeToggle.tsx`: Nuevo componente para cambiar entre temas
+- `app/layout.tsx`: Integración del ThemeProvider
+- `src/App.css`: Actualización de estilos para soportar modo oscuro
+- `components/common/Navbar.tsx`: Integración del botón de cambio de tema
+
+### Problemas resueltos
+- Problemas de contraste en tablas y componentes en modo oscuro
+- Inconsistencias visuales en el menú móvil
+- Problemas de visibilidad en la barra de navegación en modo oscuro
+
+### Notas adicionales
+- Se ha implementado la detección automática de preferencias del sistema para el tema inicial
+- Se ha añadido persistencia del tema seleccionado usando localStorage
+- Se han utilizado variables CSS de Bootstrap para mantener la consistencia visual
+
 ## [2025-03-15] - Mejoras en la visualización de horarios y corrección de errores críticos
 
 ### Autor(es)
