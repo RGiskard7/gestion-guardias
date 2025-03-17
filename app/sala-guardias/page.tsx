@@ -6,9 +6,13 @@ import GuardiaCard from "@/app/guardia/guardia-card"
 import { Pagination } from "@/components/ui/pagination"
 
 export default function SalaGuardiasPage() {
-  const { guardias, getUsuarioById, getLugarById } = useGuardias()
+  const { guardias, getUsuarioById, getLugarById, getProfesorAusenteIdByGuardia } = useGuardias()
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split("T")[0])
   const [viewMode, setViewMode] = useState<"day" | "week">("day")
+  const [filterEstado, setFilterEstado] = useState<string>("Pendiente")
+
+  // Estados disponibles para el filtro
+  const estadosGuardia = ["Pendiente", "Asignada", "Firmada", "Anulada"]
 
   // Calcular fechas de inicio y fin de la semana
   const getWeekDates = (date: string) => {
@@ -28,10 +32,10 @@ export default function SalaGuardiasPage() {
     return { monday, sunday }
   }
 
-  // Filter guardias by selected date or week
+  // Filter guardias by selected date or week and estado
   const filteredGuardias = guardias.filter((guardia) => {
     if (viewMode === "day") {
-      return guardia.fecha === selectedDate
+      return guardia.fecha === selectedDate && (filterEstado === "" || guardia.estado === filterEstado)
     } else {
       const { monday, sunday } = getWeekDates(selectedDate)
       const guardiaDate = new Date(guardia.fecha)
@@ -272,28 +276,28 @@ export default function SalaGuardiasPage() {
             </div>
             <div className="card-body">
               <div className="row text-center">
-                <div className="col-6 col-md-3 mb-2">
+                <div className="col-3">
                   <div className="p-2 rounded bg-warning bg-opacity-10">
                     <h3 className="text-warning">{pendientes}</h3>
-                    <p className="mb-0"><i className="bi bi-hourglass me-1"></i>Pendientes</p>
+                    <p className="mb-0"><i className="bi bi-clock me-1"></i>Pendientes</p>
                   </div>
                 </div>
-                <div className="col-6 col-md-3 mb-2">
+                <div className="col-3">
                   <div className="p-2 rounded bg-info bg-opacity-10">
                     <h3 className="text-info">{asignadas}</h3>
                     <p className="mb-0"><i className="bi bi-person-check me-1"></i>Asignadas</p>
                   </div>
                 </div>
-                <div className="col-6 col-md-3 mb-2">
+                <div className="col-3">
                   <div className="p-2 rounded bg-success bg-opacity-10">
                     <h3 className="text-success">{firmadas}</h3>
                     <p className="mb-0"><i className="bi bi-check-circle me-1"></i>Firmadas</p>
                   </div>
                 </div>
-                <div className="col-6 col-md-3 mb-2">
-                  <div className="p-2 rounded bg-primary bg-opacity-10">
-                    <h3 className="text-primary">{total}</h3>
-                    <p className="mb-0"><i className="bi bi-clipboard-data me-1"></i>Total</p>
+                <div className="col-3">
+                  <div className="p-2 rounded bg-secondary bg-opacity-10">
+                    <h3 className="text-secondary">{total}</h3>
+                    <p className="mb-0"><i className="bi bi-list-check me-1"></i>Total</p>
                   </div>
                 </div>
               </div>
@@ -304,9 +308,27 @@ export default function SalaGuardiasPage() {
       
       {viewMode === "day" && (
         <>
-          <div className="alert alert-info">
-            <i className="bi bi-calendar-date me-2"></i>
-            Mostrando guardias para: <strong>{formatDate(selectedDate)}</strong>
+          <div className="alert alert-info d-flex justify-content-between align-items-center">
+            <div>
+              <i className="bi bi-calendar-date me-2"></i>
+              Mostrando guardias para: <strong>{formatDate(selectedDate)}</strong>
+            </div>
+            <div className="input-group" style={{ width: "auto" }}>
+              <span className="input-group-text">Estado</span>
+              <select 
+                className="form-select" 
+                value={filterEstado} 
+                onChange={(e) => setFilterEstado(e.target.value)}
+                aria-label="Filtrar guardias por estado"
+              >
+                <option value="">Todos los estados</option>
+                {estadosGuardia.map((estado) => (
+                  <option key={estado} value={estado}>
+                    {estado}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
           {tramosOrdenados.length === 0 ? (
@@ -395,10 +417,10 @@ export default function SalaGuardiasPage() {
                                       }
                                     </small>
                                     <small className="d-block">
-                                      {guardia.profesorAusenteId ? (
+                                      {getProfesorAusenteIdByGuardia(guardia.id) ? (
                                         <>
                                           <i className="bi bi-person-dash me-1"></i>
-                                          {getUsuarioById(guardia.profesorAusenteId)?.nombre}
+                                          {getUsuarioById(getProfesorAusenteIdByGuardia(guardia.id) || 0)?.nombre}
                                         </>
                                       ) : ""}
                                     </small>
@@ -488,10 +510,10 @@ export default function SalaGuardiasPage() {
                                       }
                                     </small>
                                     <small className="d-block">
-                                      {guardia.profesorAusenteId ? (
+                                      {getProfesorAusenteIdByGuardia(guardia.id) ? (
                                         <>
                                           <i className="bi bi-person-dash me-1"></i>
-                                          {getUsuarioById(guardia.profesorAusenteId)?.nombre}
+                                          {getUsuarioById(getProfesorAusenteIdByGuardia(guardia.id) || 0)?.nombre}
                                         </>
                                       ) : ""}
                                     </small>

@@ -7,9 +7,14 @@ import { Pagination } from "@/components/ui/pagination"
 
 export default function AusenciasPage() {
   const { user } = useAuth()
-  const { ausencias, lugares, addAusencia, updateAusencia, deleteAusencia, getAusenciasByProfesor } = useGuardias()
+  const { ausencias, lugares, addAusencia, updateAusencia, deleteAusencia, getAusenciasByProfesor, refreshAusencias } = useGuardias()
 
   if (!user) return null
+
+  // Estados para filtros y ordenamiento
+  const [filterFecha, setFilterFecha] = useState<string>("")
+  const [filterEstado, setFilterEstado] = useState<string>("")
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc')
 
   // State for the form
   const [formData, setFormData] = useState({
@@ -21,17 +26,48 @@ export default function AusenciasPage() {
 
   const [showForm, setShowForm] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isRefreshing, setIsRefreshing] = useState(false)
   const [formErrors, setFormErrors] = useState<{[key: string]: string}>({})
 
   // Tramos horarios
   const tramosHorariosOptions = ["1ª hora", "2ª hora", "3ª hora", "4ª hora", "5ª hora", "6ª hora"]
 
-  // Get mis ausencias
-  const misAusencias = getAusenciasByProfesor(user.id)
-    .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())
+  // Estados de ausencia
+  const estadosAusencia = ["Pendiente", "Aceptada", "Rechazada"]
+
+  // Get mis ausencias con filtros y ordenamiento
+  const misAusenciasFiltradas = getAusenciasByProfesor(user.id)
+    .filter(ausencia => {
+      // Filtrar por fecha
+      if (filterFecha && ausencia.fecha !== filterFecha) {
+        return false
+      }
+      
+      // Filtrar por estado
+      if (filterEstado && ausencia.estado !== filterEstado) {
+        return false
+      }
+      
+      return true
+    })
+    .sort((a, b) => {
+      // Ordenar por fecha según la dirección seleccionada
+      const dateComparison = sortDirection === 'desc' 
+        ? new Date(b.fecha).getTime() - new Date(a.fecha).getTime()
+        : new Date(a.fecha).getTime() - new Date(b.fecha).getTime()
+
+      // Si las fechas son iguales, ordenar por estado (Pendiente primero)
+      if (dateComparison === 0) {
+        if (a.estado === "Pendiente") return -1
+        if (b.estado === "Pendiente") return 1
+        return 0
+      }
+
+      return dateComparison
+    })
 
   // Imprimir la cantidad de ausencias encontradas
-  console.log(`Total de ausencias encontradas: ${misAusencias.length}`)
+  console.log(`Total de ausencias encontradas: ${misAusenciasFiltradas.length}`)
 
   // Estado para la paginación
   const [currentPage, setCurrentPage] = useState(1)
@@ -39,14 +75,14 @@ export default function AusenciasPage() {
 
   // Calcular el número total de páginas de forma explícita
   let totalPages = 1
-  if (misAusencias.length > 0) {
-    totalPages = Math.max(1, Math.ceil(misAusencias.length / itemsPerPage))
+  if (misAusenciasFiltradas.length > 0) {
+    totalPages = Math.max(1, Math.ceil(misAusenciasFiltradas.length / itemsPerPage))
   }
 
   // Calcular los índices de inicio y fin para la paginación
   const indexOfLastItem = currentPage * itemsPerPage
   const indexOfFirstItem = indexOfLastItem - itemsPerPage
-  const currentItems = misAusencias.slice(indexOfFirstItem, indexOfLastItem)
+  const currentItems = misAusenciasFiltradas.slice(indexOfFirstItem, indexOfLastItem)
 
   // Función para cambiar de página
   const paginate = (pageNumber: number) => setCurrentPage(pageNumber)
@@ -71,16 +107,25 @@ export default function AusenciasPage() {
       const isChecked = checkbox.checked
       const tramoHorario = checkbox.value
 
-      setFormData(prev => {
-        const tramosHorarios = isChecked
-          ? [...prev.tramosHorarios, tramoHorario]
-          : prev.tramosHorarios.filter(t => t !== tramoHorario)
-
-        return {
+      if (tramoHorario === "todo-el-dia") {
+        // Si se marca "Todo el día", seleccionar todos los tramos
+        // Si se desmarca, deseleccionar todos los tramos
+        setFormData(prev => ({
           ...prev,
-          tramosHorarios
-        }
-      })
+          tramosHorarios: isChecked ? [...tramosHorariosOptions] : []
+        }))
+      } else {
+        setFormData(prev => {
+          const tramosHorarios = isChecked
+            ? [...prev.tramosHorarios, tramoHorario]
+            : prev.tramosHorarios.filter(t => t !== tramoHorario)
+
+          return {
+            ...prev,
+            tramosHorarios
+          }
+        })
+      }
     } else {
       setFormData(prev => ({
         ...prev,
@@ -110,7 +155,7 @@ export default function AusenciasPage() {
     
     // Validar que no exista ya una ausencia para la misma fecha y tramos
     for (const tramo of formData.tramosHorarios) {
-      const existeAusencia = misAusencias.some(
+      const existeAusencia = misAusenciasFiltradas.some(
         ausencia => 
           ausencia.fecha === formData.fecha && 
           ausencia.tramoHorario === tramo &&
@@ -125,6 +170,18 @@ export default function AusenciasPage() {
     
     setFormErrors(errors)
     return Object.keys(errors).length === 0
+  }
+
+  // Función para refrescar los datos
+  const handleRefresh = async () => {
+    setIsRefreshing(true)
+    try {
+      await refreshAusencias()
+    } catch (error) {
+      console.error("Error al refrescar los datos:", error)
+    } finally {
+      setIsRefreshing(false)
+    }
   }
 
   // Handle form submission
@@ -170,6 +227,9 @@ export default function AusenciasPage() {
         // Pequeña pausa para evitar problemas de concurrencia
         await new Promise(resolve => setTimeout(resolve, 100))
       }
+
+      // Refrescar los datos después de crear todas las ausencias
+      await handleRefresh()
 
       // Reset form
       resetForm()
@@ -235,6 +295,15 @@ export default function AusenciasPage() {
 
   return (
     <div className="container-fluid">
+      <style jsx>{`
+        .spin {
+          animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
       <h1 className="h3 mb-4">Gestión de Ausencias</h1>
       
       <div className="row mb-4">
@@ -275,6 +344,20 @@ export default function AusenciasPage() {
                   <div className="mb-3">
                     <label className="form-label">Tramos horarios</label>
                     <div className={`border rounded p-3 ${formErrors.tramosHorarios ? 'border-danger' : ''}`}>
+                      <div className="form-check mb-2 border-bottom pb-2">
+                        <input
+                          className="form-check-input"
+                          type="checkbox"
+                          id="todo-el-dia"
+                          name="tramosHorarios"
+                          value="todo-el-dia"
+                          checked={formData.tramosHorarios.length === tramosHorariosOptions.length}
+                          onChange={handleChange}
+                        />
+                        <label className="form-check-label" htmlFor="todo-el-dia">
+                          <strong>Todo el día</strong>
+                        </label>
+                      </div>
                       {tramosHorariosOptions.map((tramo) => (
                         <div className="form-check" key={tramo}>
                           <input
@@ -348,19 +431,56 @@ export default function AusenciasPage() {
         <div className="col-md-6">
           <div className="card shadow-sm">
             <div className="card-header bg-primary text-white">
-              <i className="bi bi-info-circle me-2"></i>Información
+              <i className="bi bi-funnel me-2"></i>Filtros
             </div>
             <div className="card-body">
-              <p>
-                <strong>¿Cómo funciona el registro de ausencias?</strong>
-              </p>
-              <ol className="mb-0">
-                <li>Registra tu ausencia indicando la fecha, tramos horarios y motivo.</li>
-                <li>La solicitud quedará en estado <span className="badge bg-warning text-dark">Pendiente</span> hasta que sea revisada.</li>
-                <li>El administrador revisará tu solicitud y la <span className="badge bg-success">Aceptará</span> o <span className="badge bg-danger">Rechazará</span>.</li>
-                <li>Si es aceptada, se creará una guardia que será asignada a otro profesor.</li>
-                <li>Puedes cancelar tus ausencias mientras estén en estado pendiente.</li>
-              </ol>
+              <div className="row">
+                <div className="col-md-6 mb-3">
+                  <label htmlFor="filterFecha" className="form-label">Fecha</label>
+                  <input
+                    type="date"
+                    className="form-control"
+                    id="filterFecha"
+                    value={filterFecha}
+                    onChange={(e) => setFilterFecha(e.target.value)}
+                  />
+                </div>
+                <div className="col-md-6 mb-3">
+                  <label htmlFor="filterEstado" className="form-label">Estado</label>
+                  <select
+                    className="form-select"
+                    id="filterEstado"
+                    value={filterEstado}
+                    onChange={(e) => setFilterEstado(e.target.value)}
+                  >
+                    <option value="">Todos los estados</option>
+                    {estadosAusencia.map(estado => (
+                      <option key={estado} value={estado}>
+                        {estado}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="d-flex justify-content-between align-items-center">
+                <button 
+                  className="btn btn-outline-secondary"
+                  onClick={() => {
+                    setFilterFecha("")
+                    setFilterEstado("")
+                  }}
+                >
+                  <i className="bi bi-x-circle me-2"></i>Limpiar filtros
+                </button>
+                <button
+                  className="btn btn-outline-primary"
+                  onClick={() => setSortDirection(prev => prev === 'desc' ? 'asc' : 'desc')}
+                  title="Cambiar orden"
+                >
+                  <i className={`bi bi-sort-down${sortDirection === 'asc' ? '-alt' : ''}`}></i>
+                  {sortDirection === 'desc' ? ' Más recientes primero' : ' Más antiguos primero'}
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -372,12 +492,22 @@ export default function AusenciasPage() {
             <i className="bi bi-list-check me-2"></i>
             Mis Ausencias
           </h5>
-          <span className="badge bg-light text-dark">
-            Total: {misAusencias.length}
-          </span>
+          <div className="d-flex align-items-center">
+            <button
+              className="btn btn-light btn-sm me-2"
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              title="Refrescar datos"
+            >
+              <i className={`bi bi-arrow-clockwise ${isRefreshing ? 'spin' : ''}`}></i>
+            </button>
+            <span className="badge bg-light text-dark">
+              Total: {misAusenciasFiltradas.length}
+            </span>
+          </div>
         </div>
         <div className="card-body">
-          {misAusencias.length === 0 ? (
+          {misAusenciasFiltradas.length === 0 ? (
             <div className="alert alert-info">
               <i className="bi bi-info-circle me-2"></i>
               No tienes ausencias registradas
