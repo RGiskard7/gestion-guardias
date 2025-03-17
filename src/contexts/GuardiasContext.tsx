@@ -231,6 +231,7 @@ interface GuardiasContextType {
   deleteAusencia: (id: number) => Promise<void>
   acceptAusencia: (ausenciaId: number, tipoGuardia: string, lugarId: number, observaciones?: string, tarea?: string) => Promise<number | null>
   rejectAusencia: (ausenciaId: number, motivo?: string) => Promise<void>
+  anularAusencia: (ausenciaId: number, motivo: string) => Promise<boolean>
   
   // Helper methods
   getProfesorAusenteIdByGuardia: (guardiaId: number) => number | null
@@ -286,6 +287,7 @@ const GuardiasContext = createContext<GuardiasContextType>({
   deleteAusencia: async () => {},
   acceptAusencia: async () => null,
   rejectAusencia: async () => {},
+  anularAusencia: async () => false,
 
   getProfesorAusenteIdByGuardia: () => null,
 })
@@ -878,6 +880,54 @@ export const GuardiasProvider: React.FC<GuardiasProviderProps> = ({ children }) 
     return ausencias.filter(a => a.estado === "Pendiente");
   }
 
+  // Función para anular una ausencia y su guardia asociada
+  const anularAusencia = async (ausenciaId: number, motivo: string): Promise<boolean> => {
+    try {
+      // Actualizar el estado de la ausencia a "Rechazada"
+      const success = await updateAusenciaService(ausenciaId, { 
+        estado: DB_CONFIG.ESTADOS_AUSENCIA.RECHAZADA, 
+        observaciones: `ANULADA: ${motivo}` 
+      });
+      
+      if (!success) {
+        throw new Error("No se pudo anular la ausencia");
+      }
+      
+      // Actualizar el estado local de la ausencia
+      setAusencias(ausencias.map(a => a.id === ausenciaId ? { 
+        ...a, 
+        estado: "Rechazada", 
+        observaciones: `ANULADA: ${motivo}` 
+      } : a));
+      
+      // Buscar si hay una guardia asociada a esta ausencia
+      const guardiaAsociada = guardias.find(g => g.ausenciaId === ausenciaId);
+      
+      // Si existe una guardia asociada, anularla también
+      if (guardiaAsociada) {
+        // Actualizar la guardia en la base de datos
+        const guardiaDB: Partial<GuardiaDB> = {
+          estado: DB_CONFIG.ESTADOS_GUARDIA.ANULADA,
+          observaciones: `Anulada por anulación de ausencia: ${motivo}`
+        };
+        
+        await updateGuardiaService(guardiaAsociada.id, guardiaDB);
+        
+        // Actualizar el estado local de la guardia
+        setGuardias(guardias.map(g => g.id === guardiaAsociada.id ? { 
+          ...g, 
+          estado: "Anulada", 
+          observaciones: `Anulada por anulación de ausencia: ${motivo}` 
+        } : g));
+      }
+      
+      return true;
+    } catch (error) {
+      console.error(`Error al anular ausencia con ID ${ausenciaId}:`, error);
+      return false;
+    }
+  }
+
   // Función para obtener el ID del profesor ausente a través de la ausencia relacionada
   const getProfesorAusenteIdByGuardia = (guardiaId: number): number | null => {
     const guardia = guardias.find(g => g.id === guardiaId);
@@ -938,6 +988,7 @@ export const GuardiasProvider: React.FC<GuardiasProviderProps> = ({ children }) 
         deleteAusencia,
         acceptAusencia,
         rejectAusencia,
+        anularAusencia,
 
         getProfesorAusenteIdByGuardia,
       }}

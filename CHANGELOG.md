@@ -2,6 +2,70 @@
 
 Este documento registra todos los cambios, mejoras y correcciones realizadas en el proyecto de Sistema de Gestión de Guardias.
 
+## [2025-03-18] - Documentación exhaustiva del sistema
+
+### Autor(es)
+- Equipo de Desarrollo
+
+### Cambios realizados
+- Creación de un manual de usuario exhaustivo que cubre todas las funcionalidades del sistema
+- Desarrollo de diagramas de flujo en formato Mermaid para visualizar los procesos principales
+- Actualización del README con enlaces a la nueva documentación
+- Mejora en la organización de la documentación del proyecto
+
+### Archivos creados
+- `MANUAL-USUARIO.md`: Manual completo con instrucciones detalladas para profesores y administradores
+- `doc/DIAGRAMAS-FLUJO.md`: Diagramas de flujo de todas las funcionalidades principales
+
+### Archivos modificados
+- `README.md`: Actualización de la sección de documentación adicional con enlaces a los nuevos documentos
+
+### Mejoras implementadas
+- Documentación detallada de todas las funcionalidades para profesores y administradores
+- Representación visual de los flujos de trabajo del sistema
+- Sección de preguntas frecuentes y solución de problemas en el manual de usuario
+- Instrucciones paso a paso para cada funcionalidad del sistema
+
+### Notas adicionales
+- El manual de usuario incluye indicaciones sobre dónde colocar capturas de pantalla para mejorar la comprensión
+- Los diagramas de flujo utilizan la sintaxis de Mermaid para una representación visual clara y mantenible
+- La documentación se ha estructurado de manera modular para facilitar futuras actualizaciones
+
+## [2025-03-17] - Mejoras en la gestión de ausencias para administradores
+
+### Autor(es)
+- Equipo de Desarrollo
+
+### Cambios realizados
+- Rediseño completo de la página de gestión de ausencias para administradores
+- Implementación de funcionalidad para ver todas las ausencias, no solo las pendientes
+- Adición de filtros por estado, profesor y fecha
+- Implementación de funcionalidad para crear nuevas ausencias desde la cuenta de administrador
+- Implementación de funcionalidad para editar ausencias existentes
+- Implementación de funcionalidad para anular ausencias y sus guardias asociadas
+- Mejora en la visualización de ausencias con indicadores visuales según su estado
+- Actualización de la navegación para reflejar los cambios en la gestión de ausencias
+
+### Archivos modificados
+- `app/admin/ausencias/page.tsx`: Nueva página para la gestión completa de ausencias
+- `app/admin/ausencias-pendientes/page.tsx`: Modificada para redirigir a la nueva página de ausencias
+- `components/common/Sidebar.tsx`: Actualización del enlace a la página de ausencias
+- `components/common/Navbar.tsx`: Actualización del menú móvil para incluir el enlace a la página de ausencias
+- `src/contexts/GuardiasContext.tsx`: Adición de la función `anularAusencia` para anular ausencias y sus guardias asociadas
+
+### Problemas resueltos
+- Limitación anterior que solo permitía ver ausencias pendientes
+- Falta de funcionalidad para crear ausencias desde la cuenta de administrador
+- Falta de funcionalidad para editar ausencias existentes
+- Falta de funcionalidad para anular ausencias y sus guardias asociadas
+- Inconsistencia en la navegación entre la barra lateral y el menú móvil
+
+### Notas adicionales
+- Se ha implementado un sistema de ordenación que muestra primero las ausencias pendientes
+- Se ha mejorado la experiencia de usuario con indicadores visuales durante procesos de carga
+- Se ha implementado una redirección desde la antigua página de ausencias pendientes a la nueva página de ausencias
+- Se ha mejorado el manejo de errores en las operaciones de gestión de ausencias
+
 ## [2025-03-16] - Implementación del modo oscuro y correcciones funcionales
 
 ### Autor(es)
@@ -112,59 +176,29 @@ Este documento registra todos los cambios, mejoras y correcciones realizadas en 
 - Se ha implementado un sistema de contextos en React para la gestión del estado global
 - La aplicación sigue una arquitectura de capas con separación clara de responsabilidades
 
-## [Unreleased]
-
-### Añadido
-- Nueva funcionalidad de gestión de ausencias:
-  - Separación del flujo de ausencias y guardias.
-  - Nuevo servicio `ausenciasService.ts` para gestionar las ausencias.
-  - Nueva interfaz `Ausencia` en el contexto de guardias.
-  - Nueva página para que los profesores registren ausencias.
-  - Nueva página para que los administradores gestionen las ausencias pendientes.
-  - Actualización del menú de navegación para incluir la nueva página de ausencias pendientes.
-
-### Modificado
-- Actualización de `guardiasService.ts` para incluir el campo `ausencia_id` en la interfaz `Guardia`.
-- Actualización de `db-config.ts` para incluir la tabla de ausencias y sus estados.
-- Modificación del contexto de guardias para incluir las ausencias y sus operaciones CRUD.
-- Actualización de la página de ausencias del profesor para usar el nuevo servicio de ausencias.
-
-### Corregido
-- Corrección de errores de tipo en las páginas de ausencias.
-- Corrección del manejo del campo `tareas` en ausencias
-- Eliminación de campos inexistentes (`created_at` y `updated_at`) de la interfaz `Ausencia`
-- Mejora en la función `acceptAusencia` para usar el campo `tareas` de la ausencia si existe
-
-## [Sin publicar]
-
-### Añadido
-- Nueva funcionalidad de gestión de ausencias
-  - Separación de los flujos de ausencia y guardia
-  - Nuevo servicio `ausenciasService.ts` para gestionar ausencias
-  - Nueva interfaz `Ausencia` para tipado
-  - Nuevas páginas para profesores y administradores para gestionar ausencias
-- Nueva función `getProfesorAusenteIdByGuardia` para obtener el profesor ausente a través de la ausencia relacionada
-
-### Modificado
-- Actualización de `guardiasService.ts` para incluir campos y operaciones relacionadas con ausencias
-- Actualización de `db-config.ts` para incluir estados de ausencias
-- Actualización del contexto para integrar el nuevo servicio de ausencias
-- Actualización de páginas para integrar la gestión de ausencias
-- Cambio en la estructura de la tabla Guardias: eliminación del campo `profesor_ausente_id` y uso de `ausencia_id` para relacionar con la tabla Ausencias
-- Actualización de las vistas de guardias para mostrar correctamente el profesor ausente a través de la ausencia relacionada
-
-### Corregido
-- Corrección de errores de tipo en las páginas de ausencias
-- Corrección del manejo del campo `tareas` en ausencias
-- Eliminación de campos inexistentes (`created_at` y `updated_at`) de la interfaz `Ausencia`
-- Mejora en la función `acceptAusencia` para usar el campo `tareas` de la ausencia si existe
-- Corrección de las políticas RLS en Supabase para la tabla Ausencias
-- Actualización de las funciones de mapeo para reflejar la estructura real de las tablas
-- Corrección de la visualización del profesor ausente en las guardias creadas a partir de ausencias
-
 ## [1.0.0] - 2023-11-01
 
 ### Añadido
 - Versión inicial del sistema de gestión de guardias
 - Funcionalidad básica para profesores y administradores
-- Sistema de autenticación y autorización 
+- Sistema de autenticación y autorización
+
+## [2023-11-15] - Actualización de documentación del proyecto
+
+### Autor(es)
+- Equipo de desarrollo
+
+### Cambios realizados
+- Actualización completa del README.md para reflejar el estado actual del proyecto
+- Corrección de información desactualizada sobre la estructura de la base de datos
+- Actualización de la descripción de funcionalidades, incluyendo la gestión de ausencias
+- Actualización de la estructura del proyecto para reflejar los cambios recientes
+- Mejora de la sección de tecnologías utilizadas
+
+### Archivos modificados
+- `README.md`: Actualización completa del contenido para reflejar el estado actual del proyecto
+
+### Notas adicionales
+- La documentación ahora refleja correctamente la migración de Tailwind CSS a Bootstrap
+- Se ha añadido información sobre la gestión de ausencias como funcionalidad independiente
+- Se ha actualizado la estructura de la base de datos para incluir la tabla de Ausencias 
