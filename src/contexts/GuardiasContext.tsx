@@ -235,6 +235,7 @@ interface GuardiasContextType {
   
   // Helper methods
   getProfesorAusenteIdByGuardia: (guardiaId: number) => number | null
+  refreshAusencias: () => Promise<void>
 }
 
 // Create context with default values
@@ -290,6 +291,7 @@ const GuardiasContext = createContext<GuardiasContextType>({
   anularAusencia: async () => false,
 
   getProfesorAusenteIdByGuardia: () => null,
+  refreshAusencias: async () => {},
 })
 
 interface GuardiasProviderProps {
@@ -308,43 +310,43 @@ export const GuardiasProvider: React.FC<GuardiasProviderProps> = ({ children }) 
   const [tareasGuardia, setTareasGuardia] = useState<TareaGuardia[]>([])
   const [ausencias, setAusencias] = useState<Ausencia[]>([])
 
-  // Función para cargar todos los datos desde Supabase
-  const loadAllData = async () => {
-    setLoading(true)
-    try {
-      // Cargar usuarios
-      const usuariosData = await getUsuarios()
-      setUsuarios(usuariosData.map(mapUsuarioFromDB))
-
-      // Cargar horarios
-      const horariosData = await getHorarios()
-      setHorarios(horariosData.map(mapHorarioFromDB))
-
-      // Cargar lugares
-      const lugaresData = await getLugares()
-      setLugares(lugaresData.map(mapLugarFromDB))
-
-      // Cargar guardias
-      const guardiasData = await getAllGuardias()
-      setGuardias(guardiasData.map(mapGuardiaFromDB))
-
-      // Cargar tareas de guardia
-      const tareasData = await getTareasGuardia()
-      setTareasGuardia(tareasData.map(mapTareaGuardiaFromDB))
-
-      // Cargar ausencias
-      const ausenciasData = await getAllAusencias()
-      setAusencias(ausenciasData.map(mapAusenciaFromDB))
-    } catch (error) {
-      console.error("Error al cargar datos:", error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  // Cargar datos al montar el componente
+  // Load initial data
   useEffect(() => {
-    loadAllData()
+    const loadData = async () => {
+      setLoading(true)
+      try {
+        // Load all data in parallel
+        const [
+          guardiasData,
+          usuariosData,
+          horariosData,
+          lugaresData,
+          tareasGuardiaData,
+          ausenciasData
+        ] = await Promise.all([
+          getAllGuardias(),
+          getUsuarios(),
+          getHorarios(),
+          getLugares(),
+          getTareasGuardia(),
+          getAllAusencias()
+        ])
+
+        // Map data to internal types
+        setGuardias(guardiasData.map(mapGuardiaFromDB))
+        setUsuarios(usuariosData.map(mapUsuarioFromDB))
+        setHorarios(horariosData.map(mapHorarioFromDB))
+        setLugares(lugaresData.map(mapLugarFromDB))
+        setTareasGuardia(tareasGuardiaData.map(mapTareaGuardiaFromDB))
+        setAusencias(ausenciasData.map(mapAusenciaFromDB))
+      } catch (error) {
+        console.error("Error loading data:", error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadData()
   }, [])
 
   // CRUD operations for usuarios
@@ -539,17 +541,6 @@ export const GuardiasProvider: React.FC<GuardiasProviderProps> = ({ children }) 
 
   const updateGuardia = async (id: number, guardia: Partial<Guardia>) => {
     try {
-      // Verificar si se está quitando el profesor cubridor
-      const guardiaActual = guardias.find(g => g.id === id);
-      const quitandoProfesorCubridor = guardiaActual && 
-                                      guardiaActual.profesorCubridorId !== null && 
-                                      guardia.profesorCubridorId === null;
-      
-      // Si se está quitando el profesor cubridor y el estado no es "Anulada", cambiar a "Pendiente"
-      if (quitandoProfesorCubridor && guardiaActual?.estado !== "Anulada") {
-        guardia.estado = "Pendiente";
-      }
-      
       // Convertir al formato de la base de datos
       const guardiaDB: Partial<GuardiaDB> = {}
       if (guardia.fecha !== undefined) guardiaDB.fecha = guardia.fecha
@@ -759,7 +750,39 @@ export const GuardiasProvider: React.FC<GuardiasProviderProps> = ({ children }) 
 
   // Función para recargar todos los datos
   const refreshData = async () => {
-    await loadAllData()
+    const loadData = async () => {
+      setLoading(true)
+      try {
+        const [
+          guardiasData,
+          usuariosData,
+          horariosData,
+          lugaresData,
+          tareasGuardiaData,
+          ausenciasData
+        ] = await Promise.all([
+          getAllGuardias(),
+          getUsuarios(),
+          getHorarios(),
+          getLugares(),
+          getTareasGuardia(),
+          getAllAusencias()
+        ])
+
+        setGuardias(guardiasData.map(mapGuardiaFromDB))
+        setUsuarios(usuariosData.map(mapUsuarioFromDB))
+        setHorarios(horariosData.map(mapHorarioFromDB))
+        setLugares(lugaresData.map(mapLugarFromDB))
+        setTareasGuardia(tareasGuardiaData.map(mapTareaGuardiaFromDB))
+        setAusencias(ausenciasData.map(mapAusenciaFromDB))
+      } catch (error) {
+        console.error("Error loading data:", error)
+      } finally {
+        setLoading(false)
+      }
+    }
+    
+    await loadData()
   }
 
   // CRUD operations for ausencias
@@ -937,6 +960,16 @@ export const GuardiasProvider: React.FC<GuardiasProviderProps> = ({ children }) 
     return ausencia ? ausencia.profesorId : null;
   }
 
+  // Función para refrescar solo las ausencias
+  const refreshAusencias = async () => {
+    try {
+      const ausenciasData = await getAllAusencias()
+      setAusencias(ausenciasData.map(mapAusenciaFromDB))
+    } catch (error) {
+      console.error("Error al refrescar ausencias:", error)
+    }
+  }
+
   return (
     <GuardiasContext.Provider
       value={{
@@ -991,6 +1024,7 @@ export const GuardiasProvider: React.FC<GuardiasProviderProps> = ({ children }) 
         anularAusencia,
 
         getProfesorAusenteIdByGuardia,
+        refreshAusencias,
       }}
     >
       {children}

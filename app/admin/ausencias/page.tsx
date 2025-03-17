@@ -17,17 +17,19 @@ export default function AusenciasPage() {
     rejectAusencia,
     anularGuardia, 
     getUsuarioById,
-    anularAusencia
+    anularAusencia,
+    refreshAusencias
   } = useGuardias()
 
   // Estado para el formulario
-  const [formData, setFormData] = useState<Omit<Ausencia, "id"> & { tarea?: string }>({
+  const [formData, setFormData] = useState<Omit<Ausencia, "id"> & { tarea?: string, tramosHorarios: string[] }>({
     profesorId: 0,
     fecha: new Date().toISOString().split("T")[0],
     tramoHorario: "",
     estado: "Pendiente",
     observaciones: "",
     tarea: "",
+    tramosHorarios: [],
   })
 
   // Estado para el formulario de aceptación
@@ -42,11 +44,13 @@ export default function AusenciasPage() {
   const [editingId, setEditingId] = useState<number | null>(null)
   const [processingAusenciaId, setProcessingAusenciaId] = useState<number | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isRefreshing, setIsRefreshing] = useState(false)
   const [showForm, setShowForm] = useState(false)
   const [showAcceptForm, setShowAcceptForm] = useState(false)
   const [filterProfesor, setFilterProfesor] = useState<number | null>(null)
   const [filterFecha, setFilterFecha] = useState<string>("")
   const [filterEstado, setFilterEstado] = useState<string>("")
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc')
 
   // Tramos horarios
   const tramosHorarios = ["1ª hora", "2ª hora", "3ª hora", "4ª hora", "5ª hora", "6ª hora"]
@@ -81,14 +85,19 @@ export default function AusenciasPage() {
       return true
     })
     .sort((a, b) => {
-      // Ordenar primero por estado (Pendiente primero)
-      if (a.estado !== b.estado) {
+      // Ordenar por fecha según la dirección seleccionada
+      const dateComparison = sortDirection === 'desc' 
+        ? new Date(b.fecha).getTime() - new Date(a.fecha).getTime()
+        : new Date(a.fecha).getTime() - new Date(b.fecha).getTime()
+
+      // Si las fechas son iguales, ordenar por estado (Pendiente primero)
+      if (dateComparison === 0) {
         if (a.estado === "Pendiente") return -1
         if (b.estado === "Pendiente") return 1
+        return 0
       }
-      
-      // Luego por fecha (más reciente primero)
-      return new Date(b.fecha).getTime() - new Date(a.fecha).getTime()
+
+      return dateComparison
     })
 
   // Estado para la paginación
@@ -115,6 +124,7 @@ export default function AusenciasPage() {
       estado: "Pendiente",
       observaciones: "",
       tarea: "",
+      tramosHorarios: [],
     })
     setEditingId(null)
     setShowForm(false)
@@ -136,10 +146,36 @@ export default function AusenciasPage() {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target
     
-    setFormData(prev => ({
-      ...prev,
-      [name]: name === "profesorId" ? Number(value) : value
-    }))
+    if (type === "checkbox") {
+      const checkbox = e.target as HTMLInputElement
+      const isChecked = checkbox.checked
+      const tramoHorario = checkbox.value
+
+      if (tramoHorario === "todo-el-dia") {
+        // Si se marca "Todo el día", seleccionar todos los tramos
+        // Si se desmarca, deseleccionar todos los tramos
+        setFormData(prev => ({
+          ...prev,
+          tramosHorarios: isChecked ? [...tramosHorarios] : []
+        }))
+      } else {
+        setFormData(prev => {
+          const tramosHorarios = isChecked
+            ? [...prev.tramosHorarios, tramoHorario]
+            : prev.tramosHorarios.filter(t => t !== tramoHorario)
+
+          return {
+            ...prev,
+            tramosHorarios
+          }
+        })
+      }
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [name]: name === "profesorId" ? Number(value) : value
+      }))
+    }
   }
 
   // Handle accept form change
@@ -161,6 +197,7 @@ export default function AusenciasPage() {
       estado: ausencia.estado,
       observaciones: ausencia.observaciones,
       tarea: ausencia.tareas,
+      tramosHorarios: [ausencia.tramoHorario],
     })
     setEditingId(ausencia.id)
     setShowForm(true)
@@ -177,6 +214,18 @@ export default function AusenciasPage() {
     }))
   }
 
+  // Función para refrescar los datos
+  const handleRefresh = async () => {
+    setIsRefreshing(true)
+    try {
+      await refreshAusencias()
+    } catch (error) {
+      console.error("Error al refrescar los datos:", error)
+    } finally {
+      setIsRefreshing(false)
+    }
+  }
+
   // Manejar envío del formulario
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -185,17 +234,33 @@ export default function AusenciasPage() {
     try {
       if (editingId) {
         // Actualizar ausencia existente
-        const { tarea, ...ausenciaData } = formData
+        const { tarea, tramosHorarios, ...ausenciaData } = formData
         await updateAusencia(editingId, ausenciaData)
         alert("Ausencia actualizada correctamente")
       } else {
-        // Crear nueva ausencia
-        const newAusenciaId = await addAusencia(formData, formData.tarea)
-        if (newAusenciaId) {
-          alert("Ausencia creada correctamente")
-        } else {
-          alert("Error al crear la ausencia")
+        // Crear una ausencia por cada tramo horario seleccionado
+        for (const tramoHorario of formData.tramosHorarios) {
+          const ausenciaData = {
+            profesorId: formData.profesorId,
+            fecha: formData.fecha,
+            tramoHorario,
+            estado: formData.estado,
+            observaciones: formData.observaciones,
+          }
+
+          const newAusenciaId = await addAusencia(ausenciaData, formData.tarea)
+          if (!newAusenciaId) {
+            alert(`Error al crear la ausencia para el tramo ${tramoHorario}`)
+            break
+          }
+          
+          // Pequeña pausa para evitar problemas de concurrencia
+          await new Promise(resolve => setTimeout(resolve, 100))
         }
+
+        // Refrescar los datos después de crear todas las ausencias
+        await handleRefresh()
+        alert("Ausencias creadas correctamente")
       }
       resetForm()
     } catch (error) {
@@ -321,6 +386,15 @@ export default function AusenciasPage() {
 
   return (
     <div className="container-fluid">
+      <style jsx>{`
+        .spin {
+          animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
       <h1 className="h3 mb-4">Gestión de Ausencias</h1>
       
       <div className="row mb-4">
@@ -374,7 +448,7 @@ export default function AusenciasPage() {
                   </select>
                 </div>
               </div>
-              <div className="d-flex justify-content-end">
+              <div className="d-flex justify-content-between align-items-center">
                 <button 
                   className="btn btn-outline-secondary"
                   onClick={() => {
@@ -384,6 +458,14 @@ export default function AusenciasPage() {
                   }}
                 >
                   <i className="bi bi-x-circle me-2"></i>Limpiar filtros
+                </button>
+                <button
+                  className="btn btn-outline-primary"
+                  onClick={() => setSortDirection(prev => prev === 'desc' ? 'asc' : 'desc')}
+                  title="Cambiar orden"
+                >
+                  <i className={`bi bi-sort-down${sortDirection === 'asc' ? '-alt' : ''}`}></i>
+                  {sortDirection === 'desc' ? ' Más recientes primero' : ' Más antiguos primero'}
                 </button>
               </div>
             </div>
@@ -449,25 +531,46 @@ export default function AusenciasPage() {
               </div>
               
               <div className="row">
-                <div className="col-md-6 mb-3">
-                  <label htmlFor="tramoHorario" className="form-label">Tramo Horario</label>
-                  <select
-                    className="form-select"
-                    id="tramoHorario"
-                    name="tramoHorario"
-                    value={formData.tramoHorario}
-                    onChange={handleChange}
-                    required
-                  >
-                    <option value="">Selecciona un tramo</option>
-                    {tramosHorarios.map(tramo => (
-                      <option key={tramo} value={tramo}>
-                        {tramo}
-                      </option>
-                    ))}
-                  </select>
+                <div className="col-md-12 mb-3">
+                  <label className="form-label">Tramos Horarios</label>
+                  <div className="border rounded p-3">
+                    <div className="form-check mb-2 border-bottom pb-2">
+                      <input
+                        className="form-check-input"
+                        type="checkbox"
+                        id="todo-el-dia"
+                        name="tramosHorarios"
+                        value="todo-el-dia"
+                        checked={formData.tramosHorarios.length === tramosHorarios.length}
+                        onChange={handleChange}
+                      />
+                      <label className="form-check-label" htmlFor="todo-el-dia">
+                        <strong>Todo el día</strong>
+                      </label>
+                    </div>
+                    <div className="row">
+                      {tramosHorarios.map(tramo => (
+                        <div className="col-md-4" key={tramo}>
+                          <div className="form-check">
+                            <input
+                              className="form-check-input"
+                              type="checkbox"
+                              id={`tramo-${tramo}`}
+                              name="tramosHorarios"
+                              value={tramo}
+                              checked={formData.tramosHorarios.includes(tramo)}
+                              onChange={handleChange}
+                            />
+                            <label className="form-check-label" htmlFor={`tramo-${tramo}`}>
+                              {tramo}
+                            </label>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
-                <div className="col-md-6 mb-3">
+                <div className="col-md-12 mb-3">
                   <label htmlFor="estado" className="form-label">Estado</label>
                   <select
                     className="form-select"
@@ -627,9 +730,24 @@ export default function AusenciasPage() {
       )}
 
       <div className="card shadow-sm">
-        <div className="card-header bg-primary text-white">
-          <i className="bi bi-calendar-check me-2"></i>Ausencias
-          <span className="badge bg-light text-dark ms-2">{ausenciasFiltradas.length}</span>
+        <div className="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+          <div className="d-flex align-items-center">
+            <i className="bi bi-calendar-check me-2"></i>
+            <h5 className="mb-0">Ausencias</h5>
+          </div>
+          <div className="d-flex align-items-center">
+            <button
+              className="btn btn-light btn-sm me-2"
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              title="Refrescar datos"
+            >
+              <i className={`bi bi-arrow-clockwise ${isRefreshing ? 'spin' : ''}`}></i>
+            </button>
+            <span className="badge bg-light text-dark">
+              Total: {ausenciasFiltradas.length}
+            </span>
+          </div>
         </div>
         <div className="card-body">
           {ausenciasFiltradas.length === 0 ? (
