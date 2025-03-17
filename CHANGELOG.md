@@ -31,6 +31,54 @@ Este documento registra todos los cambios, mejoras y correcciones realizadas en 
 - Los diagramas de flujo utilizan la sintaxis de Mermaid para una representación visual clara y mantenible
 - La documentación se ha estructurado de manera modular para facilitar futuras actualizaciones
 
+## [2025-03-18] - Reorganización de la documentación del proyecto
+
+### Autor(es)
+- Equipo de Desarrollo
+
+### Cambios realizados
+- Reorganización de los archivos de documentación, moviendo la mayoría a la carpeta `doc/`
+- Actualización de todos los enlaces en el README.md para reflejar la nueva ubicación de los archivos
+- Mejora en la estructura general del proyecto, manteniendo solo README.md y CHANGELOG.md en la raíz
+
+### Archivos movidos
+- `MANUAL-USUARIO.md` → `doc/MANUAL-USUARIO.md`
+- `CONFIGURACION-SUPABASE.md` → `doc/CONFIGURACION-SUPABASE.md`
+- `INSTRUCCIONES-PRUEBA.md` → `doc/INSTRUCCIONES-PRUEBA.md`
+- `README-SUPABASE.md` → `doc/README-SUPABASE.md`
+
+### Archivos modificados
+- `README.md`: Actualización de todos los enlaces a los archivos de documentación
+
+### Mejoras implementadas
+- Estructura de proyecto más limpia y profesional
+- Mejor organización de la documentación en una carpeta dedicada
+- Mantenimiento de las convenciones estándar de mantener README.md y CHANGELOG.md en la raíz
+
+### Notas adicionales
+- Esta reorganización facilita el mantenimiento futuro de la documentación
+- La estructura actual sigue las mejores prácticas de la industria para proyectos profesionales
+
+## [2025-03-17] - Actualización de documentación del proyecto
+
+### Autor(es)
+- Equipo de desarrollo
+
+### Cambios realizados
+- Actualización completa del README.md para reflejar el estado actual del proyecto
+- Corrección de información desactualizada sobre la estructura de la base de datos
+- Actualización de la descripción de funcionalidades, incluyendo la gestión de ausencias
+- Actualización de la estructura del proyecto para reflejar los cambios recientes
+- Mejora de la sección de tecnologías utilizadas
+
+### Archivos modificados
+- `README.md`: Actualización completa del contenido para reflejar el estado actual del proyecto
+
+### Notas adicionales
+- La documentación ahora refleja correctamente la migración de Tailwind CSS a Bootstrap
+- Se ha añadido información sobre la gestión de ausencias como funcionalidad independiente
+- Se ha actualizado la estructura de la base de datos para incluir la tabla de Ausencias
+
 ## [2025-03-17] - Mejoras en la gestión de ausencias para administradores
 
 ### Autor(es)
@@ -176,29 +224,9 @@ Este documento registra todos los cambios, mejoras y correcciones realizadas en 
 - Se ha implementado un sistema de contextos en React para la gestión del estado global
 - La aplicación sigue una arquitectura de capas con separación clara de responsabilidades
 
-## [1.0.0] - 2023-11-01
+## [1.0.0]
 
 ### Añadido
 - Versión inicial del sistema de gestión de guardias
 - Funcionalidad básica para profesores y administradores
-- Sistema de autenticación y autorización
-
-## [2023-11-15] - Actualización de documentación del proyecto
-
-### Autor(es)
-- Equipo de desarrollo
-
-### Cambios realizados
-- Actualización completa del README.md para reflejar el estado actual del proyecto
-- Corrección de información desactualizada sobre la estructura de la base de datos
-- Actualización de la descripción de funcionalidades, incluyendo la gestión de ausencias
-- Actualización de la estructura del proyecto para reflejar los cambios recientes
-- Mejora de la sección de tecnologías utilizadas
-
-### Archivos modificados
-- `README.md`: Actualización completa del contenido para reflejar el estado actual del proyecto
-
-### Notas adicionales
-- La documentación ahora refleja correctamente la migración de Tailwind CSS a Bootstrap
-- Se ha añadido información sobre la gestión de ausencias como funcionalidad independiente
-- Se ha actualizado la estructura de la base de datos para incluir la tabla de Ausencias 
+- Sistema de autenticación y autorización 
