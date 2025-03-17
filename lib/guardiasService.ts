@@ -12,8 +12,8 @@ export interface Guardia {
   observaciones?: string;
   motivo_incidencia?: string;
   lugar_id: number;
-  profesor_ausente_id?: number;
   profesor_cubridor_id?: number;
+  ausencia_id?: number;
 }
 
 export interface Lugar {
@@ -123,16 +123,35 @@ export async function getGuardiasByFecha(fecha: string): Promise<Guardia[]> {
   }
 }
 
-// Obtener guardias por profesor ausente
+// Obtener guardias por profesor ausente (a través de ausencias)
 export async function getGuardiasByProfesorAusente(profesorId: number): Promise<Guardia[]> {
   try {
+    // Primero obtenemos las ausencias del profesor
+    const { data: ausencias, error: ausenciasError } = await supabase
+      .from(getTableName('AUSENCIAS'))
+      .select('id')
+      .eq('profesor_id', profesorId);
+
+    if (ausenciasError) {
+      console.error(`Error al obtener ausencias del profesor ${profesorId}:`, ausenciasError);
+      throw ausenciasError;
+    }
+
+    if (!ausencias || ausencias.length === 0) {
+      return []; // No hay ausencias, por lo tanto no hay guardias
+    }
+
+    // Obtenemos los IDs de las ausencias
+    const ausenciaIds = ausencias.map(a => a.id);
+
+    // Ahora buscamos guardias que tengan esos ausencia_id
     const { data, error } = await supabase
       .from(getTableName('GUARDIAS'))
       .select('*')
-      .eq('profesor_ausente_id', profesorId);
+      .in('ausencia_id', ausenciaIds);
 
     if (error) {
-      console.error(`Error al obtener guardias del profesor ausente ${profesorId}:`, error);
+      console.error(`Error al obtener guardias relacionadas con ausencias del profesor ${profesorId}:`, error);
       throw error;
     }
 

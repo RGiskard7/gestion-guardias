@@ -40,6 +40,11 @@ const Sidebar: React.FC<SidebarProps> = ({ role }) => {
               </Link>
             </li>
             <li className="nav-item">
+              <Link className="nav-link text-white" href="/admin/ausencias-pendientes">
+                <i className="bi bi-exclamation-circle me-2"></i>Ausencias Pendientes
+              </Link>
+            </li>
+            <li className="nav-item">
               <Link className="nav-link text-white" href="/admin/estadisticas">
                 <i className="bi bi-bar-chart me-2"></i>Estadísticas
               </Link>

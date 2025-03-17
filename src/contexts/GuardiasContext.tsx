@@ -8,6 +8,7 @@ import { getUsuarios, getUsuarioById as fetchUsuarioById, getUsuarioByEmail, cre
 import { getHorarios, getHorariosByProfesor as fetchHorariosByProfesor, createHorario, updateHorario as updateHorarioService, deleteHorario as deleteHorarioService, type Horario as HorarioDB } from "@/lib/horariosService"
 import { getLugares, getLugarById as fetchLugarById, createLugar, updateLugar as updateLugarService, deleteLugar as deleteLugarService, type Lugar as LugarDB } from "@/lib/lugaresService"
 import { getTareasGuardia, getTareasByGuardia as fetchTareasByGuardia, createTareaGuardia, updateTareaGuardia as updateTareaGuardiaService, deleteTareaGuardia as deleteTareaGuardiaService, type TareaGuardia as TareaGuardiaDB } from "@/lib/tareasGuardiaService"
+import { getAllAusencias, getAusenciaById, getAusenciasByProfesor, getAusenciasByEstado, getAusenciasPendientes, createAusencia as createAusenciaService, updateAusencia as updateAusenciaService, deleteAusencia as deleteAusenciaService, acceptAusencia as acceptAusenciaService, rejectAusencia as rejectAusenciaService, type Ausencia as AusenciaDB } from "@/lib/ausenciasService"
 import { DB_CONFIG } from "@/lib/db-config"
 
 // Define types adaptados para mantener compatibilidad con el código existente
@@ -42,14 +43,24 @@ export interface Guardia {
   estado: "Pendiente" | "Asignada" | "Firmada" | "Anulada"
   observaciones: string
   lugarId: number
-  profesorAusenteId: number | null
   profesorCubridorId: number | null
+  ausenciaId?: number
 }
 
 export interface TareaGuardia {
   id: number
   guardiaId: number
   descripcionTarea: string
+}
+
+export interface Ausencia {
+  id: number
+  profesorId: number
+  fecha: string
+  tramoHorario: string
+  estado: "Pendiente" | "Aceptada" | "Rechazada"
+  observaciones: string
+  tareas?: string
 }
 
 // Funciones de mapeo entre los tipos de la base de datos y los tipos del contexto
@@ -107,8 +118,8 @@ function mapGuardiaFromDB(guardia: GuardiaDB): Guardia {
     estado: guardia.estado as "Pendiente" | "Asignada" | "Firmada" | "Anulada",
     observaciones: guardia.observaciones || "",
     lugarId: guardia.lugar_id,
-    profesorAusenteId: guardia.profesor_ausente_id || null,
-    profesorCubridorId: guardia.profesor_cubridor_id || null
+    profesorCubridorId: guardia.profesor_cubridor_id || null,
+    ausenciaId: guardia.ausencia_id
   }
 }
 
@@ -121,8 +132,8 @@ function mapGuardiaToDB(guardia: Omit<Guardia, "id">): Omit<GuardiaDB, "id"> {
     estado: guardia.estado,
     observaciones: guardia.observaciones,
     lugar_id: guardia.lugarId,
-    profesor_ausente_id: guardia.profesorAusenteId === null ? undefined : guardia.profesorAusenteId,
-    profesor_cubridor_id: guardia.profesorCubridorId === null ? undefined : guardia.profesorCubridorId
+    profesor_cubridor_id: guardia.profesorCubridorId === null ? undefined : guardia.profesorCubridorId,
+    ausencia_id: guardia.ausenciaId
   }
 }
 
@@ -141,6 +152,29 @@ function mapTareaGuardiaToDB(tarea: Omit<TareaGuardia, "id">): Omit<TareaGuardia
   }
 }
 
+function mapAusenciaFromDB(ausencia: AusenciaDB): Ausencia {
+  return {
+    id: ausencia.id,
+    profesorId: ausencia.profesor_id,
+    fecha: ausencia.fecha,
+    tramoHorario: ausencia.tramo_horario,
+    estado: ausencia.estado as "Pendiente" | "Aceptada" | "Rechazada",
+    observaciones: ausencia.observaciones || "",
+    tareas: ausencia.tareas
+  }
+}
+
+function mapAusenciaToDB(ausencia: Omit<Ausencia, "id">): Omit<AusenciaDB, "id"> {
+  return {
+    profesor_id: ausencia.profesorId,
+    fecha: ausencia.fecha,
+    tramo_horario: ausencia.tramoHorario,
+    estado: ausencia.estado,
+    observaciones: ausencia.observaciones,
+    tareas: ausencia.tareas
+  }
+}
+
 // Define context type
 interface GuardiasContextType {
   usuarios: Usuario[]
@@ -148,6 +182,7 @@ interface GuardiasContextType {
   lugares: Lugar[]
   guardias: Guardia[]
   tareasGuardia: TareaGuardia[]
+  ausencias: Ausencia[]
   loading: boolean
 
   // CRUD operations for usuarios
@@ -187,6 +222,18 @@ interface GuardiasContextType {
   getTareasByGuardia: (guardiaId: number) => TareaGuardia[]
   canProfesorAsignarGuardia: (guardiaId: number, profesorId: number) => boolean
   refreshData: () => Promise<void>
+
+  // Ausencias methods
+  getAusenciasByProfesor: (profesorId: number) => Ausencia[]
+  getAusenciasPendientes: () => Ausencia[]
+  addAusencia: (ausencia: Omit<Ausencia, "id">, tarea?: string) => Promise<number | null>
+  updateAusencia: (id: number, ausencia: Partial<Ausencia>) => Promise<void>
+  deleteAusencia: (id: number) => Promise<void>
+  acceptAusencia: (ausenciaId: number, tipoGuardia: string, lugarId: number, observaciones?: string, tarea?: string) => Promise<number | null>
+  rejectAusencia: (ausenciaId: number, motivo?: string) => Promise<void>
+  
+  // Helper methods
+  getProfesorAusenteIdByGuardia: (guardiaId: number) => number | null
 }
 
 // Create context with default values
@@ -196,6 +243,7 @@ const GuardiasContext = createContext<GuardiasContextType>({
   lugares: [],
   guardias: [],
   tareasGuardia: [],
+  ausencias: [],
   loading: true,
 
   addUsuario: async () => ({ success: false }),
@@ -230,6 +278,16 @@ const GuardiasContext = createContext<GuardiasContextType>({
   getTareasByGuardia: () => [],
   canProfesorAsignarGuardia: () => false,
   refreshData: async () => {},
+
+  getAusenciasByProfesor: () => [],
+  getAusenciasPendientes: () => [],
+  addAusencia: async () => null,
+  updateAusencia: async () => {},
+  deleteAusencia: async () => {},
+  acceptAusencia: async () => null,
+  rejectAusencia: async () => {},
+
+  getProfesorAusenteIdByGuardia: () => null,
 })
 
 interface GuardiasProviderProps {
@@ -246,6 +304,7 @@ export const GuardiasProvider: React.FC<GuardiasProviderProps> = ({ children }) 
   const [lugares, setLugares] = useState<Lugar[]>([])
   const [guardias, setGuardias] = useState<Guardia[]>([])
   const [tareasGuardia, setTareasGuardia] = useState<TareaGuardia[]>([])
+  const [ausencias, setAusencias] = useState<Ausencia[]>([])
 
   // Función para cargar todos los datos desde Supabase
   const loadAllData = async () => {
@@ -270,6 +329,10 @@ export const GuardiasProvider: React.FC<GuardiasProviderProps> = ({ children }) 
       // Cargar tareas de guardia
       const tareasData = await getTareasGuardia()
       setTareasGuardia(tareasData.map(mapTareaGuardiaFromDB))
+
+      // Cargar ausencias
+      const ausenciasData = await getAllAusencias()
+      setAusencias(ausenciasData.map(mapAusenciaFromDB))
     } catch (error) {
       console.error("Error al cargar datos:", error)
     } finally {
@@ -494,9 +557,6 @@ export const GuardiasProvider: React.FC<GuardiasProviderProps> = ({ children }) 
       if (guardia.estado !== undefined) guardiaDB.estado = guardia.estado
       if (guardia.observaciones !== undefined) guardiaDB.observaciones = guardia.observaciones
       if (guardia.lugarId !== undefined) guardiaDB.lugar_id = guardia.lugarId
-      if (guardia.profesorAusenteId !== undefined) {
-        guardiaDB.profesor_ausente_id = guardia.profesorAusenteId === null ? undefined : guardia.profesorAusenteId
-      }
       if (guardia.profesorCubridorId !== undefined) {
         guardiaDB.profesor_cubridor_id = guardia.profesorCubridorId === null ? undefined : guardia.profesorCubridorId
       }
@@ -624,7 +684,7 @@ export const GuardiasProvider: React.FC<GuardiasProviderProps> = ({ children }) 
   }
 
   const getGuardiasByProfesor = (profesorId: number): Guardia[] => {
-    return guardias.filter(g => g.profesorAusenteId === profesorId || g.profesorCubridorId === profesorId)
+    return guardias.filter(g => g.profesorCubridorId === profesorId)
   }
 
   const getLugarById = (id: number): Lugar | undefined => {
@@ -700,6 +760,133 @@ export const GuardiasProvider: React.FC<GuardiasProviderProps> = ({ children }) 
     await loadAllData()
   }
 
+  // CRUD operations for ausencias
+  const addAusencia = async (ausencia: Omit<Ausencia, "id">, tarea?: string): Promise<number | null> => {
+    try {
+      console.log('Añadiendo ausencia:', ausencia);
+      
+      // Si hay tarea, incluirla en el objeto ausencia
+      const ausenciaConTarea = tarea 
+        ? { ...ausencia, tareas: tarea }
+        : ausencia;
+      
+      // Convertir al formato de la base de datos
+      const ausenciaDB = mapAusenciaToDB(ausenciaConTarea);
+      
+      console.log('Ausencia mapeada para la BD:', ausenciaDB);
+
+      // Usar el servicio para crear la ausencia
+      const newAusencia = await createAusenciaService(ausenciaDB);
+      
+      if (newAusencia) {
+        const mappedAusencia = mapAusenciaFromDB(newAusencia);
+        setAusencias([...ausencias, mappedAusencia]);
+        
+        return mappedAusencia.id;
+      }
+      
+      return null;
+    } catch (error) {
+      console.error("Error al añadir ausencia:", error);
+      return null;
+    }
+  }
+
+  const updateAusencia = async (id: number, ausencia: Partial<Ausencia>) => {
+    try {
+      // Convertir al formato de la base de datos
+      const ausenciaDB: Partial<AusenciaDB> = {}
+      if (ausencia.profesorId !== undefined) ausenciaDB.profesor_id = ausencia.profesorId
+      if (ausencia.fecha !== undefined) ausenciaDB.fecha = ausencia.fecha
+      if (ausencia.tramoHorario !== undefined) ausenciaDB.tramo_horario = ausencia.tramoHorario
+      if (ausencia.estado !== undefined) ausenciaDB.estado = ausencia.estado
+      if (ausencia.observaciones !== undefined) ausenciaDB.observaciones = ausencia.observaciones
+
+      // Usar el servicio para actualizar la ausencia
+      const success = await updateAusenciaService(id, ausenciaDB)
+      if (success) {
+        // Actualizar el estado local
+        setAusencias(ausencias.map(a => a.id === id ? { ...a, ...ausencia } : a))
+      }
+    } catch (error) {
+      console.error(`Error al actualizar ausencia con ID ${id}:`, error)
+    }
+  }
+
+  const deleteAusencia = async (id: number) => {
+    try {
+      // Usar el servicio para eliminar la ausencia
+      const success = await deleteAusenciaService(id);
+      if (success) {
+        // Actualizar el estado local
+        setAusencias(ausencias.filter(a => a.id !== id));
+      }
+    } catch (error) {
+      console.error(`Error al eliminar ausencia con ID ${id}:`, error);
+    }
+  }
+
+  const acceptAusencia = async (ausenciaId: number, tipoGuardia: string, lugarId: number, observaciones?: string, tarea?: string): Promise<number | null> => {
+    try {
+      // Usar el servicio para aceptar la ausencia y crear la guardia
+      const newGuardia = await acceptAusenciaService(ausenciaId, tipoGuardia, lugarId, observaciones, tarea);
+      
+      if (newGuardia) {
+        // Actualizar el estado de la ausencia localmente
+        const ausenciaActualizada = ausencias.find(a => a.id === ausenciaId);
+        if (ausenciaActualizada) {
+          updateAusencia(ausenciaId, { estado: "Aceptada" });
+        }
+        
+        // Añadir la nueva guardia al estado local
+        const mappedGuardia = mapGuardiaFromDB(newGuardia);
+        setGuardias([...guardias, mappedGuardia]);
+        
+        return mappedGuardia.id;
+      }
+      
+      return null;
+    } catch (error) {
+      console.error(`Error al aceptar ausencia con ID ${ausenciaId}:`, error);
+      return null;
+    }
+  }
+
+  const rejectAusencia = async (ausenciaId: number, motivo?: string) => {
+    try {
+      // Usar el servicio para rechazar la ausencia
+      const success = await rejectAusenciaService(ausenciaId, motivo);
+      
+      if (success) {
+        // Actualizar el estado de la ausencia localmente
+        updateAusencia(ausenciaId, { 
+          estado: "Rechazada",
+          observaciones: motivo || ausencias.find(a => a.id === ausenciaId)?.observaciones || ""
+        });
+      }
+    } catch (error) {
+      console.error(`Error al rechazar ausencia con ID ${ausenciaId}:`, error);
+    }
+  }
+
+  // Funciones auxiliares para obtener ausencias
+  const getAusenciasByProfesor = (profesorId: number): Ausencia[] => {
+    return ausencias.filter(a => a.profesorId === profesorId);
+  }
+
+  const getAusenciasPendientes = (): Ausencia[] => {
+    return ausencias.filter(a => a.estado === "Pendiente");
+  }
+
+  // Función para obtener el ID del profesor ausente a través de la ausencia relacionada
+  const getProfesorAusenteIdByGuardia = (guardiaId: number): number | null => {
+    const guardia = guardias.find(g => g.id === guardiaId);
+    if (!guardia || !guardia.ausenciaId) return null;
+    
+    const ausencia = ausencias.find(a => a.id === guardia.ausenciaId);
+    return ausencia ? ausencia.profesorId : null;
+  }
+
   return (
     <GuardiasContext.Provider
       value={{
@@ -708,6 +895,7 @@ export const GuardiasProvider: React.FC<GuardiasProviderProps> = ({ children }) 
         lugares,
         guardias,
         tareasGuardia,
+        ausencias,
         loading,
 
         addUsuario,
@@ -741,7 +929,17 @@ export const GuardiasProvider: React.FC<GuardiasProviderProps> = ({ children }) 
         getHorariosByProfesor,
         getTareasByGuardia,
         canProfesorAsignarGuardia,
-        refreshData
+        refreshData,
+
+        getAusenciasByProfesor,
+        getAusenciasPendientes,
+        addAusencia,
+        updateAusencia,
+        deleteAusencia,
+        acceptAusencia,
+        rejectAusencia,
+
+        getProfesorAusenteIdByGuardia,
       }}
     >
       {children}

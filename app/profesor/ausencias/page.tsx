@@ -1,13 +1,13 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useGuardias, type Guardia, type Usuario } from "../../../src/contexts/GuardiasContext"
+import { useGuardias, type Ausencia } from "../../../src/contexts/GuardiasContext"
 import { useAuth } from "../../../src/contexts/AuthContext"
 import { Pagination } from "@/components/ui/pagination"
 
 export default function AusenciasPage() {
   const { user } = useAuth()
-  const { guardias, lugares, usuarios, addGuardia, addTareaGuardia, anularGuardia, getTareasByGuardia } = useGuardias()
+  const { ausencias, lugares, addAusencia, updateAusencia, deleteAusencia, getAusenciasByProfesor } = useGuardias()
 
   if (!user) return null
 
@@ -15,8 +15,6 @@ export default function AusenciasPage() {
   const [formData, setFormData] = useState({
     fecha: new Date().toISOString().split("T")[0],
     tramosHorarios: [] as string[],
-    tipoGuardia: "Aula",
-    lugarId: "",
     observaciones: "",
     tarea: "",
   })
@@ -28,12 +26,8 @@ export default function AusenciasPage() {
   // Tramos horarios
   const tramosHorariosOptions = ["1ª hora", "2ª hora", "3ª hora", "4ª hora", "5ª hora", "6ª hora"]
 
-  // Tipos de guardia
-  const tiposGuardia = ["Aula", "Patio", "Recreo"]
-
   // Get mis ausencias
-  const misAusencias = guardias
-    .filter((g) => g.profesorAusenteId === user.id)
+  const misAusencias = getAusenciasByProfesor(user.id)
     .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())
 
   // Imprimir la cantidad de ausencias encontradas
@@ -49,105 +43,49 @@ export default function AusenciasPage() {
     totalPages = Math.max(1, Math.ceil(misAusencias.length / itemsPerPage))
   }
 
-  // Añadir console.log para depuración
-  console.log("Paginación ausencias:", { 
-    totalAusencias: misAusencias.length, 
-    itemsPerPage, 
-    totalPages, 
-    currentPage 
-  })
+  // Calcular los índices de inicio y fin para la paginación
+  const indexOfLastItem = currentPage * itemsPerPage
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage
+  const currentItems = misAusencias.slice(indexOfFirstItem, indexOfLastItem)
 
-  // Obtener los elementos de la página actual con depuración
-  const getCurrentPageItems = () => {
-    const startIndex = (currentPage - 1) * itemsPerPage
-    const endIndex = Math.min(startIndex + itemsPerPage, misAusencias.length)
-    
-    console.log("Calculando elementos de la página actual:", {
-      startIndex,
-      endIndex,
-      currentPage,
-      itemsPerPage,
-      totalItems: misAusencias.length,
-      itemsToShow: misAusencias.slice(startIndex, endIndex).length
+  // Función para cambiar de página
+  const paginate = (pageNumber: number) => setCurrentPage(pageNumber)
+
+  // Reset form
+  const resetForm = () => {
+    setFormData({
+      fecha: new Date().toISOString().split("T")[0],
+      tramosHorarios: [],
+      observaciones: "",
+      tarea: "",
     })
-    
-    return misAusencias.slice(startIndex, endIndex)
-  }
-  
-  // Cambiar de página
-  const handlePageChange = (page: number) => {
-    setCurrentPage(page)
+    setFormErrors({})
   }
 
-  // Cambiar elementos por página
-  const handleItemsPerPageChange = (newItemsPerPage: number) => {
-    setItemsPerPage(newItemsPerPage)
-    setCurrentPage(1) // Resetear a la primera página cuando cambia el número de elementos
-  }
-
-  // Handle form input changes
+  // Handle form change
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target
+    const { name, value, type } = e.target
 
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }))
+    if (type === "checkbox") {
+      const checkbox = e.target as HTMLInputElement
+      const isChecked = checkbox.checked
+      const tramoHorario = checkbox.value
 
-    // Limpiar errores cuando el usuario cambia un valor
-    if (formErrors[name]) {
-      setFormErrors(prev => {
-        const newErrors = {...prev}
-        delete newErrors[name]
-        return newErrors
-      })
-    }
-  }
+      setFormData(prev => {
+        const tramosHorarios = isChecked
+          ? [...prev.tramosHorarios, tramoHorario]
+          : prev.tramosHorarios.filter(t => t !== tramoHorario)
 
-  // Handle checkbox changes for tramos horarios
-  const handleTramoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { value, checked } = e.target
-
-    setFormData((prev) => {
-      if (checked) {
         return {
           ...prev,
-          tramosHorarios: [...prev.tramosHorarios, value],
+          tramosHorarios
         }
-      } else {
-        return {
-          ...prev,
-          tramosHorarios: prev.tramosHorarios.filter((tramo) => tramo !== value),
-        }
-      }
-    })
-
-    // Limpiar errores de tramos horarios
-    if (formErrors.tramosHorarios) {
-      setFormErrors(prev => {
-        const newErrors = {...prev}
-        delete newErrors.tramosHorarios
-        return newErrors
       })
-    }
-  }
-
-  // Handle "Todo el día" checkbox
-  const handleTodoDiaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { checked } = e.target
-
-    setFormData((prev) => ({
-      ...prev,
-      tramosHorarios: checked ? [...tramosHorariosOptions] : [],
-    }))
-
-    // Limpiar errores de tramos horarios
-    if (formErrors.tramosHorarios) {
-      setFormErrors(prev => {
-        const newErrors = {...prev}
-        delete newErrors.tramosHorarios
-        return newErrors
-      })
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [name]: value
+      }))
     }
   }
 
@@ -176,18 +114,13 @@ export default function AusenciasPage() {
         ausencia => 
           ausencia.fecha === formData.fecha && 
           ausencia.tramoHorario === tramo &&
-          ausencia.estado !== "Anulada"
+          ausencia.estado !== "Rechazada"
       )
       
       if (existeAusencia) {
         errors.tramosHorarios = `Ya tienes una ausencia registrada para el ${new Date(formData.fecha).toLocaleDateString("es-ES")} en el tramo ${tramo}`
         break
       }
-    }
-    
-    // Validar que se ha seleccionado un lugar
-    if (!formData.lugarId) {
-      errors.lugarId = "Debes seleccionar un lugar"
     }
     
     setFormErrors(errors)
@@ -208,36 +141,30 @@ export default function AusenciasPage() {
     setIsSubmitting(true)
 
     try {
-      // Crear guardias secuencialmente para evitar problemas de concurrencia
+      // Crear ausencias secuencialmente para evitar problemas de concurrencia
       for (const tramoHorario of formData.tramosHorarios) {
-        // Add guardia
-        const newGuardia: Omit<Guardia, "id"> = {
+        // Add ausencia
+        const newAusencia: Omit<Ausencia, "id"> = {
           fecha: formData.fecha,
           tramoHorario,
-          tipoGuardia: formData.tipoGuardia,
-          firmada: false,
-          estado: "Pendiente" as const,
+          estado: "Pendiente",
           observaciones: formData.observaciones,
-          lugarId: Number.parseInt(formData.lugarId),
-          profesorAusenteId: user.id,
-          profesorCubridorId: null,
+          profesorId: user.id,
+          tareas: formData.tarea || undefined
         }
 
         try {
-          // Esperar a que se cree la guardia y obtener el ID devuelto
-          const guardiaId = await addGuardia(newGuardia)
+          // Esperar a que se cree la ausencia y obtener el ID devuelto
+          const ausenciaId = await addAusencia(newAusencia)
           
-          // Add tarea if provided and if guardia was created successfully
-          if (formData.tarea && guardiaId !== null) {
-            await addTareaGuardia({
-              guardiaId: guardiaId,
-              descripcionTarea: formData.tarea,
-            })
+          if (ausenciaId === null) {
+            console.error("Error al crear ausencia: ID nulo")
+            alert(`Error al crear ausencia para ${formData.fecha}, ${tramoHorario}: ID nulo`)
           }
         } catch (error) {
-          console.error("Error al crear guardia:", error)
-          alert(`Error al crear guardia para ${formData.fecha}, ${tramoHorario}: ${error}`)
-          // Continuamos con la siguiente guardia en lugar de detener todo el proceso
+          console.error("Error al crear ausencia:", error)
+          alert(`Error al crear ausencia para ${formData.fecha}, ${tramoHorario}: ${error}`)
+          // Continuamos con la siguiente ausencia en lugar de detener todo el proceso
         }
         
         // Pequeña pausa para evitar problemas de concurrencia
@@ -250,301 +177,268 @@ export default function AusenciasPage() {
       alert("Ausencias registradas correctamente")
     } catch (error) {
       console.error("Error al registrar ausencias:", error)
-      alert("Ha ocurrido un error al registrar las ausencias. Por favor, inténtalo de nuevo.")
+      alert(`Error al registrar ausencias: ${error}`)
     } finally {
       setIsSubmitting(false)
     }
   }
 
-  // Reset form
-  const resetForm = () => {
-    setFormData({
-      fecha: new Date().toISOString().split("T")[0],
-      tramosHorarios: [],
-      tipoGuardia: "Aula",
-      lugarId: "",
-      observaciones: "",
-      tarea: "",
-    })
-    setFormErrors({})
-  }
+  // Cancelar ausencia
+  const handleCancelarAusencia = async (ausencia: Ausencia) => {
+    if (!confirm(`¿Estás seguro de que deseas cancelar esta ausencia del ${new Date(ausencia.fecha).toLocaleDateString("es-ES")}?`)) {
+      return
+    }
 
-  // Handle guardia cancellation
-  const handleAnular = (id: number) => {
-    if (window.confirm("¿Estás seguro de que quieres anular esta ausencia?")) {
-      const motivo = prompt("Por favor, indica el motivo de la anulación:", "");
-      if (motivo !== null) {
-        anularGuardia(id, motivo);
+    try {
+      // Solo se pueden cancelar ausencias pendientes
+      if (ausencia.estado !== "Pendiente") {
+        alert("Solo puedes cancelar ausencias pendientes")
+        return
       }
+
+      // Eliminar la ausencia
+      await deleteAusencia(ausencia.id)
+      alert("Ausencia cancelada correctamente")
+    } catch (error) {
+      console.error("Error al cancelar ausencia:", error)
+      alert(`Error al cancelar ausencia: ${error}`)
     }
   }
 
-  // Get lugar name by ID
-  const getLugarName = (id: number) => {
-    const lugar = lugares.find((l) => l.id === id)
-    return lugar ? `${lugar.codigo} - ${lugar.descripcion}` : "Desconocido"
+  // Obtener el color de fondo según el estado de la ausencia
+  const getBackgroundColor = (estado: string) => {
+    switch (estado) {
+      case "Pendiente":
+        return "bg-warning bg-opacity-10 border-warning";
+      case "Aceptada":
+        return "bg-success bg-opacity-10 border-success";
+      case "Rechazada":
+        return "bg-danger bg-opacity-10 border-danger";
+      default:
+        return "bg-primary bg-opacity-10 border-primary";
+    }
   }
 
-  // Resetear la página cuando cambia la lista de ausencias
-  useEffect(() => {
-    setCurrentPage(1)
-  }, [misAusencias.length])
+  // Obtener el color del badge según el estado de la ausencia
+  const getBadgeColor = (estado: string) => {
+    switch (estado) {
+      case "Pendiente":
+        return "bg-warning text-dark";
+      case "Aceptada":
+        return "bg-success";
+      case "Rechazada":
+        return "bg-danger";
+      default:
+        return "bg-primary";
+    }
+  }
 
   return (
     <div className="container-fluid">
-      <h1 className="h3 mb-4">Mis Ausencias</h1>
-
-      <div className="mb-4 d-flex justify-content-between align-items-center">
-        <button
-          className="btn btn-primary"
-          onClick={() => {
-            resetForm()
-            setShowForm(!showForm)
-          }}
-        >
-          {showForm ? "Cancelar" : "Registrar Nueva Ausencia"}
-        </button>
-        
-        <button 
-          className="btn btn-outline-secondary"
-          onClick={() => {
-            // Forzar recarga de la página
-            window.location.reload()
-          }}
-        >
-          <i className="bi bi-arrow-clockwise me-1"></i>
-          Actualizar
-        </button>
-      </div>
-
-      {showForm && (
-        <div className="card mb-4">
-          <div className="card-header">Registrar Nueva Ausencia</div>
-          <div className="card-body">
-            <form onSubmit={handleSubmit}>
-              <div className="mb-3">
-                <label htmlFor="fecha" className="form-label">
-                  Fecha de la Ausencia
-                </label>
-                <input
-                  type="date"
-                  className={`form-control ${formErrors.fecha ? 'is-invalid' : ''}`}
-                  id="fecha"
-                  name="fecha"
-                  value={formData.fecha}
-                  onChange={handleChange}
-                  required
-                />
-                {formErrors.fecha && (
-                  <div className="invalid-feedback">
-                    {formErrors.fecha}
-                  </div>
-                )}
+      <h1 className="h3 mb-4">Gestión de Ausencias</h1>
+      
+      <div className="row mb-4">
+        <div className="col-md-6">
+          <button 
+            className="btn btn-primary mb-3"
+            onClick={() => setShowForm(!showForm)}
+          >
+            <i className="bi bi-plus-circle me-2"></i>
+            {showForm ? "Cancelar" : "Registrar Nueva Ausencia"}
+          </button>
+          
+          {showForm && (
+            <div className="card shadow-sm mb-4">
+              <div className="card-header bg-primary text-white">
+                <h5 className="card-title mb-0">
+                  <i className="bi bi-calendar-plus me-2"></i>
+                  Registrar Nueva Ausencia
+                </h5>
               </div>
-
-              <div className="mb-3">
-                <div className="d-flex justify-content-between align-items-center mb-2">
-                  <label className="form-label mb-0">Tramos Horarios</label>
-                  <div className="form-check">
+              <div className="card-body">
+                <form onSubmit={handleSubmit}>
+                  <div className="mb-3">
+                    <label htmlFor="fecha" className="form-label">Fecha de la ausencia</label>
                     <input
-                      className="form-check-input"
-                      type="checkbox"
-                      id="todo-dia"
-                      checked={formData.tramosHorarios.length === tramosHorariosOptions.length}
-                      onChange={handleTodoDiaChange}
+                      type="date"
+                      className={`form-control ${formErrors.fecha ? 'is-invalid' : ''}`}
+                      id="fecha"
+                      name="fecha"
+                      value={formData.fecha}
+                      onChange={handleChange}
+                      min={new Date().toISOString().split("T")[0]}
+                      required
                     />
-                    <label className="form-check-label" htmlFor="todo-dia">
-                      <strong>Todo el día</strong>
-                    </label>
+                    {formErrors.fecha && <div className="invalid-feedback">{formErrors.fecha}</div>}
                   </div>
-                </div>
-                <div className="row">
-                  {tramosHorariosOptions.map((tramo) => (
-                    <div key={tramo} className="col-md-4 mb-2">
-                      <div className="form-check">
-                        <input
-                          className={`form-check-input ${formErrors.tramosHorarios ? 'is-invalid' : ''}`}
-                          type="checkbox"
-                          id={`tramo-${tramo}`}
-                          value={tramo}
-                          checked={formData.tramosHorarios.includes(tramo)}
-                          onChange={handleTramoChange}
-                        />
-                        <label className="form-check-label" htmlFor={`tramo-${tramo}`}>
-                          {tramo}
-                        </label>
-                      </div>
+                  
+                  <div className="mb-3">
+                    <label className="form-label">Tramos horarios</label>
+                    <div className={`border rounded p-3 ${formErrors.tramosHorarios ? 'border-danger' : ''}`}>
+                      {tramosHorariosOptions.map((tramo) => (
+                        <div className="form-check" key={tramo}>
+                          <input
+                            className="form-check-input"
+                            type="checkbox"
+                            id={`tramo-${tramo}`}
+                            name="tramosHorarios"
+                            value={tramo}
+                            checked={formData.tramosHorarios.includes(tramo)}
+                            onChange={handleChange}
+                          />
+                          <label className="form-check-label" htmlFor={`tramo-${tramo}`}>
+                            {tramo}
+                          </label>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-                {formErrors.tramosHorarios && (
-                  <div className="text-danger small mt-1">
-                    {formErrors.tramosHorarios}
+                    {formErrors.tramosHorarios && <div className="text-danger small mt-1">{formErrors.tramosHorarios}</div>}
                   </div>
-                )}
-              </div>
-
-              <div className="mb-3">
-                <label htmlFor="tipoGuardia" className="form-label">
-                  Tipo de Guardia
-                </label>
-                <select
-                  className="form-select"
-                  id="tipoGuardia"
-                  name="tipoGuardia"
-                  value={formData.tipoGuardia}
-                  onChange={handleChange}
-                  required
-                >
-                  {tiposGuardia.map((tipo) => (
-                    <option key={tipo} value={tipo}>
-                      {tipo}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="mb-3">
-                <label htmlFor="lugarId" className="form-label">
-                  Lugar
-                </label>
-                <select
-                  className={`form-select ${formErrors.lugarId ? 'is-invalid' : ''}`}
-                  id="lugarId"
-                  name="lugarId"
-                  value={formData.lugarId}
-                  onChange={handleChange}
-                  required
-                >
-                  <option value="">Selecciona un lugar</option>
-                  {lugares.map((lugar) => (
-                    <option key={lugar.id} value={lugar.id}>
-                      {lugar.codigo} - {lugar.descripcion}
-                    </option>
-                  ))}
-                </select>
-                {formErrors.lugarId && (
-                  <div className="invalid-feedback">
-                    {formErrors.lugarId}
+                  
+                  <div className="mb-3">
+                    <label htmlFor="observaciones" className="form-label">Observaciones (opcional)</label>
+                    <textarea
+                      className="form-control"
+                      id="observaciones"
+                      name="observaciones"
+                      value={formData.observaciones}
+                      onChange={handleChange}
+                      rows={3}
+                    ></textarea>
                   </div>
-                )}
+                  
+                  <div className="mb-3">
+                    <label htmlFor="tarea" className="form-label">Tarea para los alumnos (opcional)</label>
+                    <textarea
+                      className="form-control"
+                      id="tarea"
+                      name="tarea"
+                      value={formData.tarea}
+                      onChange={handleChange}
+                      rows={3}
+                      placeholder="Describe la tarea que deben realizar los alumnos durante tu ausencia"
+                    ></textarea>
+                  </div>
+                  
+                  <div className="d-grid gap-2">
+                    <button 
+                      type="submit" 
+                      className="btn btn-primary"
+                      disabled={isSubmitting}
+                    >
+                      {isSubmitting ? (
+                        <>
+                          <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                          Registrando...
+                        </>
+                      ) : (
+                        <>
+                          <i className="bi bi-check-circle me-2"></i>
+                          Registrar Ausencia
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </form>
               </div>
-
-              <div className="mb-3">
-                <label htmlFor="observaciones" className="form-label">
-                  Observaciones
-                </label>
-                <textarea
-                  className="form-control"
-                  id="observaciones"
-                  name="observaciones"
-                  value={formData.observaciones}
-                  onChange={handleChange}
-                  rows={2}
-                ></textarea>
-              </div>
-
-              <div className="mb-3">
-                <label htmlFor="tarea" className="form-label">
-                  Tarea para los alumnos
-                </label>
-                <textarea
-                  className="form-control"
-                  id="tarea"
-                  name="tarea"
-                  value={formData.tarea}
-                  onChange={handleChange}
-                  rows={3}
-                  placeholder="Ej: Realizar ejercicios 1-5 de la página 45"
-                ></textarea>
-              </div>
-
-              <button 
-                type="submit" 
-                className="btn btn-primary"
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? (
-                  <>
-                    <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                    Registrando...
-                  </>
-                ) : (
-                  "Registrar Ausencia"
-                )}
-              </button>
-            </form>
+            </div>
+          )}
+        </div>
+        
+        <div className="col-md-6">
+          <div className="card shadow-sm">
+            <div className="card-header bg-primary text-white">
+              <i className="bi bi-info-circle me-2"></i>Información
+            </div>
+            <div className="card-body">
+              <p>
+                <strong>¿Cómo funciona el registro de ausencias?</strong>
+              </p>
+              <ol className="mb-0">
+                <li>Registra tu ausencia indicando la fecha, tramos horarios y motivo.</li>
+                <li>La solicitud quedará en estado <span className="badge bg-warning text-dark">Pendiente</span> hasta que sea revisada.</li>
+                <li>El administrador revisará tu solicitud y la <span className="badge bg-success">Aceptará</span> o <span className="badge bg-danger">Rechazará</span>.</li>
+                <li>Si es aceptada, se creará una guardia que será asignada a otro profesor.</li>
+                <li>Puedes cancelar tus ausencias mientras estén en estado pendiente.</li>
+              </ol>
+            </div>
           </div>
         </div>
-      )}
-
-      <div className="card mt-4">
-        <div className="card-header">Mis Ausencias</div>
+      </div>
+      
+      <div className="card shadow-sm">
+        <div className="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+          <h5 className="mb-0">
+            <i className="bi bi-list-check me-2"></i>
+            Mis Ausencias
+          </h5>
+          <span className="badge bg-light text-dark">
+            Total: {misAusencias.length}
+          </span>
+        </div>
         <div className="card-body">
           {misAusencias.length === 0 ? (
-            <div className="alert alert-info">No has registrado ninguna ausencia.</div>
+            <div className="alert alert-info">
+              <i className="bi bi-info-circle me-2"></i>
+              No tienes ausencias registradas
+            </div>
           ) : (
-            <div className="table-responsive">
-              <table className="table table-striped">
-                <thead>
-                  <tr>
-                    <th>Fecha</th>
-                    <th>Tramo Horario</th>
-                    <th>Estado</th>
-                    <th>Observaciones</th>
-                    <th>Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {getCurrentPageItems().map((ausencia: Guardia) => {
-                    const tareas = getTareasByGuardia(ausencia.id)
-                    const tieneTarea = tareas.length > 0
-
-                    return (
-                      <tr key={ausencia.id}>
+            <>
+              <div className="table-responsive">
+                <table className="table table-hover">
+                  <thead>
+                    <tr>
+                      <th>Fecha</th>
+                      <th>Tramo</th>
+                      <th>Estado</th>
+                      <th>Observaciones</th>
+                      <th>Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {currentItems.map((ausencia) => (
+                      <tr key={`${ausencia.id}-${ausencia.tramoHorario}`} className={getBackgroundColor(ausencia.estado)}>
                         <td>{new Date(ausencia.fecha).toLocaleDateString("es-ES")}</td>
                         <td>{ausencia.tramoHorario}</td>
                         <td>
-                          <span
-                            className={`badge ${
-                              ausencia.estado === "Pendiente"
-                                ? "bg-warning text-dark"
-                                : ausencia.estado === "Asignada"
-                                  ? "bg-info"
-                                  : ausencia.estado === "Firmada"
-                                    ? "bg-success"
-                                    : "bg-danger"
-                            }`}
-                          >
+                          <span className={`badge ${getBadgeColor(ausencia.estado)}`}>
                             {ausencia.estado}
                           </span>
                         </td>
-                        <td>{ausencia.observaciones}</td>
+                        <td>
+                          {ausencia.observaciones ? (
+                            <span title={ausencia.observaciones}>
+                              {ausencia.observaciones.length > 50
+                                ? `${ausencia.observaciones.substring(0, 50)}...`
+                                : ausencia.observaciones}
+                            </span>
+                          ) : (
+                            <span className="text-muted">Sin observaciones</span>
+                          )}
+                        </td>
                         <td>
                           {ausencia.estado === "Pendiente" && (
-                            <button className="btn btn-sm btn-danger" onClick={() => handleAnular(ausencia.id)}>
-                              Anular
+                            <button
+                              className="btn btn-sm btn-outline-danger"
+                              onClick={() => handleCancelarAusencia(ausencia)}
+                              title="Cancelar ausencia"
+                            >
+                              <i className="bi bi-trash"></i>
                             </button>
                           )}
                         </td>
                       </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
               
-              {/* Componente de paginación */}
-              {misAusencias.length > 0 && (
-                <Pagination 
-                  currentPage={currentPage} 
-                  totalPages={totalPages} 
-                  onPageChange={handlePageChange} 
-                  onItemsPerPageChange={handleItemsPerPageChange}
-                  itemsPerPage={itemsPerPage}
-                  totalItems={misAusencias.length}
-                />
-              )}
-            </div>
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={paginate}
+              />
+            </>
           )}
         </div>
       </div>

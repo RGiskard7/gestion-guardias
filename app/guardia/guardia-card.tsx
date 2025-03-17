@@ -11,11 +11,12 @@ interface GuardiaCardProps {
 }
 
 const GuardiaCard: React.FC<GuardiaCardProps> = ({ guardia, showActions = false, onAsignar, onFirmar }) => {
-  const { getLugarById, getUsuarioById, getTareasByGuardia } = useGuardias()
+  const { getLugarById, getUsuarioById, getTareasByGuardia, getProfesorAusenteIdByGuardia } = useGuardias()
 
   const lugar: Lugar | undefined = getLugarById(guardia.lugarId)
-  const profesorAusente: Usuario | undefined = guardia.profesorAusenteId
-    ? getUsuarioById(guardia.profesorAusenteId)
+  const profesorAusenteId = getProfesorAusenteIdByGuardia(guardia.id)
+  const profesorAusente: Usuario | undefined = profesorAusenteId
+    ? getUsuarioById(profesorAusenteId)
     : undefined
   const profesorCubridor: Usuario | undefined = guardia.profesorCubridorId
     ? getUsuarioById(guardia.profesorCubridorId)

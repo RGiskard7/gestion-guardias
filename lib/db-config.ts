@@ -13,7 +13,8 @@ export const DB_CONFIG = {
     GUARDIAS: 'Guardias',
     HORARIOS: 'Horarios',
     LUGARES: 'Lugares',
-    TAREAS_GUARDIA: 'Tareas_guardia'
+    TAREAS_GUARDIA: 'Tareas_guardia',
+    AUSENCIAS: 'Ausencias'
   },
   
   // Estados posibles para las guardias
@@ -22,6 +23,13 @@ export const DB_CONFIG = {
     ASIGNADA: 'Asignada',
     FIRMADA: 'Firmada',
     ANULADA: 'Anulada'
+  },
+  
+  // Estados posibles para las ausencias
+  ESTADOS_AUSENCIA: {
+    PENDIENTE: 'Pendiente',
+    ACEPTADA: 'Aceptada',
+    RECHAZADA: 'Rechazada'
   },
   
   // Roles de usuario

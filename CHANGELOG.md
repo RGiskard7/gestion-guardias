@@ -110,4 +110,61 @@ Este documento registra todos los cambios, mejoras y correcciones realizadas en 
 ### Notas adicionales
 - Se ha utilizado Bootstrap 5.3.2 para el diseño de la interfaz
 - Se ha implementado un sistema de contextos en React para la gestión del estado global
-- La aplicación sigue una arquitectura de capas con separación clara de responsabilidades 
+- La aplicación sigue una arquitectura de capas con separación clara de responsabilidades
+
+## [Unreleased]
+
+### Añadido
+- Nueva funcionalidad de gestión de ausencias:
+  - Separación del flujo de ausencias y guardias.
+  - Nuevo servicio `ausenciasService.ts` para gestionar las ausencias.
+  - Nueva interfaz `Ausencia` en el contexto de guardias.
+  - Nueva página para que los profesores registren ausencias.
+  - Nueva página para que los administradores gestionen las ausencias pendientes.
+  - Actualización del menú de navegación para incluir la nueva página de ausencias pendientes.
+
+### Modificado
+- Actualización de `guardiasService.ts` para incluir el campo `ausencia_id` en la interfaz `Guardia`.
+- Actualización de `db-config.ts` para incluir la tabla de ausencias y sus estados.
+- Modificación del contexto de guardias para incluir las ausencias y sus operaciones CRUD.
+- Actualización de la página de ausencias del profesor para usar el nuevo servicio de ausencias.
+
+### Corregido
+- Corrección de errores de tipo en las páginas de ausencias.
+- Corrección del manejo del campo `tareas` en ausencias
+- Eliminación de campos inexistentes (`created_at` y `updated_at`) de la interfaz `Ausencia`
+- Mejora en la función `acceptAusencia` para usar el campo `tareas` de la ausencia si existe
+
+## [Sin publicar]
+
+### Añadido
+- Nueva funcionalidad de gestión de ausencias
+  - Separación de los flujos de ausencia y guardia
+  - Nuevo servicio `ausenciasService.ts` para gestionar ausencias
+  - Nueva interfaz `Ausencia` para tipado
+  - Nuevas páginas para profesores y administradores para gestionar ausencias
+- Nueva función `getProfesorAusenteIdByGuardia` para obtener el profesor ausente a través de la ausencia relacionada
+
+### Modificado
+- Actualización de `guardiasService.ts` para incluir campos y operaciones relacionadas con ausencias
+- Actualización de `db-config.ts` para incluir estados de ausencias
+- Actualización del contexto para integrar el nuevo servicio de ausencias
+- Actualización de páginas para integrar la gestión de ausencias
+- Cambio en la estructura de la tabla Guardias: eliminación del campo `profesor_ausente_id` y uso de `ausencia_id` para relacionar con la tabla Ausencias
+- Actualización de las vistas de guardias para mostrar correctamente el profesor ausente a través de la ausencia relacionada
+
+### Corregido
+- Corrección de errores de tipo en las páginas de ausencias
+- Corrección del manejo del campo `tareas` en ausencias
+- Eliminación de campos inexistentes (`created_at` y `updated_at`) de la interfaz `Ausencia`
+- Mejora en la función `acceptAusencia` para usar el campo `tareas` de la ausencia si existe
+- Corrección de las políticas RLS en Supabase para la tabla Ausencias
+- Actualización de las funciones de mapeo para reflejar la estructura real de las tablas
+- Corrección de la visualización del profesor ausente en las guardias creadas a partir de ausencias
+
+## [1.0.0] - 2023-11-01
+
+### Añadido
+- Versión inicial del sistema de gestión de guardias
+- Funcionalidad básica para profesores y administradores
+- Sistema de autenticación y autorización 

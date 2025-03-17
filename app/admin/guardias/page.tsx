@@ -15,7 +15,8 @@ export default function GuardiasPage() {
     deleteGuardia, 
     addTareaGuardia, 
     anularGuardia,
-    canProfesorAsignarGuardia 
+    canProfesorAsignarGuardia,
+    getProfesorAusenteIdByGuardia
   } = useGuardias()
 
   // Obtener solo profesores (no admins)
@@ -30,7 +31,6 @@ export default function GuardiasPage() {
     estado: "Pendiente",
     observaciones: "",
     lugarId: 0,
-    profesorAusenteId: null,
     profesorCubridorId: null,
     tarea: "",
   })
@@ -193,7 +193,6 @@ export default function GuardiasPage() {
       estado: "Pendiente",
       observaciones: "",
       lugarId: 0,
-      profesorAusenteId: null,
       profesorCubridorId: null,
       tarea: "",
     })
@@ -216,7 +215,6 @@ export default function GuardiasPage() {
       estado: guardia.estado,
       observaciones: guardia.observaciones,
       lugarId: guardia.lugarId,
-      profesorAusenteId: guardia.profesorAusenteId,
       profesorCubridorId: guardia.profesorCubridorId,
     })
     setEditingId(guardia.id)
@@ -240,6 +238,12 @@ export default function GuardiasPage() {
 
     const profesor = profesores.find((p: Usuario) => p.id === id)
     return profesor ? profesor.nombre : "Desconocido"
+  }
+
+  // Obtener nombre del profesor ausente para una guardia
+  const getProfesorAusenteNombre = (guardiaId: number) => {
+    const profesorId = getProfesorAusenteIdByGuardia(guardiaId)
+    return getProfesorName(profesorId)
   }
 
   // Obtener nombre del lugar por ID
@@ -428,26 +432,6 @@ export default function GuardiasPage() {
               </div>
 
               <div className="mb-3">
-                <label htmlFor="profesorAusenteId" className="form-label">
-                  Profesor Ausente
-                </label>
-                <select
-                  className="form-select"
-                  id="profesorAusenteId"
-                  name="profesorAusenteId"
-                  value={formData.profesorAusenteId || ""}
-                  onChange={handleChange}
-                >
-                  <option value="">No asignado</option>
-                  {profesores.map((profesor: Usuario) => (
-                    <option key={profesor.id} value={profesor.id}>
-                      {profesor.nombre}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="mb-3">
                 <label htmlFor="profesorCubridorId" className="form-label">
                   Profesor Cubridor
                 </label>
@@ -569,7 +553,7 @@ export default function GuardiasPage() {
                       <td>{guardia.tramoHorario}</td>
                       <td>{guardia.tipoGuardia}</td>
                       <td>{getLugarName(guardia.lugarId)}</td>
-                      <td>{getProfesorName(guardia.profesorAusenteId)}</td>
+                      <td>{getProfesorAusenteNombre(guardia.id)}</td>
                       <td>{getProfesorName(guardia.profesorCubridorId)}</td>
                       <td>
                         <span
