@@ -2,6 +2,45 @@
 
 Este documento registra todos los cambios, mejoras y correcciones realizadas en el proyecto de Sistema de Gestión de Guardias.
 
+## [2025-03-18] - Documentación técnica y mejoras en la estructura del proyecto
+
+### Autor(es)
+- Equipo de Desarrollo
+
+### Cambios realizados
+- Creación del manual del programador con documentación técnica exhaustiva
+- Creación de un diagrama entidad-relación en formato Mermaid para visualizar la estructura de la base de datos
+- Reorganización de los archivos de documentación, moviendo la mayoría a la carpeta `doc/`
+- Actualización de todos los enlaces en el README.md para reflejar la nueva ubicación de los archivos
+- Mejora en la estructura general del proyecto, manteniendo solo README.md y CHANGELOG.md en la raíz
+
+### Archivos creados
+- `doc/MANUAL-PROGRAMADOR.md`: Manual técnico exhaustivo con comparativas Java/TypeScript
+- `doc/DIAGRAMA-ER.md`: Diagrama entidad-relación de la base de datos con descripciones detalladas
+
+### Archivos movidos
+- `MANUAL-USUARIO.md` → `doc/MANUAL-USUARIO.md`
+- `CONFIGURACION-SUPABASE.md` → `doc/CONFIGURACION-SUPABASE.md`
+- `INSTRUCCIONES-PRUEBA.md` → `doc/INSTRUCCIONES-PRUEBA.md`
+- `README-SUPABASE.md` → `doc/README-SUPABASE.md`
+
+### Archivos modificados
+- `README.md`: Actualización de enlaces y adición de referencias a la nueva documentación
+- `CHANGELOG.md`: Actualización para reflejar los cambios realizados
+
+### Mejoras implementadas
+- Documentación técnica detallada con ejemplos y comparativas Java/TypeScript
+- Visualización clara de la estructura de la base de datos y las relaciones entre tablas
+- Estructura de proyecto más limpia y profesional
+- Mejor organización de la documentación en una carpeta dedicada
+- Mantenimiento de las convenciones estándar de mantener README.md y CHANGELOG.md en la raíz
+
+### Notas adicionales
+- El manual del programador facilita la comprensión del proyecto para desarrolladores Java
+- El diagrama entidad-relación facilita la comprensión de la estructura de datos del sistema
+- Esta reorganización facilita el mantenimiento futuro de la documentación
+- La estructura actual sigue las mejores prácticas de la industria para proyectos profesionales
+
 ## [2025-03-18] - Documentación exhaustiva del sistema
 
 ### Autor(es)
