@@ -1,218 +1,42 @@
 "use client"
 
-import { useState } from "react"
-import { useGuardias, type Ausencia, type Usuario } from "../../../src/contexts/GuardiasContext"
+import { useState, useEffect } from "react"
+import { useAusencias } from "@/src/contexts/AusenciasContext"
+import { useUsuarios } from "@/src/contexts/UsuariosContext"
+import { useGuardias } from "@/src/contexts/GuardiasContext"
+import { useLugares } from "@/src/contexts/LugaresContext"
+import { Ausencia, Usuario } from "@/src/types"
 import { Pagination } from "@/components/ui/pagination"
+import { useForm } from "@/hooks/use-form"
+import DataCard from "@/components/common/DataCard"
 
-export default function AusenciasPage() {
-  const { 
-    ausencias, 
-    lugares, 
-    usuarios, 
-    guardias,
-    addAusencia,
-    updateAusencia,
-    deleteAusencia,
-    acceptAusencia, 
-    rejectAusencia,
-    anularGuardia, 
-    getUsuarioById,
-    anularAusencia,
-    refreshAusencias
-  } = useGuardias()
-
-  // Estado para el formulario
-  const [formData, setFormData] = useState<Omit<Ausencia, "id"> & { tarea?: string, tramosHorarios: string[] }>({
-    profesorId: 0,
-    fecha: new Date().toISOString().split("T")[0],
-    tramoHorario: "",
-    estado: "Pendiente",
-    observaciones: "",
-    tarea: "",
-    tramosHorarios: [],
-  })
-
-  // Estado para el formulario de aceptación
-  const [acceptFormData, setAcceptFormData] = useState({
-    tipoGuardia: "Aula",
-    lugarId: 0,
-    observaciones: "",
-    tarea: "",
-  })
+export default function AdminAusenciasPage() {
+  const { ausencias, addAusencia, updateAusencia, deleteAusencia, acceptAusencia, rejectAusencia, refreshAusencias } = useAusencias()
+  const { usuarios, getUsuarioById } = useUsuarios()
+  const { guardias } = useGuardias()
+  const { lugares } = useLugares()
 
   // Estados para la gestión de la interfaz
-  const [editingId, setEditingId] = useState<number | null>(null)
-  const [processingAusenciaId, setProcessingAusenciaId] = useState<number | null>(null)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [isRefreshing, setIsRefreshing] = useState(false)
-  const [showForm, setShowForm] = useState(false)
-  const [showAcceptForm, setShowAcceptForm] = useState(false)
-  const [filterProfesor, setFilterProfesor] = useState<number | null>(null)
-  const [filterFecha, setFilterFecha] = useState<string>("")
-  const [filterEstado, setFilterEstado] = useState<string>("")
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc')
-
-  // Tramos horarios
-  const tramosHorarios = ["1ª hora", "2ª hora", "3ª hora", "4ª hora", "5ª hora", "6ª hora"]
-
-  // Tipos de guardia
-  const tiposGuardia = ["Aula", "Patio", "Recreo"]
-
-  // Estados de ausencia
-  const estadosAusencia = ["Pendiente", "Aceptada", "Rechazada"]
-
-  // Obtener profesores (no admins)
-  const profesores = usuarios.filter((u: Usuario) => u.rol === "profesor" && u.activo)
-
-  // Filtrar ausencias
-  const ausenciasFiltradas = ausencias
-    .filter(ausencia => {
-      // Filtrar por profesor
-      if (filterProfesor !== null && ausencia.profesorId !== filterProfesor) {
-        return false
-      }
-      
-      // Filtrar por fecha
-      if (filterFecha && ausencia.fecha !== filterFecha) {
-        return false
-      }
-      
-      // Filtrar por estado
-      if (filterEstado && ausencia.estado !== filterEstado) {
-        return false
-      }
-      
-      return true
-    })
-    .sort((a, b) => {
-      // Ordenar por fecha según la dirección seleccionada
-      const dateComparison = sortDirection === 'desc' 
-        ? new Date(b.fecha).getTime() - new Date(a.fecha).getTime()
-        : new Date(a.fecha).getTime() - new Date(b.fecha).getTime()
-
-      // Si las fechas son iguales, ordenar por estado (Pendiente primero)
-      if (dateComparison === 0) {
-        if (a.estado === "Pendiente") return -1
-        if (b.estado === "Pendiente") return 1
-        return 0
-      }
-
-      return dateComparison
-    })
-
-  // Estado para la paginación
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage, setItemsPerPage] = useState(10)
+  const [editingId, setEditingId] = useState<number | null>(null)
+  const [showForm, setShowForm] = useState(false)
+  const [showAcceptForm, setShowAcceptForm] = useState(false)
+  const [processingAusenciaId, setProcessingAusenciaId] = useState<number | null>(null)
+  const [filterProfesorId, setFilterProfesorId] = useState<number | null>(null)
+  const [filterFecha, setFilterFecha] = useState("")
+  const [filterEstado, setFilterEstado] = useState("")
+  const [sortField, setSortField] = useState<'fecha' | 'tramoHorario'>('fecha')
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc')
+  const [isRefreshing, setIsRefreshing] = useState(false)
 
-  // Calcular el número total de páginas
-  const totalPages = Math.max(1, Math.ceil(ausenciasFiltradas.length / itemsPerPage))
+  // Tramos horarios
+  const tramosHorariosOptions = ["1ª hora", "2ª hora", "3ª hora", "4ª hora", "5ª hora", "6ª hora"]
 
-  // Calcular los índices de inicio y fin para la paginación
-  const indexOfLastItem = currentPage * itemsPerPage
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage
-  const currentItems = ausenciasFiltradas.slice(indexOfFirstItem, indexOfLastItem)
-
-  // Función para cambiar de página
-  const onPageChange = (pageNumber: number) => setCurrentPage(pageNumber)
-
-  // Reset formulario
-  const resetForm = () => {
-    setFormData({
-      profesorId: 0,
-      fecha: new Date().toISOString().split("T")[0],
-      tramoHorario: "",
-      estado: "Pendiente",
-      observaciones: "",
-      tarea: "",
-      tramosHorarios: [],
-    })
-    setEditingId(null)
-    setShowForm(false)
-  }
-
-  // Reset formulario de aceptación
-  const resetAcceptForm = () => {
-    setAcceptFormData({
-      tipoGuardia: "Aula",
-      lugarId: 0,
-      observaciones: "",
-      tarea: "",
-    })
-    setProcessingAusenciaId(null)
-    setShowAcceptForm(false)
-  }
-
-  // Handle form change
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value, type } = e.target
-    
-    if (type === "checkbox") {
-      const checkbox = e.target as HTMLInputElement
-      const isChecked = checkbox.checked
-      const tramoHorario = checkbox.value
-
-      if (tramoHorario === "todo-el-dia") {
-        // Si se marca "Todo el día", seleccionar todos los tramos
-        // Si se desmarca, deseleccionar todos los tramos
-        setFormData(prev => ({
-          ...prev,
-          tramosHorarios: isChecked ? [...tramosHorarios] : []
-        }))
-      } else {
-        setFormData(prev => {
-          const tramosHorarios = isChecked
-            ? [...prev.tramosHorarios, tramoHorario]
-            : prev.tramosHorarios.filter(t => t !== tramoHorario)
-
-          return {
-            ...prev,
-            tramosHorarios
-          }
-        })
-      }
-    } else {
-      setFormData(prev => ({
-        ...prev,
-        [name]: name === "profesorId" ? Number(value) : value
-      }))
-    }
-  }
-
-  // Handle accept form change
-  const handleAcceptFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target
-    
-    setAcceptFormData(prev => ({
-      ...prev,
-      [name]: name === "lugarId" ? Number(value) : value
-    }))
-  }
-
-  // Iniciar edición de ausencia
-  const handleEdit = (ausencia: Ausencia) => {
-    setFormData({
-      profesorId: ausencia.profesorId,
-      fecha: ausencia.fecha,
-      tramoHorario: ausencia.tramoHorario,
-      estado: ausencia.estado,
-      observaciones: ausencia.observaciones,
-      tarea: ausencia.tareas,
-      tramosHorarios: [ausencia.tramoHorario],
-    })
-    setEditingId(ausencia.id)
-    setShowForm(true)
-  }
-
-  // Iniciar proceso de aceptación
-  const handleInitAccept = (ausencia: Ausencia) => {
-    setProcessingAusenciaId(ausencia.id)
-    setShowAcceptForm(true)
-    setAcceptFormData(prev => ({
-      ...prev,
-      observaciones: ausencia.observaciones,
-      tarea: ausencia.tareas || "",
-    }))
-  }
+  // Actualizar datos al cargar la página
+  useEffect(() => {
+    handleRefresh()
+  }, [])
 
   // Función para refrescar los datos
   const handleRefresh = async () => {
@@ -220,172 +44,344 @@ export default function AusenciasPage() {
     try {
       await refreshAusencias()
     } catch (error) {
-      console.error("Error al refrescar los datos:", error)
+      console.error("Error al refrescar las ausencias:", error)
     } finally {
       setIsRefreshing(false)
     }
   }
 
-  // Manejar envío del formulario
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsSubmitting(true)
-
-    try {
-      if (editingId) {
-        // Actualizar ausencia existente
-        const { tarea, tramosHorarios, ...ausenciaData } = formData
-        await updateAusencia(editingId, ausenciaData)
-        alert("Ausencia actualizada correctamente")
-      } else {
-        // Crear una ausencia por cada tramo horario seleccionado
-        for (const tramoHorario of formData.tramosHorarios) {
-          const ausenciaData = {
-            profesorId: formData.profesorId,
-            fecha: formData.fecha,
+  // Formulario principal usando el hook personalizado
+  const { 
+    formData, 
+    handleChange, 
+    setFormData, 
+    resetForm, 
+    handleSubmit 
+  } = useForm<Omit<Ausencia, "id"> & { tramosHorarios?: string[] }>({
+    initialValues: {
+      profesorId: 0,
+      fecha: "",
+      tramoHorario: "",
+      tramosHorarios: [],
+      estado: "Pendiente",
+      observaciones: "",
+      tareas: ""
+    },
+    onSubmit: async (values) => {
+      try {
+        // Validar que se hayan seleccionado tramos horarios
+        if (!values.tramosHorarios || values.tramosHorarios.length === 0) {
+          alert("Por favor, selecciona al menos un tramo horario")
+          return
+        }
+        
+        // Crear ausencias para cada tramo horario seleccionado
+        for (const tramoHorario of values.tramosHorarios) {
+          // Preparar datos para enviar
+          const ausenciaData: Omit<Ausencia, "id"> = {
+            profesorId: values.profesorId,
+            fecha: values.fecha,
             tramoHorario,
-            estado: formData.estado,
-            observaciones: formData.observaciones,
+            estado: values.estado as "Pendiente" | "Aceptada" | "Rechazada",
+            observaciones: values.observaciones,
+            tareas: values.tareas
           }
 
-          const newAusenciaId = await addAusencia(ausenciaData, formData.tarea)
-          if (!newAusenciaId) {
-            alert(`Error al crear la ausencia para el tramo ${tramoHorario}`)
-            break
+          if (editingId) {
+            // Actualizar ausencia existente
+            await updateAusencia(editingId, ausenciaData)
+          } else {
+            // Crear nueva ausencia
+            await addAusencia(ausenciaData)
           }
           
           // Pequeña pausa para evitar problemas de concurrencia
           await new Promise(resolve => setTimeout(resolve, 100))
         }
 
-        // Refrescar los datos después de crear todas las ausencias
-        await handleRefresh()
-        alert("Ausencias creadas correctamente")
+        alert(editingId ? "Ausencia actualizada correctamente" : "Ausencias creadas correctamente")
+
+        // Limpiar formulario y actualizar lista
+        resetForm()
+        setEditingId(null)
+        setShowForm(false)
+        refreshAusencias()
+      } catch (error) {
+        console.error("Error al guardar la ausencia:", error)
+        alert("Error al guardar la ausencia")
       }
-      resetForm()
-    } catch (error) {
-      console.error("Error al procesar ausencia:", error)
-      alert(`Error al procesar ausencia: ${error}`)
-    } finally {
-      setIsSubmitting(false)
     }
-  }
+  })
 
-  // Aceptar ausencia
-  const handleAccept = async (e: React.FormEvent) => {
-    e.preventDefault()
-
-    if (!processingAusenciaId) return
+  // Método personalizado para manejar cambios en los checkboxes
+  const handleTramoHorarioChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { value, checked } = e.target
     
-    setIsSubmitting(true)
+    if (value === "todo-el-dia") {
+      // Si se marca "Todo el día", seleccionar todos los tramos
+      // Si se desmarca, deseleccionar todos los tramos
+      setFormData(prev => ({
+        ...prev,
+        tramosHorarios: checked ? [...tramosHorariosOptions] : []
+      }))
+    } else {
+      setFormData(prev => {
+        const tramosHorarios = checked
+          ? [...(prev.tramosHorarios || []), value]
+          : (prev.tramosHorarios || []).filter(t => t !== value)
+        
+        return {
+          ...prev,
+          tramosHorarios
+        }
+      })
+    }
+  }
 
-    try {
-      // Aceptar la ausencia y crear la guardia
-      const guardiaId = await acceptAusencia(
-        processingAusenciaId,
-        acceptFormData.tipoGuardia,
-        acceptFormData.lugarId,
-        acceptFormData.observaciones,
-        acceptFormData.tarea
-      )
-      
-      if (guardiaId) {
-        alert("Ausencia aceptada correctamente. Se ha creado una guardia.")
+  // Formulario de aceptación usando el hook personalizado
+  const { 
+    formData: acceptFormData, 
+    handleChange: handleAcceptFormChange, 
+    setFormData: setAcceptFormData, 
+    resetForm: resetAcceptForm, 
+    handleSubmit: handleAcceptFormSubmit 
+  } = useForm({
+    initialValues: {
+      estado: "Aceptada",
+      tipoGuardia: "Aula",
+      lugarId: "",
+      observaciones: "",
+      tarea: "",
+    },
+    onSubmit: async (values) => {
+      if (!processingAusenciaId) return
+
+      try {
+        const ausencia = ausencias.find(a => a.id === processingAusenciaId)
+        if (!ausencia) return
+
+        if (values.estado === "Aceptada") {
+          // Validar que se haya seleccionado un lugar
+          if (!values.lugarId) {
+            alert("Por favor, selecciona un lugar para la guardia")
+            return
+          }
+
+          // Aceptar la ausencia y crear la guardia
+          const guardiaId = await acceptAusencia(
+            processingAusenciaId,
+            values.tipoGuardia,
+            Number(values.lugarId),
+            values.observaciones,
+            values.tarea
+          )
+
+          if (guardiaId) {
+            alert("Ausencia aceptada correctamente. Se ha creado una guardia.")
+          } else {
+            alert("Error al aceptar la ausencia. No se ha podido crear la guardia.")
+          }
+        } else {
+          // Rechazar la ausencia
+          await updateAusencia(processingAusenciaId, {
+            ...ausencia,
+            estado: "Rechazada",
+            observaciones: values.observaciones ? `${ausencia.observaciones}\nMotivo de rechazo: ${values.observaciones}` : ausencia.observaciones
+          })
+          alert("Ausencia rechazada correctamente")
+        }
+
         resetAcceptForm()
-      } else {
-        alert("Error al aceptar la ausencia. No se ha podido crear la guardia.")
+        setProcessingAusenciaId(null)
+        setShowAcceptForm(false)
+        refreshAusencias()
+      } catch (error) {
+        console.error("Error al procesar la ausencia:", error)
+        alert("Error al procesar la ausencia")
       }
-    } catch (error) {
-      console.error("Error al aceptar ausencia:", error)
-      alert(`Error al aceptar ausencia: ${error}`)
-    } finally {
-      setIsSubmitting(false)
+    }
+  })
+
+  // Función para cambiar el orden
+  const handleSort = (field: 'fecha' | 'tramoHorario') => {
+    if (sortField === field) {
+      // Si ya estamos ordenando por este campo, cambiamos la dirección
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
+    } else {
+      // Si cambiamos de campo, establecemos el nuevo campo y dirección por defecto (descendente)
+      setSortField(field)
+      setSortDirection('desc')
     }
   }
 
-  // Rechazar ausencia
-  const handleReject = async (ausencia: Ausencia) => {
-    if (!confirm(`¿Estás seguro de que deseas rechazar esta ausencia del profesor ${getUsuarioById(ausencia.profesorId)?.nombre}?`)) {
-      return
-    }
-
-    const motivo = prompt("Por favor, indica el motivo del rechazo:")
-    if (motivo === null) return // El usuario canceló
-
-    try {
-      await rejectAusencia(ausencia.id, motivo)
-      alert("Ausencia rechazada correctamente")
-    } catch (error) {
-      console.error("Error al rechazar ausencia:", error)
-      alert(`Error al rechazar ausencia: ${error}`)
-    }
+  // Filtrar ausencias
+  const handleFilterProfesorChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = e.target.value
+    setFilterProfesorId(value ? Number.parseInt(value) : null)
   }
 
-  // Anular ausencia
-  const handleAnular = async (ausencia: Ausencia) => {
-    if (!confirm(`¿Estás seguro de que deseas anular esta ausencia del profesor ${getUsuarioById(ausencia.profesorId)?.nombre}?`)) {
-      return
+  // Filtrar ausencias
+  const filteredAusencias = ausencias.filter(ausencia => {
+    // Filtrar por profesor
+    if (filterProfesorId && ausencia.profesorId !== filterProfesorId) {
+      return false
     }
 
-    const motivo = prompt("Por favor, indica el motivo de la anulación:")
-    if (motivo === null) return // El usuario canceló
+    // Filtrar por fecha
+    if (filterFecha && ausencia.fecha !== filterFecha) {
+      return false
+    }
 
-    try {
-      const success = await anularAusencia(ausencia.id, motivo);
+    // Filtrar por estado
+    if (filterEstado && ausencia.estado !== filterEstado) {
+      return false
+    }
+
+    return true
+  })
+
+  // Ordenar ausencias según el campo y dirección seleccionados
+  const sortedAusencias = [...filteredAusencias].sort((a, b) => {
+    if (sortField === 'fecha') {
+      // Ordenar por fecha
+      const dateA = new Date(a.fecha).getTime()
+      const dateB = new Date(b.fecha).getTime()
+      return sortDirection === 'asc' ? dateA - dateB : dateB - dateA
+    } else if (sortField === 'tramoHorario') {
+      // Ordenar por tramo horario
+      // Definir el orden de los tramos
+      const tramoOrder: { [key: string]: number } = {
+        "1ª Hora": 1,
+        "2ª Hora": 2,
+        "3ª Hora": 3,
+        "4ª Hora": 4,
+        "5ª Hora": 5,
+        "6ª Hora": 6
+      }
       
-      if (success) {
-        alert("Ausencia anulada correctamente. Si existía una guardia asociada, también ha sido anulada.");
-      } else {
-        alert("Error al anular la ausencia. Por favor, inténtalo de nuevo.");
+      // Obtener el valor numérico de cada tramo
+      const tramoA = tramoOrder[a.tramoHorario] || 999
+      const tramoB = tramoOrder[b.tramoHorario] || 999
+      
+      // Si los tramos son iguales, ordenar por fecha
+      if (tramoA === tramoB) {
+        const dateA = new Date(a.fecha).getTime()
+        const dateB = new Date(b.fecha).getTime()
+        return sortDirection === 'asc' ? dateA - dateB : dateB - dateA
       }
-    } catch (error) {
-      console.error("Error al anular ausencia:", error)
-      alert(`Error al anular ausencia: ${error}`)
+      
+      return sortDirection === 'asc' ? tramoA - tramoB : tramoB - tramoA
+    }
+    
+    // Por defecto, ordenar por fecha
+    return 0
+  })
+
+  // Paginar ausencias
+  const indexOfLastItem = currentPage * itemsPerPage
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage
+  const currentAusencias = sortedAusencias.slice(indexOfFirstItem, indexOfLastItem)
+  const totalPages = Math.ceil(sortedAusencias.length / itemsPerPage)
+
+  // Cambiar página
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page)
+  }
+
+  // Manejar edición de ausencia
+  const handleEdit = (ausencia: Ausencia) => {
+    // Cerrar otros formularios
+    setShowAcceptForm(false)
+    setProcessingAusenciaId(null)
+    
+    // Configurar formulario de edición
+    setFormData({
+      profesorId: ausencia.profesorId,
+      fecha: ausencia.fecha,
+      tramoHorario: ausencia.tramoHorario,
+      tramosHorarios: [ausencia.tramoHorario], // Solo incluimos el tramo actual de la ausencia
+      estado: ausencia.estado,
+      observaciones: ausencia.observaciones,
+      tareas: ausencia.tareas || ""
+    })
+    
+    setEditingId(ausencia.id)
+    setShowForm(true)
+  }
+
+  // Manejar eliminación de ausencia
+  const handleDelete = async (id: number) => {
+    if (window.confirm("¿Estás seguro de que deseas eliminar esta ausencia?")) {
+      try {
+        await deleteAusencia(id)
+        alert("Ausencia eliminada correctamente")
+        refreshAusencias()
+      } catch (error) {
+        console.error("Error al eliminar la ausencia:", error)
+        alert("Error al eliminar la ausencia")
+      }
     }
   }
 
-  // Obtener el nombre del profesor
+  // Manejar procesamiento de ausencia
+  const handleProcess = (ausencia: Ausencia) => {
+    // Cerrar otros formularios
+    setShowForm(false)
+    setEditingId(null)
+    
+    // Configurar formulario de procesamiento
+    setAcceptFormData({
+      estado: "Aceptada",
+      tipoGuardia: "Aula",
+      lugarId: "",
+      observaciones: ausencia.observaciones,
+      tarea: ausencia.tareas || "",
+    })
+    
+    setProcessingAusenciaId(ausencia.id)
+    setShowAcceptForm(true)
+  }
+
+  // Manejar anulación de ausencia
+  const handleAnular = async (id: number) => {
+    if (window.confirm("¿Estás seguro de que deseas anular esta ausencia?")) {
+      try {
+        const ausencia = ausencias.find(a => a.id === id)
+        if (!ausencia) return
+
+        const motivo = prompt("Introduce el motivo de la anulación:")
+        if (motivo === null) return // Usuario canceló
+
+        await updateAusencia(id, {
+          ...ausencia,
+          estado: "Rechazada",
+          observaciones: `${ausencia.observaciones}\nAnulada: ${motivo}`
+        })
+
+        alert("Ausencia anulada correctamente")
+        refreshAusencias()
+      } catch (error) {
+        console.error("Error al anular la ausencia:", error)
+        alert("Error al anular la ausencia")
+      }
+    }
+  }
+
+  // Obtener nombre de profesor
   const getProfesorName = (id: number) => {
     const profesor = getUsuarioById(id)
     return profesor ? profesor.nombre : "Desconocido"
   }
 
-  // Obtener el color de fondo según el estado de la ausencia
-  const getBackgroundColor = (estado: string) => {
-    switch (estado) {
-      case "Pendiente":
-        return "bg-warning bg-opacity-10 border-warning";
-      case "Aceptada":
-        return "bg-success bg-opacity-10 border-success";
-      case "Rechazada":
-        return "bg-danger bg-opacity-10 border-danger";
-      default:
-        return "bg-primary bg-opacity-10 border-primary";
-    }
+  // Obtener nombre de lugar
+  const getLugarName = (id: number) => {
+    const lugar = lugares.find(l => l.id === id)
+    return lugar ? `${lugar.codigo} - ${lugar.descripcion}` : "Desconocido"
   }
 
-  // Obtener el color del badge según el estado de la ausencia
-  const getBadgeColor = (estado: string) => {
-    switch (estado) {
-      case "Pendiente":
-        return "bg-warning text-dark";
-      case "Aceptada":
-        return "bg-success";
-      case "Rechazada":
-        return "bg-danger";
-      default:
-        return "bg-primary";
-    }
-  }
-
-  // Manejar cambio en el filtro de profesor
-  const handleFilterProfesorChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const value = e.target.value;
-    setFilterProfesor(value === "" ? null : Number(value));
-  };
-
+  // Renderizar página
   return (
-    <div className="container-fluid">
+    <div className="container py-4">
       <style jsx>{`
         .spin {
           animation: spin 1s linear infinite;
@@ -395,461 +391,427 @@ export default function AusenciasPage() {
           to { transform: rotate(360deg); }
         }
       `}</style>
-      <h1 className="h3 mb-4">Gestión de Ausencias</h1>
-      
-      <div className="row mb-4">
-        <div className="col-md-8">
-          <div className="card shadow-sm">
-            <div className="card-header bg-primary text-white">
-              <i className="bi bi-funnel me-2"></i>Filtros
-            </div>
-            <div className="card-body">
-              <div className="row">
-                <div className="col-md-4 mb-3">
-                  <label htmlFor="filterProfesor" className="form-label">Profesor</label>
-                  <select
-                    className="form-select"
-                    id="filterProfesor"
-                    value={filterProfesor === null ? "" : filterProfesor}
-                    onChange={handleFilterProfesorChange}
-                  >
-                    <option value="">Todos los profesores</option>
-                    {profesores.map(profesor => (
-                      <option key={profesor.id} value={profesor.id}>
-                        {profesor.nombre}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="col-md-4 mb-3">
-                  <label htmlFor="filterFecha" className="form-label">Fecha</label>
-                  <input
-                    type="date"
-                    className="form-control"
-                    id="filterFecha"
-                    value={filterFecha}
-                    onChange={(e) => setFilterFecha(e.target.value)}
-                  />
-                </div>
-                <div className="col-md-4 mb-3">
-                  <label htmlFor="filterEstado" className="form-label">Estado</label>
-                  <select
-                    className="form-select"
-                    id="filterEstado"
-                    value={filterEstado}
-                    onChange={(e) => setFilterEstado(e.target.value)}
-                  >
-                    <option value="">Todos los estados</option>
-                    {estadosAusencia.map(estado => (
-                      <option key={estado} value={estado}>
-                        {estado}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              <div className="d-flex justify-content-between align-items-center">
-                <button 
-                  className="btn btn-outline-secondary"
-                  onClick={() => {
-                    setFilterProfesor(null)
-                    setFilterFecha("")
-                    setFilterEstado("")
-                  }}
-                >
-                  <i className="bi bi-x-circle me-2"></i>Limpiar filtros
-                </button>
-                <button
-                  className="btn btn-outline-primary"
-                  onClick={() => setSortDirection(prev => prev === 'desc' ? 'asc' : 'desc')}
-                  title="Cambiar orden"
-                >
-                  <i className={`bi bi-sort-down${sortDirection === 'asc' ? '-alt' : ''}`}></i>
-                  {sortDirection === 'desc' ? ' Más recientes primero' : ' Más antiguos primero'}
-                </button>
-              </div>
+
+      <div className="d-flex justify-content-between align-items-center mb-4">
+        <h1 className="mb-0">Gestión de Ausencias</h1>
+        <button 
+          className="btn btn-outline-primary" 
+          onClick={handleRefresh}
+          disabled={isRefreshing}
+        >
+          {isRefreshing ? (
+            <>
+              <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+              Actualizando...
+            </>
+          ) : (
+            <>
+              <i className="bi bi-arrow-clockwise me-2"></i>
+              Actualizar
+            </>
+          )}
+        </button>
+      </div>
+
+      <DataCard 
+        title="Filtros y Acciones" 
+        icon="filter"
+        className="mb-4"
+      >
+        <div className="row mb-3">
+          <div className="col-md-4 mb-3 mb-md-0">
+            <label htmlFor="filterEstado" className="form-label">Estado</label>
+            <select
+              id="filterEstado"
+              className="form-select"
+              value={filterEstado}
+              onChange={(e) => setFilterEstado(e.target.value)}
+            >
+              <option value="">Todos los estados</option>
+              <option value="Pendiente">Pendiente</option>
+              <option value="Aceptada">Aceptada</option>
+              <option value="Rechazada">Rechazada</option>
+            </select>
+          </div>
+          <div className="col-md-4 mb-3 mb-md-0">
+            <label htmlFor="filterFecha" className="form-label">Fecha</label>
+            <input
+              type="date"
+              id="filterFecha"
+              className="form-control"
+              value={filterFecha}
+              onChange={(e) => setFilterFecha(e.target.value)}
+            />
+          </div>
+          <div className="col-md-4 d-flex align-items-end">
+            <div className="d-flex gap-2">
+              <button
+                className="btn btn-primary"
+                onClick={() => {
+                  setShowAcceptForm(false)
+                  setProcessingAusenciaId(null)
+                  setEditingId(null)
+                  resetForm()
+                  setShowForm(!showForm)
+                }}
+              >
+                {showForm ? "Cancelar" : "Nueva Ausencia"}
+              </button>
             </div>
           </div>
         </div>
         
-        <div className="col-md-4 text-end">
-          <button
-            className="btn btn-primary"
-            onClick={() => {
-              resetForm()
-              setShowForm(!showForm)
-            }}
-          >
-            {showForm ? (
-              <><i className="bi bi-x-circle me-2"></i>Cancelar</>
-            ) : (
-              <><i className="bi bi-plus-circle me-2"></i>Nueva Ausencia</>
-            )}
-          </button>
-        </div>
-      </div>
-      
-      {showForm && (
-        <div className="card mb-4 shadow-sm">
-          <div className="card-header bg-primary text-white">
-            <i className="bi bi-calendar-plus me-2"></i>
-            {editingId ? "Editar Ausencia" : "Registrar Nueva Ausencia"}
+        <div className="row">
+          <div className="col-md-4 mb-3">
+            <label htmlFor="filterProfesor" className="form-label">Profesor</label>
+            <select
+              id="filterProfesor"
+              className="form-select"
+              value={filterProfesorId || ""}
+              onChange={handleFilterProfesorChange}
+            >
+              <option value="">Todos los profesores</option>
+              {usuarios
+                .filter(u => u.rol === "profesor")
+                .map(profesor => (
+                  <option key={profesor.id} value={profesor.id}>
+                    {profesor.nombre}
+                  </option>
+                ))}
+            </select>
           </div>
-          <div className="card-body">
-            <form onSubmit={handleSubmit}>
-              <div className="row">
-                <div className="col-md-6 mb-3">
-                  <label htmlFor="profesorId" className="form-label">Profesor</label>
-                  <select
-                    className="form-select"
-                    id="profesorId"
-                    name="profesorId"
-                    value={formData.profesorId || ""}
-                    onChange={handleChange}
-                    required
-                  >
-                    <option value="">Selecciona un profesor</option>
-                    {profesores.map(profesor => (
+        </div>
+      </DataCard>
+
+      {showForm && (
+        <DataCard
+          title={editingId ? "Editar Ausencia" : "Nueva Ausencia"}
+          icon="calendar-edit"
+          className="mb-4"
+        >
+          <form onSubmit={handleSubmit}>
+            <div className="row">
+              <div className="col-md-6 mb-3">
+                <label htmlFor="profesorId" className="form-label">Profesor</label>
+                <select
+                  id="profesorId"
+                  name="profesorId"
+                  className="form-select"
+                  value={formData.profesorId || ""}
+                  onChange={handleChange}
+                  required
+                >
+                  <option value="">Selecciona un profesor</option>
+                  {usuarios
+                    .filter(u => u.rol === "profesor")
+                    .map(profesor => (
                       <option key={profesor.id} value={profesor.id}>
                         {profesor.nombre}
                       </option>
                     ))}
-                  </select>
-                </div>
-                <div className="col-md-6 mb-3">
-                  <label htmlFor="fecha" className="form-label">Fecha</label>
-                  <input
-                    type="date"
-                    className="form-control"
-                    id="fecha"
-                    name="fecha"
-                    value={formData.fecha}
-                    onChange={handleChange}
-                    required
-                  />
-                </div>
+                </select>
               </div>
-              
-              <div className="row">
-                <div className="col-md-12 mb-3">
-                  <label className="form-label">Tramos Horarios</label>
-                  <div className="border rounded p-3">
-                    <div className="form-check mb-2 border-bottom pb-2">
+              <div className="col-md-6 mb-3">
+                <label htmlFor="fecha" className="form-label">Fecha</label>
+                <input
+                  type="date"
+                  id="fecha"
+                  name="fecha"
+                  className="form-control"
+                  value={formData.fecha}
+                  onChange={handleChange}
+                  required
+                />
+              </div>
+            </div>
+            <div className="row">
+              <div className="col-md-6 mb-3">
+                <label htmlFor="tramoHorario" className="form-label">Tramo Horario</label>
+                <div className="border rounded p-3">
+                  <div className="form-check mb-2 border-bottom pb-2">
+                    <input
+                      className="form-check-input"
+                      type="checkbox"
+                      id="todo-el-dia"
+                      name="tramosHorarios"
+                      value="todo-el-dia"
+                      checked={formData.tramosHorarios?.length === tramosHorariosOptions.length}
+                      onChange={handleTramoHorarioChange}
+                    />
+                    <label className="form-check-label" htmlFor="todo-el-dia">
+                      <strong>Todo el día</strong>
+                    </label>
+                  </div>
+                  {tramosHorariosOptions.map(tramo => (
+                    <div key={tramo} className="form-check">
                       <input
                         className="form-check-input"
                         type="checkbox"
-                        id="todo-el-dia"
+                        id={`tramoHorario-${tramo}`}
                         name="tramosHorarios"
-                        value="todo-el-dia"
-                        checked={formData.tramosHorarios.length === tramosHorarios.length}
-                        onChange={handleChange}
+                        value={tramo}
+                        checked={formData.tramosHorarios?.includes(tramo)}
+                        onChange={handleTramoHorarioChange}
                       />
-                      <label className="form-check-label" htmlFor="todo-el-dia">
-                        <strong>Todo el día</strong>
+                      <label htmlFor={`tramoHorario-${tramo}`} className="form-check-label">
+                        {tramo}
                       </label>
                     </div>
-                    <div className="row">
-                      {tramosHorarios.map(tramo => (
-                        <div className="col-md-4" key={tramo}>
-                          <div className="form-check">
-                            <input
-                              className="form-check-input"
-                              type="checkbox"
-                              id={`tramo-${tramo}`}
-                              name="tramosHorarios"
-                              value={tramo}
-                              checked={formData.tramosHorarios.includes(tramo)}
-                              onChange={handleChange}
-                            />
-                            <label className="form-check-label" htmlFor={`tramo-${tramo}`}>
-                              {tramo}
-                            </label>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-                <div className="col-md-12 mb-3">
-                  <label htmlFor="estado" className="form-label">Estado</label>
-                  <select
-                    className="form-select"
-                    id="estado"
-                    name="estado"
-                    value={formData.estado}
-                    onChange={handleChange}
-                    required
-                  >
-                    {estadosAusencia.map(estado => (
-                      <option key={estado} value={estado}>
-                        {estado}
-                      </option>
-                    ))}
-                  </select>
+                  ))}
                 </div>
               </div>
-              
-              <div className="mb-3">
-                <label htmlFor="tarea" className="form-label">Tarea para los alumnos</label>
-                <textarea
-                  className="form-control"
-                  id="tarea"
-                  name="tarea"
-                  rows={3}
-                  value={formData.tarea || ""}
+              <div className="col-md-6 mb-3">
+                <label htmlFor="estado" className="form-label">Estado</label>
+                <select
+                  id="estado"
+                  name="estado"
+                  className="form-select"
+                  value={formData.estado}
                   onChange={handleChange}
-                  placeholder="Descripción de la tarea que deben realizar los alumnos durante la ausencia"
-                />
-              </div>
-              
-              <div className="mb-3">
-                <label htmlFor="observaciones" className="form-label">Observaciones</label>
-                <textarea
-                  className="form-control"
-                  id="observaciones"
-                  name="observaciones"
-                  rows={3}
-                  value={formData.observaciones}
-                  onChange={handleChange}
-                  placeholder="Observaciones adicionales sobre la ausencia"
-                />
-              </div>
-              
-              <div className="d-flex justify-content-end">
-                <button
-                  type="submit"
-                  className="btn btn-primary"
-                  disabled={isSubmitting}
+                  required
                 >
-                  {isSubmitting ? (
-                    <><span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Procesando...</>
-                  ) : (
-                    <>{editingId ? "Actualizar" : "Guardar"}</>
-                  )}
-                </button>
+                  <option value="Pendiente">Pendiente</option>
+                  <option value="Aceptada">Aceptada</option>
+                  <option value="Rechazada">Rechazada</option>
+                </select>
               </div>
-            </form>
-          </div>
-        </div>
-      )}
-      
-      {showAcceptForm && (
-        <div className="card mb-4 shadow-sm">
-          <div className="card-header bg-success text-white">
-            <i className="bi bi-check-circle me-2"></i>Aceptar Ausencia
-          </div>
-          <div className="card-body">
-            <form onSubmit={handleAccept}>
-              <div className="row">
-                <div className="col-md-6 mb-3">
-                  <label htmlFor="tipoGuardia" className="form-label">Tipo de Guardia</label>
-                  <select
-                    className="form-select"
-                    id="tipoGuardia"
-                    name="tipoGuardia"
-                    value={acceptFormData.tipoGuardia}
-                    onChange={handleAcceptFormChange}
-                    required
-                  >
-                    {tiposGuardia.map(tipo => (
-                      <option key={tipo} value={tipo}>
-                        {tipo}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="col-md-6 mb-3">
-                  <label htmlFor="lugarId" className="form-label">Lugar</label>
-                  <select
-                    className="form-select"
-                    id="lugarId"
-                    name="lugarId"
-                    value={acceptFormData.lugarId || ""}
-                    onChange={handleAcceptFormChange}
-                    required
-                  >
-                    <option value="">Selecciona un lugar</option>
-                    {lugares.map(lugar => (
-                      <option key={lugar.id} value={lugar.id}>
-                        {lugar.codigo} - {lugar.descripcion}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              
-              <div className="mb-3">
-                <label htmlFor="tarea" className="form-label">Tarea para la guardia</label>
-                <textarea
-                  className="form-control"
-                  id="tarea"
-                  name="tarea"
-                  rows={3}
-                  value={acceptFormData.tarea}
-                  onChange={handleAcceptFormChange}
-                  placeholder="Descripción de la tarea que debe realizar el profesor de guardia"
-                />
-              </div>
-              
-              <div className="mb-3">
-                <label htmlFor="observaciones" className="form-label">Observaciones</label>
-                <textarea
-                  className="form-control"
-                  id="observaciones"
-                  name="observaciones"
-                  rows={3}
-                  value={acceptFormData.observaciones}
-                  onChange={handleAcceptFormChange}
-                  placeholder="Observaciones adicionales para la guardia"
-                />
-              </div>
-              
-              <div className="d-flex justify-content-end">
-                <button
-                  type="button"
-                  className="btn btn-outline-secondary me-2"
-                  onClick={resetAcceptForm}
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="btn btn-success"
-                  disabled={isSubmitting}
-                >
-                  {isSubmitting ? (
-                    <><span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Procesando...</>
-                  ) : (
-                    <>Aceptar y Crear Guardia</>
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+            </div>
+            <div className="mb-3">
+              <label htmlFor="observaciones" className="form-label">Observaciones</label>
+              <textarea
+                id="observaciones"
+                name="observaciones"
+                className="form-control"
+                value={formData.observaciones}
+                onChange={handleChange}
+                rows={3}
+              />
+            </div>
+            <div className="mb-3">
+              <label htmlFor="tareas" className="form-label">Tareas para los alumnos</label>
+              <textarea
+                id="tareas"
+                name="tareas"
+                className="form-control"
+                value={formData.tareas || ""}
+                onChange={handleChange}
+                rows={3}
+              />
+            </div>
+            <div className="d-flex justify-content-end">
+              <button type="button" className="btn btn-secondary me-2" onClick={() => {
+                resetForm()
+                setEditingId(null)
+                setShowForm(false)
+              }}>
+                Cancelar
+              </button>
+              <button type="submit" className="btn btn-primary">
+                {editingId ? "Actualizar" : "Crear"} Ausencia
+              </button>
+            </div>
+          </form>
+        </DataCard>
       )}
 
-      <div className="card shadow-sm">
-        <div className="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-          <div className="d-flex align-items-center">
-            <i className="bi bi-calendar-check me-2"></i>
-            <h5 className="mb-0">Ausencias</h5>
-          </div>
-          <div className="d-flex align-items-center">
-            <button
-              className="btn btn-light btn-sm me-2"
-              onClick={handleRefresh}
-              disabled={isRefreshing}
-              title="Refrescar datos"
-            >
-              <i className={`bi bi-arrow-clockwise ${isRefreshing ? 'spin' : ''}`}></i>
-            </button>
-            <span className="badge bg-light text-dark">
-              Total: {ausenciasFiltradas.length}
-            </span>
-          </div>
-        </div>
-        <div className="card-body">
-          {ausenciasFiltradas.length === 0 ? (
-            <div className="alert alert-info">
-              <i className="bi bi-info-circle me-2"></i>No hay ausencias que coincidan con los filtros seleccionados.
-            </div>
-          ) : (
-            <>
-              <div className="table-responsive">
-                <table className="table table-hover">
-                  <thead>
-                    <tr>
-                      <th>ID</th>
-                      <th>Profesor</th>
-                      <th>Fecha</th>
-                      <th>Tramo</th>
-                      <th>Estado</th>
-                      <th>Observaciones</th>
-                      <th>Acciones</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {currentItems.map(ausencia => (
-                      <tr key={ausencia.id} className={getBackgroundColor(ausencia.estado)}>
-                        <td>{ausencia.id}</td>
-                        <td>{getProfesorName(ausencia.profesorId)}</td>
-                        <td>{new Date(ausencia.fecha).toLocaleDateString()}</td>
-                        <td>{ausencia.tramoHorario}</td>
-                        <td>
-                          <span className={`badge ${getBadgeColor(ausencia.estado)}`}>
-                            {ausencia.estado}
-                          </span>
-                        </td>
-                        <td>
-                          {ausencia.observaciones ? (
-                            <span title={ausencia.observaciones}>
-                              {ausencia.observaciones.length > 30
-                                ? `${ausencia.observaciones.substring(0, 30)}...`
-                                : ausencia.observaciones}
-                            </span>
-                          ) : (
-                            <span className="text-muted">Sin observaciones</span>
-                          )}
-                        </td>
-                        <td>
-                          <div className="btn-group">
-                            <button
-                              className="btn btn-sm btn-outline-primary"
-                              onClick={() => handleEdit(ausencia)}
-                              title="Editar ausencia"
-                            >
-                              <i className="bi bi-pencil"></i>
-                            </button>
-                            
-                            {ausencia.estado === "Pendiente" && (
-                              <>
-                                <button
-                                  className="btn btn-sm btn-outline-success"
-                                  onClick={() => handleInitAccept(ausencia)}
-                                  title="Aceptar ausencia"
-                                >
-                                  <i className="bi bi-check-lg"></i>
-                                </button>
-                                <button
-                                  className="btn btn-sm btn-outline-danger"
-                                  onClick={() => handleReject(ausencia)}
-                                  title="Rechazar ausencia"
-                                >
-                                  <i className="bi bi-x-lg"></i>
-                                </button>
-                              </>
-                            )}
-                            
-                            {ausencia.estado !== "Rechazada" && (
-                              <button
-                                className="btn btn-sm btn-outline-danger"
-                                onClick={() => handleAnular(ausencia)}
-                                title="Anular ausencia"
-                              >
-                                <i className="bi bi-trash"></i>
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+      {showAcceptForm && (
+        <DataCard
+          title="Procesar Ausencia"
+          icon="check-circle"
+          className="mb-4"
+        >
+          <form onSubmit={handleAcceptFormSubmit}>
+            <div className="row">
+              <div className="col-md-6 mb-3">
+                <label htmlFor="estado" className="form-label">Estado</label>
+                <select
+                  id="estado"
+                  name="estado"
+                  className="form-select"
+                  value={acceptFormData.estado}
+                  onChange={handleAcceptFormChange}
+                  required
+                >
+                  <option value="Aceptada">Aceptada</option>
+                  <option value="Rechazada">Rechazada</option>
+                </select>
               </div>
-              
+              <div className="col-md-6 mb-3">
+                <label htmlFor="tipoGuardia" className="form-label">Tipo de Guardia</label>
+                <select
+                  id="tipoGuardia"
+                  name="tipoGuardia"
+                  className="form-select"
+                  value={acceptFormData.tipoGuardia}
+                  onChange={handleAcceptFormChange}
+                >
+                  <option value="Aula">Aula</option>
+                  <option value="Recreo">Recreo</option>
+                </select>
+              </div>
+            </div>
+            <div className="row">
+              <div className="col-md-6 mb-3">
+                <label htmlFor="lugarId" className="form-label">Lugar</label>
+                <select
+                  id="lugarId"
+                  name="lugarId"
+                  className="form-select"
+                  value={acceptFormData.lugarId}
+                  onChange={handleAcceptFormChange}
+                >
+                  <option value="">Selecciona un lugar</option>
+                  {lugares.map(lugar => (
+                    <option key={lugar.id} value={lugar.id}>
+                      {lugar.codigo} - {lugar.descripcion}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="col-md-6 mb-3">
+                <label htmlFor="observaciones" className="form-label">Observaciones</label>
+                <textarea
+                  id="observaciones"
+                  name="observaciones"
+                  className="form-control"
+                  value={acceptFormData.observaciones}
+                  onChange={handleAcceptFormChange}
+                  rows={3}
+                />
+              </div>
+            </div>
+            <div className="mb-3">
+              <label htmlFor="tarea" className="form-label">Tareas para los alumnos</label>
+              <textarea
+                id="tarea"
+                name="tarea"
+                className="form-control"
+                value={acceptFormData.tarea}
+                onChange={handleAcceptFormChange}
+                rows={3}
+              />
+            </div>
+            <div className="d-flex justify-content-end">
+              <button type="button" className="btn btn-secondary me-2" onClick={() => {
+                resetAcceptForm()
+                setProcessingAusenciaId(null)
+                setShowAcceptForm(false)
+              }}>
+                Cancelar
+              </button>
+              <button type="submit" className="btn btn-primary">
+                Procesar Ausencia
+              </button>
+            </div>
+          </form>
+        </DataCard>
+      )}
+      
+      <DataCard
+        title="Listado de Ausencias"
+        icon="calendar-x"
+      >
+        {currentAusencias.length === 0 ? (
+          <div className="alert alert-info">No hay ausencias que coincidan con los filtros.</div>
+        ) : (
+          <>
+            <div className="table-responsive">
+              <table className="table table-striped table-hover">
+                <thead>
+                  <tr>
+                    <th>Profesor</th>
+                    <th onClick={() => handleSort('fecha')} className="cursor-pointer">
+                      Fecha
+                      {sortField === 'fecha' && (
+                        <span className="ms-1">
+                          {sortDirection === 'asc' ? '▲' : '▼'}
+                        </span>
+                      )}
+                    </th>
+                    <th onClick={() => handleSort('tramoHorario')} className="cursor-pointer">
+                      Tramo
+                      {sortField === 'tramoHorario' && (
+                        <span className="ms-1">
+                          {sortDirection === 'asc' ? '▲' : '▼'}
+                        </span>
+                      )}
+                    </th>
+                    <th>Estado</th>
+                    <th>Observaciones</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {currentAusencias.map(ausencia => (
+                    <tr key={ausencia.id}>
+                      <td>{getProfesorName(ausencia.profesorId)}</td>
+                      <td>{new Date(ausencia.fecha).toLocaleDateString()}</td>
+                      <td>{ausencia.tramoHorario}</td>
+                      <td>
+                        <span className={`badge ${
+                          ausencia.estado === "Pendiente" ? "bg-warning text-dark" :
+                          ausencia.estado === "Aceptada" ? "bg-success" :
+                          "bg-danger"
+                        }`}>
+                          {ausencia.estado}
+                        </span>
+                      </td>
+                      <td>{ausencia.observaciones || '-'}</td>
+                      <td>
+                        <div className="btn-group">
+                          <button
+                            className="btn btn-sm btn-outline-primary"
+                            onClick={() => handleEdit(ausencia)}
+                            title="Editar"
+                          >
+                            <i className="bi bi-pencil"></i>
+                          </button>
+                          {ausencia.estado === "Pendiente" && (
+                            <button
+                              className="btn btn-sm btn-outline-success"
+                              onClick={() => handleProcess(ausencia)}
+                              title="Procesar"
+                            >
+                              <i className="bi bi-check-circle"></i>
+                            </button>
+                          )}
+                          {ausencia.estado === "Pendiente" && (
+                            <button
+                              className="btn btn-sm btn-outline-danger"
+                              onClick={() => handleAnular(ausencia.id)}
+                              title="Anular"
+                            >
+                              <i className="bi bi-x-circle"></i>
+                            </button>
+                          )}
+                          <button
+                            className="btn btn-sm btn-outline-danger"
+                            onClick={() => handleDelete(ausencia.id)}
+                            title="Eliminar"
+                          >
+                            <i className="bi bi-trash"></i>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="d-flex justify-content-between align-items-center mt-4">
+              <div>
+                Mostrando {indexOfFirstItem + 1}-{Math.min(indexOfLastItem, sortedAusencias.length)} de {sortedAusencias.length} ausencias
+              </div>
               <Pagination
                 currentPage={currentPage}
                 totalPages={totalPages}
-                onPageChange={onPageChange}
-                itemsPerPage={itemsPerPage}
-                onItemsPerPageChange={setItemsPerPage}
-                totalItems={ausenciasFiltradas.length}
+                onPageChange={handlePageChange}
               />
-            </>
-          )}
-        </div>
-      </div>
+            </div>
+          </>
+        )}
+      </DataCard>
     </div>
   )
 } 

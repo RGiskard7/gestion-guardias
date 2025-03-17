@@ -1,14 +1,21 @@
 "use client"
 
 import { useState } from "react"
-import { useGuardias, type Guardia, type Usuario } from "@/src/contexts/GuardiasContext"
+import { useGuardias } from "@/src/contexts/GuardiasContext"
+import { useUsuarios } from "@/src/contexts/UsuariosContext"
+import { useHorarios } from "@/src/contexts/HorariosContext"
+import { useLugares } from "@/src/contexts/LugaresContext"
 import { useAuth } from "@/src/contexts/AuthContext"
+import { Guardia, Usuario, Horario } from "@/src/types"
 import { Pagination } from "@/components/ui/pagination"
 import GuardiaCard from "@/app/guardia/guardia-card"
 
 export default function GuardiasPendientesPage() {
   const { user } = useAuth()
-  const { guardias, horarios, usuarios, lugares, asignarGuardia } = useGuardias()
+  const { guardias, asignarGuardia } = useGuardias()
+  const { horarios } = useHorarios()
+  const { usuarios } = useUsuarios()
+  const { lugares } = useLugares()
   
   // Usar siempre la fecha actual
   const today = new Date().toISOString().split("T")[0]

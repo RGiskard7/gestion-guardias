@@ -1,11 +1,14 @@
 "use client"
 
 import { useState } from "react"
-import { useGuardias, type Usuario, type Horario } from "@/src/contexts/GuardiasContext"
+import { useUsuarios } from "@/src/contexts/UsuariosContext"
+import { useHorarios } from "@/src/contexts/HorariosContext"
+import { Usuario, Horario } from "@/src/types"
 import { Pagination } from "@/components/ui/pagination"
 
 export default function UsersPage() {
-  const { usuarios, addUsuario, updateUsuario, deleteUsuario, horarios, addHorario } = useGuardias()
+  const { usuarios, addUsuario, updateUsuario, deleteUsuario } = useUsuarios()
+  const { horarios, addHorario } = useHorarios()
 
   // Filtrar solo profesores (no admins)
   const profesores = usuarios.filter((u: Usuario) => u.rol === "profesor")
@@ -22,6 +25,7 @@ export default function UsersPage() {
   const [showForm, setShowForm] = useState(false)
   const [inheritFromId, setInheritFromId] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
   
   // Estado para la paginación
   const [currentPage, setCurrentPage] = useState(1)
@@ -64,41 +68,24 @@ export default function UsersPage() {
   // Manejar envío del formulario
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError(null)
+    setIsSubmitting(true)
 
-    if (editingId) {
-      // Actualizar usuario existente
-      updateUsuario(editingId, formData)
-      resetForm()
-    } else {
-      // Añadir nuevo usuario
-      const result = await addUsuario(formData)
-      
-      if (result.success) {
-        // Si hereda horarios de otro profesor
-        if (inheritFromId) {
-          // Obtener el ID del usuario recién añadido
-          const newUserId = Math.max(...usuarios.map((u: Usuario) => u.id)) + 1
-
-          // Obtener horarios del profesor a heredar
-          const horariosToCopy = horarios.filter((h: Horario) => h.profesorId === inheritFromId)
-
-          // Crear nuevos horarios para el nuevo profesor
-          horariosToCopy.forEach((horario: Horario) => {
-            addHorario({
-              profesorId: newUserId,
-              diaSemana: horario.diaSemana,
-              tramoHorario: horario.tramoHorario,
-            })
-          })
-        }
-        
-        // Resetear formulario
-        resetForm()
+    try {
+      if (editingId) {
+        // Actualizar usuario existente
+        await updateUsuario(editingId, formData)
+        alert("Usuario actualizado correctamente")
       } else {
-        // Mostrar mensaje de error
-        setError(result.error || "Error al crear usuario")
+        // Añadir nuevo usuario
+        await addUsuario(formData)
+        alert("Usuario creado correctamente")
       }
+      resetForm()
+    } catch (error) {
+      console.error("Error al procesar usuario:", error)
+      setError("Error al procesar usuario")
+    } finally {
+      setIsSubmitting(false)
     }
   }
 

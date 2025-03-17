@@ -1,11 +1,14 @@
 "use client"
 
 import { useState } from "react"
-import { useGuardias, type Usuario, type Horario } from "@/src/contexts/GuardiasContext"
+import { useHorarios } from "@/src/contexts/HorariosContext"
+import { useUsuarios } from "@/src/contexts/UsuariosContext"
+import { Horario, Usuario } from "@/src/types"
 import { Pagination } from "@/components/ui/pagination"
 
 export default function HorariosPage() {
-  const { horarios, usuarios, addHorario, updateHorario, deleteHorario } = useGuardias()
+  const { horarios, addHorario, updateHorario, deleteHorario } = useHorarios()
+  const { usuarios } = useUsuarios()
 
   // Obtener solo profesores (no admins)
   const profesores = usuarios.filter((u: Usuario) => u.rol === "profesor" && u.activo)

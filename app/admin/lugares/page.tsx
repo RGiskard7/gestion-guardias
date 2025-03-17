@@ -1,11 +1,12 @@
 "use client"
 
 import { useState } from "react"
-import { useGuardias, type Lugar } from "@/src/contexts/GuardiasContext"
+import { useLugares } from "@/src/contexts/LugaresContext"
+import { Lugar } from "@/src/types"
 import { Pagination } from "@/components/ui/pagination"
 
 export default function LugaresPage() {
-  const { lugares, addLugar, updateLugar, deleteLugar } = useGuardias()
+  const { lugares, addLugar, updateLugar, deleteLugar } = useLugares()
 
   // Estado para el formulario
   const [formData, setFormData] = useState<Omit<Lugar, "id">>({

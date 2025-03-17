@@ -1,13 +1,16 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useGuardias, type Ausencia } from "../../../src/contexts/GuardiasContext"
-import { useAuth } from "../../../src/contexts/AuthContext"
+import { useAusencias } from "@/src/contexts/AusenciasContext"
+import { useLugares } from "@/src/contexts/LugaresContext"
+import { useAuth } from "@/src/contexts/AuthContext"
+import { Ausencia } from "@/src/types"
 import { Pagination } from "@/components/ui/pagination"
 
 export default function AusenciasPage() {
   const { user } = useAuth()
-  const { ausencias, lugares, addAusencia, updateAusencia, deleteAusencia, getAusenciasByProfesor, refreshAusencias } = useGuardias()
+  const { ausencias, addAusencia, updateAusencia, deleteAusencia, getAusenciasByProfesor, refreshAusencias } = useAusencias()
+  const { lugares } = useLugares()
 
   if (!user) return null
 
@@ -174,13 +177,13 @@ export default function AusenciasPage() {
 
   // Función para refrescar los datos
   const handleRefresh = async () => {
-    setIsRefreshing(true)
+    setIsRefreshing(true);
     try {
-      await refreshAusencias()
+      await refreshAusencias();
     } catch (error) {
-      console.error("Error al refrescar los datos:", error)
+      console.error("Error al refrescar los datos:", error);
     } finally {
-      setIsRefreshing(false)
+      setIsRefreshing(false);
     }
   }
 
