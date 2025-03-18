@@ -1,11 +1,17 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useGuardias } from "../../../src/contexts/GuardiasContext"
-import { useAuth } from "../../../src/contexts/AuthContext"
+import { useGuardias } from "@/src/contexts/GuardiasContext"
+import { useHorarios } from "@/src/contexts/HorariosContext"
+import { useLugares } from "@/src/contexts/LugaresContext"
+import { useUsuarios } from "@/src/contexts/UsuariosContext"
+import { useAuth } from "@/src/contexts/AuthContext"
 
 export default function HorarioProfesorPage() {
-  const { horarios, guardias, getHorariosByProfesor, getGuardiasByProfesor, getLugarById, getUsuarioById } = useGuardias()
+  const { guardias, getGuardiasByProfesor, getProfesorAusenteIdByGuardia } = useGuardias()
+  const { horarios, getHorariosByProfesor } = useHorarios()
+  const { getLugarById } = useLugares()
+  const { getUsuarioById } = useUsuarios()
   const { user } = useAuth()
   
   // Función para obtener la fecha actual en formato YYYY-MM-DD sin problemas de zona horaria
@@ -139,7 +145,8 @@ export default function HorarioProfesorPage() {
       const lugarNombre = lugar ? `${lugar.codigo} - ${lugar.descripcion}` : "Sin lugar"
       
       // Obtener información del profesor ausente
-      const profesorAusente = guardia.profesorAusenteId ? getUsuarioById(guardia.profesorAusenteId) : null
+      const profesorAusenteId = getProfesorAusenteIdByGuardia(guardia.id)
+      const profesorAusente = profesorAusenteId ? getUsuarioById(profesorAusenteId) : null
       const profesorAusenteNombre = profesorAusente ? profesorAusente.nombre : "No especificado"
       
       guardiasAsignadas[fecha][tramo] = { 

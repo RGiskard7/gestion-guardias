@@ -1,14 +1,21 @@
 "use client"
 
 import { useState } from "react"
-import { useGuardias, type Guardia, type Usuario } from "@/src/contexts/GuardiasContext"
+import { useGuardias } from "@/src/contexts/GuardiasContext"
+import { useUsuarios } from "@/src/contexts/UsuariosContext"
+import { useHorarios } from "@/src/contexts/HorariosContext"
+import { useLugares } from "@/src/contexts/LugaresContext"
 import { useAuth } from "@/src/contexts/AuthContext"
+import { Guardia, Usuario, Horario } from "@/src/types"
 import { Pagination } from "@/components/ui/pagination"
 import GuardiaCard from "@/app/guardia/guardia-card"
 
 export default function GuardiasPendientesPage() {
   const { user } = useAuth()
-  const { guardias, horarios, usuarios, lugares, asignarGuardia } = useGuardias()
+  const { guardias, asignarGuardia, getProfesorAusenteIdByGuardia } = useGuardias()
+  const { horarios } = useHorarios()
+  const { usuarios } = useUsuarios()
+  const { lugares } = useLugares()
   
   // Usar siempre la fecha actual
   const today = new Date().toISOString().split("T")[0]
@@ -35,8 +42,13 @@ export default function GuardiasPendientesPage() {
              h.tramoHorario === g.tramoHorario
     )
 
+    // Verificar que el profesor no sea el mismo que generó la ausencia
+    const profesorAusenteId = getProfesorAusenteIdByGuardia(g.id)
+    const noEsProfesorAusente = profesorAusenteId !== user.id
+
     // Solo mostrar las guardias donde el profesor SÍ tiene horario de guardia
-    return esPendiente && tieneHorarioGuardia
+    // Y NO es el profesor que generó la ausencia
+    return esPendiente && tieneHorarioGuardia && noEsProfesorAusente
   })
 
   // Estado para la paginación
@@ -90,6 +102,11 @@ export default function GuardiasPendientesPage() {
           month: "long",
           day: "numeric",
         })}</strong>
+      </div>
+
+      <div className="alert alert-warning">
+        <i className="bi bi-info-circle me-2"></i>
+        Nota: Las guardias generadas por tus propias ausencias no se muestran, ya que no puedes cubrirlas.
       </div>
 
       {guardiasPendientes.length === 0 ? (

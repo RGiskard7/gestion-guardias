@@ -340,6 +340,138 @@ public class GuardiasManager {
 }
 ```
 
+### Flujos de Trabajo y Ciclos de Vida
+
+El sistema implementa flujos de trabajo complejos para la gestión de ausencias y guardias, siguiendo un patrón similar a una máquina de estados:
+
+#### Ciclo de Vida de una Ausencia
+
+```typescript
+// Ejemplo de estados y transiciones en AusenciasContext.tsx
+enum EstadoAusencia {
+    PENDIENTE = "Pendiente",
+    ACEPTADA = "Aceptada",
+    RECHAZADA = "Rechazada"
+}
+
+// Al aceptar una ausencia
+const acceptAusencia = async (ausenciaId: number, tipoGuardia: string, lugarId: number) => {
+    await updateAusencia(ausenciaId, { estado: EstadoAusencia.ACEPTADA });
+    // Tras aceptar, se crea automáticamente una guardia
+    await createGuardia({ 
+        /* datos de la guardia */ 
+        ausenciaId: ausenciaId 
+    });
+};
+
+// Al rechazar una ausencia
+const rejectAusencia = async (ausenciaId: number, motivo?: string) => {
+    await updateAusencia(ausenciaId, { 
+        estado: EstadoAusencia.RECHAZADA,
+        observaciones: motivo
+    });
+};
+```
+
+#### Ciclo de Vida de una Guardia
+
+```typescript
+// Ejemplo de estados y transiciones en GuardiasContext.tsx
+enum EstadoGuardia {
+    PENDIENTE = "Pendiente",
+    ASIGNADA = "Asignada",
+    FIRMADA = "Firmada",
+    ANULADA = "Anulada"
+}
+
+// Al anular una guardia que tiene una ausencia asociada
+const anularGuardia = async (guardiaId: number, motivo: string) => {
+    const guardia = guardias.find(g => g.id === guardiaId);
+    if (!guardia) return false;
+    
+    // Si la guardia tiene una ausencia asociada, actualizar su estado
+    if (guardia.ausenciaId) {
+        await updateAusenciaService(guardia.ausenciaId, { 
+            estado: "Pendiente",
+            observaciones: `Original: ${ausencia.observaciones}. Guardia anulada: ${motivo}`
+        });
+    }
+    
+    // Actualizar la guardia
+    await updateGuardiaService(guardiaId, {
+        estado: EstadoGuardia.ANULADA,
+        ausencia_id: undefined,
+        observaciones: `${guardia.observaciones} | ANULADA: ${motivo}`
+    });
+    
+    // Actualizar los estados locales
+    refreshGuardias();
+    refreshAusencias();
+    
+    return true;
+};
+```
+
+Equivalente en Java (Patrón State):
+
+```java
+// Enum de estados
+public enum EstadoAusencia {
+    PENDIENTE, ACEPTADA, RECHAZADA
+}
+
+// Clase de servicio con métodos de transición
+@Service
+public class AusenciaService {
+    @Transactional
+    public void aceptarAusencia(Long ausenciaId, String tipoGuardia, Long lugarId) {
+        Ausencia ausencia = ausenciaRepository.findById(ausenciaId)
+            .orElseThrow(() -> new EntityNotFoundException());
+        ausencia.setEstado(EstadoAusencia.ACEPTADA);
+        ausenciaRepository.save(ausencia);
+        
+        // Crear guardia asociada
+        Guardia guardia = new Guardia();
+        guardia.setAusenciaId(ausenciaId);
+        // Setear demás campos
+        guardiaRepository.save(guardia);
+    }
+}
+```
+
+### Manejo de Observaciones y Trazabilidad
+
+El sistema mantiene un historial de cambios mediante la actualización de observaciones, similar al patrón Decorator en Java:
+
+```typescript
+// Ejemplo del patrón en anularGuardia
+const anularGuardia = async (guardiaId: number, motivo: string) => {
+    // ...
+    // Preservar las observaciones originales y añadir el motivo de anulación
+    await updateGuardiaService(guardiaId, {
+        observaciones: `${observacionesOriginales} | ANULADA: ${motivo}`
+    });
+    // ...
+};
+```
+
+Equivalente en Java:
+
+```java
+@Transactional
+public void anularGuardia(Long guardiaId, String motivo) {
+    Guardia guardia = guardiaRepository.findById(guardiaId)
+        .orElseThrow(() -> new EntityNotFoundException());
+    
+    // Preservar observaciones originales
+    String observacionesActualizadas = guardia.getObservaciones() + " | ANULADA: " + motivo;
+    guardia.setObservaciones(observacionesActualizadas);
+    guardia.setEstado(EstadoGuardia.ANULADA);
+    
+    guardiaRepository.save(guardia);
+}
+```
+
 ### Servicios (Capa de Acceso a Datos)
 Similar al patrón DAO en Java:
 

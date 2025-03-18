@@ -1,11 +1,15 @@
 "use client"
 
 import { useState } from "react"
-import { useGuardias, type Usuario, type Horario } from "@/src/contexts/GuardiasContext"
+import { useUsuarios } from "@/src/contexts/UsuariosContext"
+import { useHorarios } from "@/src/contexts/HorariosContext"
+import { Usuario, Horario } from "@/src/types"
 import { Pagination } from "@/components/ui/pagination"
+import DataCard from "@/components/common/DataCard"
 
 export default function UsersPage() {
-  const { usuarios, addUsuario, updateUsuario, deleteUsuario, horarios, addHorario } = useGuardias()
+  const { usuarios, addUsuario, updateUsuario, deleteUsuario } = useUsuarios()
+  const { horarios, addHorario } = useHorarios()
 
   // Filtrar solo profesores (no admins)
   const profesores = usuarios.filter((u: Usuario) => u.rol === "profesor")
@@ -22,33 +26,50 @@ export default function UsersPage() {
   const [showForm, setShowForm] = useState(false)
   const [inheritFromId, setInheritFromId] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isRefreshing, setIsRefreshing] = useState(false)
+  
+  // Estados para filtros
+  const [filterNombre, setFilterNombre] = useState<string>("")
+  const [filterEstado, setFilterEstado] = useState<string>("")
   
   // Estado para la paginación
   const [currentPage, setCurrentPage] = useState(1)
-  const [itemsPerPage, setItemsPerPage] = useState(10)
+  const itemsPerPage = 10
 
-  // Añadir log para depuración
-  console.log("Estado actual:", { showForm, editingId, error })
+  // Filtrar profesores según criterios
+  const filteredProfesores = profesores.filter((profesor: Usuario) => {
+    // Filtrar por nombre o email
+    if (filterNombre && 
+        !profesor.nombre.toLowerCase().includes(filterNombre.toLowerCase()) &&
+        !profesor.email.toLowerCase().includes(filterNombre.toLowerCase())) {
+      return false
+    }
+    
+    // Filtrar por estado
+    if (filterEstado === "activo" && !profesor.activo) {
+      return false
+    }
+    if (filterEstado === "inactivo" && profesor.activo) {
+      return false
+    }
+    
+    return true
+  })
 
   // Calcular el número total de páginas
-  const totalPages = Math.max(1, Math.ceil(profesores.length / itemsPerPage))
+  const totalPages = Math.ceil(filteredProfesores.length / itemsPerPage)
   
   // Obtener los elementos de la página actual
   const getCurrentPageItems = () => {
     const startIndex = (currentPage - 1) * itemsPerPage
-    const endIndex = Math.min(startIndex + itemsPerPage, profesores.length)
-    return profesores.slice(startIndex, endIndex)
+    const endIndex = startIndex + itemsPerPage
+    return filteredProfesores.slice(startIndex, endIndex)
   }
   
   // Cambiar de página
   const handlePageChange = (page: number) => {
     setCurrentPage(page)
-  }
-
-  // Cambiar elementos por página
-  const handleItemsPerPageChange = (newItemsPerPage: number) => {
-    setItemsPerPage(newItemsPerPage)
-    setCurrentPage(1) // Resetear a la primera página cuando cambia el número de elementos
   }
 
   // Manejar cambios en el formulario
@@ -64,47 +85,30 @@ export default function UsersPage() {
   // Manejar envío del formulario
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError(null)
+    setIsSubmitting(true)
 
-    if (editingId) {
-      // Actualizar usuario existente
-      updateUsuario(editingId, formData)
-      resetForm()
-    } else {
-      // Añadir nuevo usuario
-      const result = await addUsuario(formData)
-      
-      if (result.success) {
-        // Si hereda horarios de otro profesor
-        if (inheritFromId) {
-          // Obtener el ID del usuario recién añadido
-          const newUserId = Math.max(...usuarios.map((u: Usuario) => u.id)) + 1
-
-          // Obtener horarios del profesor a heredar
-          const horariosToCopy = horarios.filter((h: Horario) => h.profesorId === inheritFromId)
-
-          // Crear nuevos horarios para el nuevo profesor
-          horariosToCopy.forEach((horario: Horario) => {
-            addHorario({
-              profesorId: newUserId,
-              diaSemana: horario.diaSemana,
-              tramoHorario: horario.tramoHorario,
-            })
-          })
-        }
-        
-        // Resetear formulario
-        resetForm()
+    try {
+      if (editingId) {
+        // Actualizar usuario existente
+        await updateUsuario(editingId, formData)
+        alert("Usuario actualizado correctamente")
       } else {
-        // Mostrar mensaje de error
-        setError(result.error || "Error al crear usuario")
+        // Añadir nuevo usuario
+        await addUsuario(formData)
+        alert("Usuario creado correctamente")
       }
+      resetForm()
+      setShowForm(false)
+    } catch (error) {
+      console.error("Error al procesar usuario:", error)
+      setError("Error al procesar usuario")
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
   // Resetear formulario y estado
   const resetForm = () => {
-    console.log("Reseteando formulario")
     setFormData({
       nombre: "",
       email: "",
@@ -112,9 +116,8 @@ export default function UsersPage() {
       activo: true,
     })
     setEditingId(null)
-    // No resetear showForm aquí para evitar conflictos con el botón
     setInheritFromId(null)
-    console.log("Formulario reseteado")
+    setError(null)
   }
 
   // Comenzar edición de usuario
@@ -130,173 +133,300 @@ export default function UsersPage() {
     setInheritFromId(null)
   }
 
-  // Manejar desactivación de usuario
-  const handleDeactivate = (id: number) => {
-    if (window.confirm("¿Estás seguro de que quieres desactivar este usuario?")) {
-      deleteUsuario(id)
+  // Manejar activación/desactivación de usuario
+  const handleDeactivate = (id: number, isActive: boolean) => {
+    const action = isActive ? "desactivar" : "activar"
+    if (window.confirm(`¿Estás seguro de que quieres ${action} este usuario?`)) {
+      updateUsuario(id, { activo: !isActive })
+    }
+  }
+
+  // Función para refrescar los datos
+  const handleRefresh = async () => {
+    setIsRefreshing(true)
+    try {
+      // En un entorno real, aquí iría la llamada para refrescar datos
+      // Por ahora, simulamos un retraso
+      await new Promise((resolve) => setTimeout(resolve, 500))
+    } catch (error) {
+      console.error("Error al refrescar los usuarios:", error)
+    } finally {
+      setIsRefreshing(false)
     }
   }
 
   return (
-    <div className="container mt-4">
-      <h1 className="mb-4">Gestión de Usuarios</h1>
+    <div className="container py-4">
+      <style jsx>{`
+        .spin {
+          animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+        .cursor-pointer {
+          cursor: pointer;
+        }
+        .user-select-none {
+          user-select: none;
+        }
+      `}</style>
 
-      <div className="mb-4">
-        <button
-          className="btn btn-primary"
-          onClick={() => {
-            console.log("Botón Nuevo Usuario clickeado, showForm actual:", showForm)
-            setShowForm(true)
-            setEditingId(null)
-            resetForm()
-            console.log("showForm después de click: true")
-          }}
+      <div className="d-flex justify-content-between align-items-center mb-4">
+        <h1 className="mb-0">Gestión de Usuarios</h1>
+        <button 
+          className="btn btn-outline-primary" 
+          onClick={handleRefresh}
+          disabled={isRefreshing}
         >
-          Nuevo Usuario
+          {isRefreshing ? (
+            <>
+              <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+              Actualizando...
+            </>
+          ) : (
+            <>
+              <i className="bi bi-arrow-clockwise me-2"></i>
+              Actualizar
+            </>
+          )}
         </button>
-        
-        {showForm && (
-          <button
-            className="btn btn-secondary ms-2"
-            onClick={() => {
-              console.log("Botón Cancelar clickeado")
-              setShowForm(false)
-              console.log("showForm después de cancelar: false")
-            }}
-          >
-            Cancelar
-          </button>
-        )}
       </div>
-
-      {error && <div className="alert alert-danger">{error}</div>}
-
-      {/* Log para depurar: {showForm ? "Mostrar formulario" : "No mostrar formulario"} */}
       
+      <DataCard
+        title="Filtros y Acciones"
+        icon="filter"
+        className="mb-4"
+      >
+        <div className="row g-4">
+          <div className="col-md-4">
+            <div className="form-group">
+              <label htmlFor="filterNombre" className="form-label fw-bold">Buscar</label>
+              <input
+                type="text"
+                id="filterNombre"
+                className="form-control"
+                placeholder="Nombre o email"
+                value={filterNombre}
+                onChange={(e) => setFilterNombre(e.target.value)}
+              />
+              <small className="form-text text-muted">Buscar por nombre o email del profesor</small>
+            </div>
+          </div>
+          <div className="col-md-4">
+            <div className="form-group">
+              <label htmlFor="filterEstado" className="form-label fw-bold">Estado</label>
+              <select
+                id="filterEstado"
+                className="form-select"
+                value={filterEstado}
+                onChange={(e) => setFilterEstado(e.target.value)}
+              >
+                <option value="">Todos los estados</option>
+                <option value="activo">Activos</option>
+                <option value="inactivo">Inactivos</option>
+              </select>
+              <small className="form-text text-muted">Filtrar por estado del profesor</small>
+            </div>
+          </div>
+          <div className="col-md-4">
+            <div className="form-group d-flex flex-column h-100">
+              <label className="form-label fw-bold">Acciones</label>
+              <div className="mt-auto">
+                <button
+                  className="btn btn-primary"
+                  onClick={() => {
+                    resetForm()
+                    setShowForm(!showForm)
+                  }}
+                >
+                  <i className={`bi ${showForm ? "bi-x-circle" : "bi-plus-circle"} me-2`}></i>
+                  {showForm ? "Cancelar" : "Nuevo Profesor"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </DataCard>
+
       {showForm && (
-        <div className="card mb-4">
-          <div className="card-header">{editingId ? "Editar Profesor" : "Añadir Nuevo Profesor"}</div>
-          <div className="card-body">
-            <form onSubmit={handleSubmit}>
-              <div className="mb-3">
-                <label htmlFor="nombre" className="form-label">
-                  Nombre
-                </label>
-                <input
-                  type="text"
-                  className="form-control"
-                  id="nombre"
-                  name="nombre"
-                  value={formData.nombre}
-                  onChange={handleChange}
-                  required
-                />
+        <DataCard
+          title={editingId ? "Editar Profesor" : "Nuevo Profesor"}
+          icon={editingId ? "pencil-square" : "person-plus"}
+          className="mb-4"
+        >
+          <form onSubmit={handleSubmit}>
+            <div className="row g-4">
+              <div className="col-md-6">
+                <div className="form-group">
+                  <label htmlFor="nombre" className="form-label fw-bold">
+                    Nombre
+                  </label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    id="nombre"
+                    name="nombre"
+                    value={formData.nombre}
+                    onChange={handleChange}
+                    required
+                  />
+                  <small className="form-text text-muted">Nombre completo del profesor</small>
+                </div>
               </div>
 
-              <div className="mb-3">
-                <label htmlFor="email" className="form-label">
-                  Email
-                </label>
-                <input
-                  type="email"
-                  className="form-control"
-                  id="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  required
-                />
+              <div className="col-md-6">
+                <div className="form-group">
+                  <label htmlFor="email" className="form-label fw-bold">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    className="form-control"
+                    id="email"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    required
+                  />
+                  <small className="form-text text-muted">Correo electrónico del profesor</small>
+                </div>
               </div>
 
-              <div className="mb-3 form-check">
-                <input
-                  type="checkbox"
-                  className="form-check-input"
-                  id="activo"
-                  name="activo"
-                  checked={formData.activo}
-                  onChange={handleChange}
-                />
-                <label className="form-check-label" htmlFor="activo">
-                  Activo
-                </label>
+              <div className="col-md-6">
+                <div className="form-group">
+                  <div className="form-check form-switch mt-4">
+                    <input
+                      type="checkbox"
+                      className="form-check-input"
+                      id="activo"
+                      name="activo"
+                      checked={formData.activo}
+                      onChange={handleChange}
+                    />
+                    <label className="form-check-label fw-bold" htmlFor="activo">
+                      Usuario Activo
+                    </label>
+                    <div className="form-text">
+                      Los usuarios inactivos no pueden acceder al sistema
+                    </div>
+                  </div>
+                </div>
               </div>
 
               {!editingId && (
-                <div className="mb-3">
-                  <label htmlFor="inheritFrom" className="form-label">
-                    Heredar horarios de
-                  </label>
-                  <select
-                    className="form-select"
-                    id="inheritFrom"
-                    onChange={(e) => setInheritFromId(e.target.value ? Number.parseInt(e.target.value) : null)}
-                    value={inheritFromId || ""}
-                  >
-                    <option value="">No heredar horarios</option>
-                    {profesores.map((profesor: Usuario) => (
-                      <option key={profesor.id} value={profesor.id}>
-                        {profesor.nombre}
-                      </option>
-                    ))}
-                  </select>
-                  <div className="form-text">
-                    Si este profesor sustituye a otro, puede heredar sus horarios de guardia.
+                <div className="col-md-6">
+                  <div className="form-group">
+                    <label htmlFor="inheritFrom" className="form-label fw-bold">
+                      Heredar horarios de
+                    </label>
+                    <select
+                      className="form-select"
+                      id="inheritFrom"
+                      onChange={(e) => setInheritFromId(e.target.value ? Number.parseInt(e.target.value) : null)}
+                      value={inheritFromId || ""}
+                    >
+                      <option value="">No heredar horarios</option>
+                      {profesores.map((profesor: Usuario) => (
+                        <option key={profesor.id} value={profesor.id}>
+                          {profesor.nombre}
+                        </option>
+                      ))}
+                    </select>
+                    <small className="form-text text-muted">
+                      Si este profesor sustituye a otro, puede heredar sus horarios de guardia
+                    </small>
                   </div>
                 </div>
               )}
+            </div>
 
-              <button type="submit" className="btn btn-primary">
-                {editingId ? "Actualizar" : "Guardar"}
+            {error && <div className="alert alert-danger mt-3">{error}</div>}
+
+            <div className="d-flex justify-content-end mt-4 pt-3 border-top">
+              <button 
+                type="button" 
+                className="btn btn-outline-secondary me-3"
+                onClick={() => {
+                  resetForm()
+                  setShowForm(false)
+                }}
+              >
+                <i className="bi bi-x-circle me-2"></i>
+                Cancelar
               </button>
-            </form>
-          </div>
-        </div>
+              <button 
+                type="submit" 
+                className="btn btn-primary"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? (
+                  <>
+                    <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                    {editingId ? "Actualizando..." : "Guardando..."}
+                  </>
+                ) : (
+                  <>
+                    <i className={`bi ${editingId ? "bi-check-circle" : "bi-plus-circle"} me-2`}></i>
+                    {editingId ? "Actualizar" : "Guardar"}
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
+        </DataCard>
       )}
 
-      <div className="card">
-        <div className="card-header">Profesores</div>
-        <div className="card-body">
-          {profesores.length === 0 ? (
-            <div className="alert alert-info">No hay profesores registrados.</div>
-          ) : (
+      <DataCard
+        title="Listado de Profesores"
+        icon="people"
+        className="mb-4"
+      >
+        {filteredProfesores.length === 0 ? (
+          <div className="alert alert-info d-flex align-items-center">
+            <i className="bi bi-info-circle-fill fs-4 me-3"></i>
+            <div>No hay profesores que coincidan con los filtros seleccionados.</div>
+          </div>
+        ) : (
+          <>
             <div className="table-responsive">
-              <table className="table table-striped">
-                <thead>
+              <table className="table table-striped table-hover align-middle">
+                <thead className="table-light">
                   <tr>
-                    <th>ID</th>
-                    <th>Nombre</th>
-                    <th>Email</th>
-                    <th>Estado</th>
-                    <th>Acciones</th>
+                    <th scope="col">Nombre</th>
+                    <th scope="col">Email</th>
+                    <th scope="col">Estado</th>
+                    <th scope="col" className="text-center">Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
                   {getCurrentPageItems().map((profesor: Usuario) => (
                     <tr key={profesor.id}>
-                      <td>{profesor.id}</td>
-                      <td>{profesor.nombre}</td>
+                      <td className="fw-medium">{profesor.nombre}</td>
                       <td>{profesor.email}</td>
                       <td>
                         {profesor.activo ? (
-                          <span className="badge bg-success">Activo</span>
+                          <span className="badge bg-success rounded-pill px-3 py-2">Activo</span>
                         ) : (
-                          <span className="badge bg-danger">Inactivo</span>
+                          <span className="badge bg-danger rounded-pill px-3 py-2">Inactivo</span>
                         )}
                       </td>
                       <td>
-                        <div className="btn-group">
+                        <div className="d-flex justify-content-center gap-2">
                           <button
                             className="btn btn-sm btn-outline-primary"
                             onClick={() => handleEdit(profesor)}
+                            title="Editar profesor"
                           >
-                            Editar
+                            <i className="bi bi-pencil"></i>
                           </button>
                           <button
-                            className="btn btn-sm btn-outline-danger"
-                            onClick={() => handleDeactivate(profesor.id)}
+                            className="btn btn-sm btn-outline-warning"
+                            onClick={() => handleDeactivate(profesor.id, profesor.activo)}
+                            title={profesor.activo ? "Desactivar profesor" : "Activar profesor"}
                           >
-                            {profesor.activo ? "Desactivar" : "Activar"}
+                            <i className={`bi ${profesor.activo ? "bi-person-dash" : "bi-person-check"}`}></i>
                           </button>
                         </div>
                       </td>
@@ -304,22 +434,21 @@ export default function UsersPage() {
                   ))}
                 </tbody>
               </table>
-              
-              {/* Componente de paginación */}
-              {profesores.length > 0 && (
-                <Pagination 
-                  currentPage={currentPage} 
-                  totalPages={totalPages} 
-                  onPageChange={handlePageChange} 
-                  onItemsPerPageChange={handleItemsPerPageChange}
-                  itemsPerPage={itemsPerPage}
-                  totalItems={profesores.length}
-                />
-              )}
             </div>
-          )}
-        </div>
-      </div>
+
+            <div className="d-flex justify-content-between align-items-center mt-4 pt-3 border-top">
+              <div className="text-muted small">
+                Mostrando <span className="fw-bold">{(currentPage - 1) * itemsPerPage + 1}-{Math.min(currentPage * itemsPerPage, filteredProfesores.length)}</span> de <span className="fw-bold">{filteredProfesores.length}</span> profesores
+              </div>
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={handlePageChange}
+              />
+            </div>
+          </>
+        )}
+      </DataCard>
     </div>
   )
 } 

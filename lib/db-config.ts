@@ -36,7 +36,14 @@ export const DB_CONFIG = {
   ROLES: {
     ADMIN: 'admin',
     PROFESOR: 'profesor'
-  }
+  },
+  
+  // Tipos de guardia disponibles (modificables por el administrador)
+  TIPOS_GUARDIA: [
+    'Aula',
+    'Patio',
+    'Recreo'
+  ] as string[] // Usar as para permitir la modificación dinámica
 };
 
 /**

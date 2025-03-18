@@ -1,7 +1,10 @@
 "use client"
 
 import type React from "react"
-import { type Guardia, type Lugar, type Usuario, type TareaGuardia, useGuardias } from "@/src/contexts/GuardiasContext"
+import { useGuardias } from "@/src/contexts/GuardiasContext"
+import { useLugares } from "@/src/contexts/LugaresContext"
+import { useUsuarios } from "@/src/contexts/UsuariosContext"
+import { Guardia, TareaGuardia, Lugar, Usuario } from "@/src/types"
 
 interface GuardiaCardProps {
   guardia: Guardia
@@ -11,7 +14,9 @@ interface GuardiaCardProps {
 }
 
 const GuardiaCard: React.FC<GuardiaCardProps> = ({ guardia, showActions = false, onAsignar, onFirmar }) => {
-  const { getLugarById, getUsuarioById, getTareasByGuardia, getProfesorAusenteIdByGuardia } = useGuardias()
+  const { getTareasByGuardia, getProfesorAusenteIdByGuardia } = useGuardias()
+  const { getLugarById } = useLugares()
+  const { getUsuarioById } = useUsuarios()
 
   const lugar: Lugar | undefined = getLugarById(guardia.lugarId)
   const profesorAusenteId = getProfesorAusenteIdByGuardia(guardia.id)

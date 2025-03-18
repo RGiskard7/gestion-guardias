@@ -265,6 +265,9 @@ export async function anularGuardia(guardiaId: number, motivo: string): Promise<
  */
 export async function createGuardia(guardia: Omit<Guardia, 'id'>): Promise<Guardia> {
   try {
+    // Log para verificar el tipo de guardia
+    console.log("Tipo de guardia en createGuardia:", guardia.tipoGuardia);
+    
     // Obtener el próximo ID disponible
     const nextId = await getNextId();
     
@@ -322,6 +325,23 @@ export async function updateGuardia(id: number, guardia: Partial<Guardia>): Prom
         
       if (sqlError) {
         console.error(`Error al establecer profesor_cubridor_id a NULL para guardia ${id}:`, sqlError);
+        throw sqlError;
+      }
+    }
+
+    // Manejar ausencia_id de manera similar cuando es undefined para establecerlo a NULL
+    if ('ausencia_id' in guardiaToUpdate && guardiaToUpdate.ausencia_id === undefined) {
+      // Eliminar la propiedad del objeto para no enviarla en el update normal
+      delete guardiaToUpdate.ausencia_id;
+      
+      // Ejecutar SQL directo para establecer el campo a NULL
+      const { error: sqlError } = await supabase
+        .from(getTableName('GUARDIAS'))
+        .update({ ausencia_id: null })
+        .eq('id', id);
+        
+      if (sqlError) {
+        console.error(`Error al establecer ausencia_id a NULL para guardia ${id}:`, sqlError);
         throw sqlError;
       }
     }

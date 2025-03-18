@@ -195,15 +195,13 @@ export async function updateAusencia(id: number, ausencia: Partial<Ausencia>): P
  * @param tipoGuardia Tipo de guardia a crear
  * @param lugarId ID del lugar donde se realizará la guardia
  * @param observaciones Observaciones adicionales (opcional)
- * @param tarea Descripción de la tarea asociada a la guardia (opcional)
  * @returns Guardia creada o null si hubo un error
  */
 export async function acceptAusencia(
   ausenciaId: number, 
   tipoGuardia: string, 
   lugarId: number, 
-  observaciones?: string,
-  tarea?: string
+  observaciones?: string
 ): Promise<Guardia | null> {
   try {
     // Obtener la ausencia
@@ -217,9 +215,6 @@ export async function acceptAusencia(
       estado: DB_CONFIG.ESTADOS_AUSENCIA.ACEPTADA 
     });
 
-    // Usar la tarea de la ausencia si existe y no se proporciona una nueva
-    const tareaFinal = tarea || ausencia.tareas;
-
     // Crear la guardia asociada
     const nuevaGuardia = await createGuardia({
       fecha: ausencia.fecha,
@@ -232,14 +227,6 @@ export async function acceptAusencia(
       profesor_cubridor_id: undefined,
       ausencia_id: ausenciaId
     });
-
-    // Si hay tarea, crearla
-    if (tareaFinal && nuevaGuardia) {
-      await createTareaGuardia({
-        guardia_id: nuevaGuardia.id,
-        descripcion: tareaFinal
-      });
-    }
 
     return nuevaGuardia;
   } catch (error) {
@@ -280,6 +267,38 @@ export async function deleteAusencia(id: number): Promise<boolean> {
       throw new Error(`No existe una ausencia con ID ${id}`);
     }
 
+    // Buscar guardias asociadas a esta ausencia
+    const { data: guardiasAsociadas, error: errorGuardias } = await supabase
+      .from(getTableName('GUARDIAS'))
+      .select('*')
+      .eq('ausencia_id', id);
+
+    if (errorGuardias) {
+      console.error(`Error al buscar guardias asociadas a la ausencia ${id}:`, errorGuardias);
+      throw errorGuardias;
+    }
+
+    // Primero desasociar y anular las guardias asociadas
+    if (guardiasAsociadas && guardiasAsociadas.length > 0) {
+      for (const guardia of guardiasAsociadas) {
+        // Desasociar la guardia de la ausencia primero (poner ausencia_id a null)
+        const { error: errorDesasociar } = await supabase
+          .from(getTableName('GUARDIAS'))
+          .update({
+            ausencia_id: null,
+            estado: DB_CONFIG.ESTADOS_GUARDIA.ANULADA,
+            observaciones: `ANULADA: La ausencia asociada ha sido eliminada`,
+          })
+          .eq('id', guardia.id);
+
+        if (errorDesasociar) {
+          console.error(`Error al desasociar/anular guardia ${guardia.id}:`, errorDesasociar);
+          throw errorDesasociar;
+        }
+      }
+    }
+
+    // Una vez desasociadas todas las guardias, eliminar la ausencia
     const { error } = await supabase
       .from(getTableName('AUSENCIAS'))
       .delete()

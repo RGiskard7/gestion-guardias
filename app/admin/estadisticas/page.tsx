@@ -1,14 +1,20 @@
 "use client"
 
 import { useState } from "react"
-import { useGuardias, type Usuario } from "../../../src/contexts/GuardiasContext"
+import { useGuardias } from "@/src/contexts/GuardiasContext"
+import { useUsuarios } from "@/src/contexts/UsuariosContext"
+import { useLugares } from "@/src/contexts/LugaresContext"
+import { Usuario, Lugar } from "@/src/types"
 
 export default function EstadisticasPage() {
-  const { guardias, usuarios, lugares } = useGuardias()
+  const { guardias } = useGuardias()
+  const { usuarios } = useUsuarios()
+  const { lugares } = useLugares()
   const [periodoInicio, setPeriodoInicio] = useState<string>(
     new Date(new Date().setDate(new Date().getDate() - 30)).toISOString().split("T")[0],
   )
   const [periodoFin, setPeriodoFin] = useState<string>(new Date().toISOString().split("T")[0])
+  const [activeTab, setActiveTab] = useState<"profesores" | "lugares">("profesores")
 
   // Filtrar guardias por periodo
   const guardiasEnPeriodo = guardias.filter((g) => g.fecha >= periodoInicio && g.fecha <= periodoFin)

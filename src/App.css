@@ -1,6 +1,7 @@
 /* Estilos generales */
 body {
   font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  font-size: 16px;
 }
 
 .app-container {
@@ -32,8 +33,8 @@ body {
 .dashboard-card .card-body {
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
   padding: 1.5rem;
+  height: 100%;
 }
 
 .dashboard-icon {
@@ -43,6 +44,7 @@ body {
   background-color: var(--bs-primary-bg-subtle);
   width: 60px;
   height: 60px;
+  min-width: 60px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -131,12 +133,16 @@ body {
 .dashboard-card .card-title {
   font-weight: 600;
   margin-top: 0.5rem;
-  font-size: 1.2rem;
+  font-size: 1.3rem;
 }
 
 .dashboard-card .card-text {
   color: #6c757d;
-  margin-bottom: 1.5rem;
+  margin-bottom: 1rem;
+  font-size: 1.05rem;
+  width: 100%;
+  display: block;
+  clear: both;
 }
 
 .dashboard-card .btn {
@@ -170,6 +176,7 @@ body {
   font-weight: 600;
   padding: 1rem 1.5rem;
   border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  font-size: 1.1rem;
 }
 
 .card .table {
@@ -180,11 +187,13 @@ body {
   font-weight: 600;
   border-top: none;
   padding: 1rem;
+  font-size: 1.05rem;
 }
 
 .card .table td {
   padding: 1rem;
   vertical-align: middle;
+  font-size: 1.05rem;
 }
 
 .card .list-group-item {
@@ -219,6 +228,28 @@ body {
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
   padding: 25px;
   margin-bottom: 30px;
+}
+
+/* Aumentar tamaño de los elementos de formulario */
+.form-control, .form-select {
+  padding: 0.5rem 0.75rem;
+  font-size: 1.05rem;
+}
+
+.form-label {
+  font-size: 1.05rem;
+  font-weight: 500;
+}
+
+/* Aumentar tamaño de los botones */
+.btn {
+  padding: 0.5rem 1rem;
+  font-size: 1.05rem;
+}
+
+.btn-sm {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.95rem;
 }
 
 /* Status badges */
@@ -298,7 +329,7 @@ body {
   top: 56px;
   left: 0;
   bottom: 0;
-  width: 250px;
+  width: 280px;
   background-color: var(--bs-primary);
   color: var(--bs-white);
   padding-top: 20px;
@@ -309,8 +340,9 @@ body {
 .sidebar .nav-link {
   color: var(--bs-white);
   opacity: 0.75;
-  padding: 10px 20px;
+  padding: 12px 20px;
   margin-bottom: 5px;
+  font-size: 1.05rem;
 }
 
 .sidebar .nav-link:hover,
@@ -325,9 +357,9 @@ body {
 
 /* Ajustar el contenido principal para que no se solape con el sidebar y el navbar */
 .flex-grow-1 {
-  margin-left: 250px; /* Mismo ancho que el sidebar */
-  width: calc(100% - 250px);
-  padding-top: 56px; /* Altura del navbar */
+  margin-left: 280px;
+  width: calc(100% - 280px);
+  padding-top: 56px;
 }
 
 /* Login page */

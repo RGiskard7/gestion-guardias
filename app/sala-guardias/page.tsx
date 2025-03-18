@@ -1,12 +1,16 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useGuardias } from "../../src/contexts/GuardiasContext"
+import { useGuardias } from "@/src/contexts/GuardiasContext"
+import { useUsuarios } from "@/src/contexts/UsuariosContext"
+import { useLugares } from "@/src/contexts/LugaresContext"
 import GuardiaCard from "@/app/guardia/guardia-card"
 import { Pagination } from "@/components/ui/pagination"
 
 export default function SalaGuardiasPage() {
-  const { guardias, getUsuarioById, getLugarById, getProfesorAusenteIdByGuardia } = useGuardias()
+  const { guardias, getProfesorAusenteIdByGuardia } = useGuardias()
+  const { getUsuarioById } = useUsuarios()
+  const { getLugarById } = useLugares()
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split("T")[0])
   const [viewMode, setViewMode] = useState<"day" | "week">("day")
   const [filterEstado, setFilterEstado] = useState<string>("Pendiente")
