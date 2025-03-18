@@ -134,35 +134,43 @@ export const GuardiasProvider: React.FC<GuardiasProviderProps> = ({ children }) 
   }
 
   // Función para añadir una guardia
-  const addGuardia = async (guardia: Omit<Guardia, "id">, tarea?: string): Promise<number | null> => {
+  const addGuardia = async (guardiaData: Omit<Guardia, "id">, tarea?: string): Promise<number | null> => {
     try {
-      // Log para verificar el tipo de guardia
-      console.log("Tipo de guardia en addGuardia:", guardia.tipoGuardia);
+      // Mapear datos de guardia al formato de la base de datos
+      const guardiaDB = mapGuardiaToDB(guardiaData as Guardia);
       
-      const guardiaDB = mapGuardiaToDB(guardia)
+      // Llamar al servicio para crear la guardia
       const newGuardia = await createGuardiaService(guardiaDB as Omit<GuardiaDB, "id">)
       
-      if (newGuardia) {
-        const mappedGuardia = mapGuardiaFromDB(newGuardia)
-        setGuardias([...guardias, mappedGuardia])
-        
-        // Si se proporciona una tarea, añadirla
-        if (tarea) {
-          const newTarea: Omit<TareaGuardia, "id"> = {
-            guardiaId: mappedGuardia.id,
-            descripcionTarea: tarea
-          }
-          
-          await addTareaGuardia(newTarea)
-        }
-        
-        return mappedGuardia.id
+      if (!newGuardia) {
+        throw new Error("No se pudo crear la guardia. Verifica que no exista una guardia con los mismos parámetros.");
       }
       
-      return null
+      // Si hay tarea, añadirla a la guardia
+      if (tarea) {
+        const newTarea: Omit<TareaGuardia, "id"> = {
+          guardiaId: newGuardia.id,
+          descripcionTarea: tarea
+        }
+        await addTareaGuardia(newTarea)
+      }
+      
+      // Mapear la nueva guardia de vuelta al formato de la aplicación
+      const guardia = mapGuardiaFromDB(newGuardia)
+      
+      // Actualizar el estado guardias
+      setGuardias(prevGuardias => [...prevGuardias, guardia])
+      
+      return guardia.id
     } catch (error) {
-      console.error("Error al añadir guardia:", error)
-      return null
+      console.error('Error en addGuardia:', error)
+      
+      // Propagar el error para que se pueda manejar en la interfaz de usuario
+      if (error instanceof Error) {
+        throw error
+      } else {
+        throw new Error("Error al crear la guardia")
+      }
     }
   }
 
@@ -364,8 +372,77 @@ export const GuardiasProvider: React.FC<GuardiasProviderProps> = ({ children }) 
 
   // Función para verificar si un profesor puede asignar una guardia
   const canProfesorAsignarGuardia = (guardiaId: number, profesorId: number): boolean => {
-    // Implementar lógica para verificar si un profesor puede asignar una guardia
-    return true
+    try {
+      // Verificar si el profesor existe
+      if (!profesorId) return false;
+      
+      // Obtener la guardia
+      const guardia = guardias.find(g => g.id === guardiaId);
+      if (!guardia) return false;
+      
+      // Obtener el día de la semana de la guardia
+      const fecha = new Date(guardia.fecha);
+      const diaSemana = fecha.toLocaleDateString('es-ES', { weekday: 'long' });
+      
+      // Verificar si el profesor tiene disponibilidad en ese día y tramo horario
+      // Esta verificación deberá hacerse en el componente que llama a esta función
+      // ya que aquí no tenemos acceso al contexto de horarios.
+      
+      // Verificar si ya tiene una guardia asignada para este mismo tramo horario y fecha
+      const guardiasMismoTramo = guardias.filter(g => 
+        g.profesorCubridorId === profesorId && 
+        g.fecha === guardia.fecha && 
+        g.tramoHorario === guardia.tramoHorario &&
+        (g.estado === DB_CONFIG.ESTADOS_GUARDIA.ASIGNADA || g.estado === DB_CONFIG.ESTADOS_GUARDIA.FIRMADA)
+      );
+      
+      if (guardiasMismoTramo.length > 0) {
+        console.log(`El profesor ${profesorId} ya tiene una guardia asignada en el mismo tramo horario para la fecha ${guardia.fecha}`);
+        return false;
+      }
+      
+      // Verificar el límite de guardias semanales (máximo 6 guardias por semana)
+      // Obtener todas las guardias asignadas al profesor
+      const guardiasProfesor = guardias.filter(g => 
+        g.profesorCubridorId === profesorId && 
+        (g.estado === DB_CONFIG.ESTADOS_GUARDIA.ASIGNADA || g.estado === DB_CONFIG.ESTADOS_GUARDIA.FIRMADA)
+      );
+      
+      if (guardiasProfesor.length === 0) return true; // Si no tiene guardias asignadas, puede tomar esta
+      
+      // Obtener la fecha de inicio de la semana (lunes) de la guardia actual
+      const diaGuardia = new Date(guardia.fecha);
+      const diaSemanaNum = diaGuardia.getDay(); // 0 es domingo, 1 es lunes, etc.
+      const lunes = new Date(diaGuardia);
+      lunes.setDate(diaGuardia.getDate() - (diaSemanaNum === 0 ? 6 : diaSemanaNum - 1));
+      lunes.setHours(0, 0, 0, 0);
+      
+      // Obtener la fecha de fin de la semana (domingo)
+      const domingo = new Date(lunes);
+      domingo.setDate(lunes.getDate() + 6);
+      domingo.setHours(23, 59, 59, 999);
+      
+      // Convertir fechas a formato ISO para comparar
+      const lunesISO = lunes.toISOString().split('T')[0];
+      const domingoISO = domingo.toISOString().split('T')[0];
+      
+      // Contar guardias en esa semana
+      const guardiasEnSemana = guardiasProfesor.filter(g => {
+        const fechaGuardia = g.fecha;
+        return fechaGuardia >= lunesISO && fechaGuardia <= domingoISO;
+      });
+      
+      // Verificar si ya tiene 6 o más guardias asignadas esta semana
+      if (guardiasEnSemana.length >= 6) {
+        console.log(`El profesor ${profesorId} ya tiene ${guardiasEnSemana.length} guardias esta semana (límite: 6)`);
+        return false;
+      }
+      
+      return true;
+    } catch (error) {
+      console.error("Error al verificar si el profesor puede asignar la guardia:", error);
+      return false;
+    }
   }
 
   // Función para obtener una guardia por ID de ausencia

@@ -6,41 +6,64 @@ import { useUsuarios } from "@/src/contexts/UsuariosContext"
 import { useHorarios } from "@/src/contexts/HorariosContext"
 import { useLugares } from "@/src/contexts/LugaresContext"
 import { useAuth } from "@/src/contexts/AuthContext"
-import { Guardia, Usuario, Horario } from "@/src/types"
+import { Guardia, Usuario } from "@/src/types"
 import { Pagination } from "@/components/ui/pagination"
 import GuardiaCard from "@/app/guardia/guardia-card"
+import { DB_CONFIG } from "@/lib/db-config"
 
 export default function GuardiasPendientesPage() {
   const { user } = useAuth()
-  const { guardias, asignarGuardia, getProfesorAusenteIdByGuardia } = useGuardias()
+  const { guardias, asignarGuardia, getProfesorAusenteIdByGuardia, canProfesorAsignarGuardia } = useGuardias()
   const { horarios } = useHorarios()
   const { usuarios } = useUsuarios()
   const { lugares } = useLugares()
   
+  // Estado para mensajes al usuario
+  const [mensaje, setMensaje] = useState<{texto: string, tipo: 'success' | 'warning' | 'danger' | 'info'} | null>(null)
+  
+  // Estado para la paginación
+  const [currentPage, setCurrentPage] = useState(1)
+  const itemsPerPage = DB_CONFIG.PAGINACION.ELEMENTOS_POR_PAGINA.GUARDIAS
+  
   // Usar siempre la fecha actual
   const today = new Date().toISOString().split("T")[0]
   
-  // Obtener el día de la semana actual
-  const diaSemanaActual = new Date().toLocaleDateString("es-ES", { weekday: "long" }).toLowerCase()
+  // Obtener el día de la semana actual (1-7, donde 1 es lunes y 7 es domingo)
+  const hoy = new Date()
+  const diaSemanaNumerico = hoy.getDay() || 7 // Si es domingo (0), convertirlo a 7
+  // Ajustar a escala 1-5 para días laborables (lunes a viernes)
+  const diaSemanaLaborable = diaSemanaNumerico <= 5 ? diaSemanaNumerico : null
+  
+  // Obtener el nombre del día de la semana actual a partir del número
+  const nombreDiaSemanaActual = diaSemanaLaborable ? DB_CONFIG.DIAS_SEMANA[diaSemanaLaborable - 1] : null
 
   if (!user) return null
 
-  // Get profesor's schedules
+  // Si no es un día laborable (fin de semana), no mostrar guardias
+  if (!diaSemanaLaborable || !nombreDiaSemanaActual) {
+    return (
+      <div className="container-fluid">
+        <h1 className="h3 mb-4">Guardias Pendientes</h1>
+        <div className="alert alert-info">
+          Hoy es fin de semana. No hay guardias programadas para hoy.
+        </div>
+      </div>
+    )
+  }
+
+  // Obtener horarios del profesor
   const misHorarios = horarios.filter((h) => h.profesorId === user.id)
   
-  // Filtrar horarios para mostrar solo los del día actual
-  const horariosHoy = misHorarios.filter((h) => h.diaSemana.toLowerCase() === diaSemanaActual)
+  // Filtrar horarios para mostrar solo los del día actual comparando por el nombre del día
+  const horariosHoy = misHorarios.filter((h) => h.diaSemana === nombreDiaSemanaActual)
 
-  // Filter guardias pendientes for today
+  // Filtrar guardias pendientes para hoy
   const guardiasPendientes = guardias.filter((g: Guardia) => {
     // La guardia debe estar pendiente y ser de hoy
-    const esPendiente = g.estado === "Pendiente" && g.fecha === today
+    const esPendiente = g.estado === DB_CONFIG.ESTADOS_GUARDIA.PENDIENTE && g.fecha === today
 
     // Verificar si el profesor tiene horario de guardia en ese tramo
-    const tieneHorarioGuardia = misHorarios.some(
-      (h) => h.diaSemana.toLowerCase() === diaSemanaActual && 
-             h.tramoHorario === g.tramoHorario
-    )
+    const tieneHorarioGuardia = horariosHoy.some(h => h.tramoHorario === g.tramoHorario)
 
     // Verificar que el profesor no sea el mismo que generó la ausencia
     const profesorAusenteId = getProfesorAusenteIdByGuardia(g.id)
@@ -51,9 +74,6 @@ export default function GuardiasPendientesPage() {
     return esPendiente && tieneHorarioGuardia && noEsProfesorAusente
   })
 
-  // Estado para la paginación
-  const [currentPage, setCurrentPage] = useState(1)
-  const itemsPerPage = 6 // Ajustado para mostrar 6 tarjetas por página (2 filas de 3)
   const totalPages = Math.ceil(guardiasPendientes.length / itemsPerPage)
   
   // Obtener los elementos de la página actual
@@ -84,10 +104,88 @@ export default function GuardiasPendientesPage() {
   const handleAsignarGuardia = async (guardiaId: number) => {
     if (!user) return
     
+    // Limpiar mensaje previo
+    setMensaje(null)
+    
     try {
-      await asignarGuardia(guardiaId, user.id)
+      // Verificar si el profesor puede asignarse esta guardia
+      const puedeAsignar = canProfesorAsignarGuardia(guardiaId, user.id)
+      
+      if (!puedeAsignar) {
+        // Obtener la guardia para verificar detalles
+        const guardia = guardias.find(g => g.id === guardiaId)
+        if (!guardia) {
+          setMensaje({
+            texto: "No se pudo encontrar la guardia seleccionada.",
+            tipo: "danger"
+          })
+          return
+        }
+        
+        // Verificar si ya tiene una guardia asignada en el mismo tramo
+        const guardiasMismoTramo = guardias.filter(g => 
+          g.profesorCubridorId === user.id && 
+          g.fecha === guardia.fecha && 
+          g.tramoHorario === guardia.tramoHorario &&
+          (g.estado === DB_CONFIG.ESTADOS_GUARDIA.ASIGNADA || g.estado === DB_CONFIG.ESTADOS_GUARDIA.FIRMADA)
+        )
+        
+        if (guardiasMismoTramo.length > 0) {
+          setMensaje({
+            texto: `Ya tienes una guardia asignada en el tramo horario ${guardia.tramoHorario}. No puedes asignarte más de una guardia en el mismo tramo horario.`,
+            tipo: "warning"
+          })
+          return
+        }
+        
+        // Si no es por tramo duplicado, probablemente sea por el límite semanal
+        setMensaje({
+          texto: "No puedes asignarte más guardias esta semana. El límite es de 6 guardias por semana.",
+          tipo: "warning"
+        })
+        return
+      }
+      
+      // Verificar que la guardia sigue disponible
+      const guardia = guardias.find(g => g.id === guardiaId)
+      if (!guardia || guardia.estado !== DB_CONFIG.ESTADOS_GUARDIA.PENDIENTE) {
+        setMensaje({
+          texto: "Esta guardia ya no está disponible.",
+          tipo: "warning"
+        })
+        return
+      }
+      
+      // Verificar que el profesor tiene horario para cubrir esta guardia
+      const tieneHorario = horariosHoy.some(h => h.tramoHorario === guardia.tramoHorario)
+      if (!tieneHorario) {
+        setMensaje({
+          texto: "No tienes horario de guardia asignado para este tramo horario.",
+          tipo: "warning"
+        })
+        return
+      }
+      
+      // Asignar la guardia
+      const exito = await asignarGuardia(guardiaId, user.id)
+      
+      if (exito) {
+        setMensaje({
+          texto: "Guardia asignada correctamente. Ya puedes firmarla una vez la hayas realizado.",
+          tipo: "success"
+        })
+      } else {
+        setMensaje({
+          texto: "No se pudo asignar la guardia. Inténtalo de nuevo más tarde.",
+          tipo: "danger"
+        })
+      }
     } catch (error) {
       console.error("Error al asignar guardia:", error)
+      setMensaje({
+        texto: "Error al asignar la guardia. Contacta con el administrador.",
+        tipo: "danger"
+      })
     }
   }
 
@@ -103,6 +201,13 @@ export default function GuardiasPendientesPage() {
           day: "numeric",
         })}</strong>
       </div>
+
+      {mensaje && (
+        <div className={`alert alert-${mensaje.tipo}`}>
+          <i className={`bi bi-${mensaje.tipo === 'success' ? 'check-circle' : 'exclamation-triangle'} me-2`}></i>
+          {mensaje.texto}
+        </div>
+      )}
 
       <div className="alert alert-warning">
         <i className="bi bi-info-circle me-2"></i>

@@ -279,6 +279,26 @@ export async function createGuardia(guardia: Omit<Guardia, 'id'>): Promise<Guard
       throw new Error('No se pueden crear guardias con fechas pasadas');
     }
     
+    // Verificar si ya existe una guardia con la misma fecha, tramo, tipo y lugar
+    const { data: existingGuardia, error: errorBusqueda } = await supabase
+      .from(getTableName('GUARDIAS'))
+      .select('*')
+      .eq('fecha', guardia.fecha)
+      .eq('tramo_horario', guardia.tramo_horario)
+      .eq('tipo_guardia', guardia.tipo_guardia)
+      .eq('lugar_id', guardia.lugar_id)
+      .neq('estado', DB_CONFIG.ESTADOS_GUARDIA.ANULADA); // Excluir guardias anuladas
+    
+    if (errorBusqueda) {
+      console.error('Error al verificar guardias existentes:', errorBusqueda);
+      throw errorBusqueda;
+    }
+    
+    // Si existe una guardia con los mismos parámetros que no esté anulada, lanzar error
+    if (existingGuardia && existingGuardia.length > 0) {
+      throw new Error(`Ya existe una guardia activa con la misma fecha (${guardia.fecha}), tramo horario (${guardia.tramo_horario}), tipo (${guardia.tipo_guardia}) y lugar. No se pueden crear guardias duplicadas.`);
+    }
+    
     // Obtener el próximo ID disponible
     const nextId = await getNextId();
     

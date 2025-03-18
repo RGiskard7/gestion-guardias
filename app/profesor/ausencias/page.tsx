@@ -8,6 +8,7 @@ import { useGuardias } from "@/src/contexts/GuardiasContext"
 import { useUsuarios } from "@/src/contexts/UsuariosContext"
 import { Ausencia } from "@/src/types"
 import { Pagination } from "@/components/ui/pagination"
+import { DB_CONFIG } from "@/lib/db-config"
 
 export default function AusenciasPage() {
   const { user } = useAuth()
@@ -37,10 +38,14 @@ export default function AusenciasPage() {
   const [editingId, setEditingId] = useState<number | null>(null)
 
   // Tramos horarios
-  const tramosHorariosOptions = ["1ª hora", "2ª hora", "3ª hora", "4ª hora", "5ª hora", "6ª hora"]
+  const tramosHorariosOptions = DB_CONFIG.TRAMOS_HORARIOS
 
   // Estados de ausencia
-  const estadosAusencia = ["Pendiente", "Aceptada", "Rechazada"]
+  const estadosAusencia = [
+    DB_CONFIG.ESTADOS_AUSENCIA.PENDIENTE,
+    DB_CONFIG.ESTADOS_AUSENCIA.ACEPTADA,
+    DB_CONFIG.ESTADOS_AUSENCIA.RECHAZADA
+  ]
 
   // Get mis ausencias con filtros y ordenamiento
   const misAusenciasFiltradas = getAusenciasByProfesor(user.id)
@@ -65,8 +70,8 @@ export default function AusenciasPage() {
 
       // Si las fechas son iguales, ordenar por estado (Pendiente primero)
       if (dateComparison === 0) {
-        if (a.estado === "Pendiente") return -1
-        if (b.estado === "Pendiente") return 1
+        if (a.estado === DB_CONFIG.ESTADOS_AUSENCIA.PENDIENTE) return -1
+        if (b.estado === DB_CONFIG.ESTADOS_AUSENCIA.PENDIENTE) return 1
         return 0
       }
 
@@ -97,7 +102,7 @@ export default function AusenciasPage() {
   // Función para cargar ausencia al formulario
   const handleEditAusencia = (ausencia: Ausencia) => {
     // Solo se pueden editar ausencias pendientes
-    if (ausencia.estado !== "Pendiente") {
+    if (ausencia.estado !== DB_CONFIG.ESTADOS_AUSENCIA.PENDIENTE) {
       alert("Solo puedes editar ausencias pendientes")
       return
     }
@@ -188,7 +193,7 @@ export default function AusenciasPage() {
         ausencia => 
           ausencia.fecha === formData.fecha && 
           ausencia.tramoHorario === tramo &&
-          ausencia.estado !== "Rechazada" &&
+          ausencia.estado !== DB_CONFIG.ESTADOS_AUSENCIA.RECHAZADA &&
           ausencia.id !== editingId // No validar contra la misma ausencia
       )
       
@@ -248,7 +253,7 @@ export default function AusenciasPage() {
           const newAusencia: Omit<Ausencia, "id"> = {
             fecha: formData.fecha,
             tramoHorario,
-            estado: "Pendiente",
+            estado: DB_CONFIG.ESTADOS_AUSENCIA.PENDIENTE,
             observaciones: formData.observaciones,
             profesorId: user.id,
           }
@@ -295,7 +300,7 @@ export default function AusenciasPage() {
 
     try {
       // Solo se pueden cancelar ausencias pendientes
-      if (ausencia.estado !== "Pendiente") {
+      if (ausencia.estado !== DB_CONFIG.ESTADOS_AUSENCIA.PENDIENTE) {
         alert("Solo puedes cancelar ausencias pendientes")
         return
       }
@@ -312,11 +317,11 @@ export default function AusenciasPage() {
   // Obtener el color de fondo según el estado de la ausencia
   const getBackgroundColor = (estado: string) => {
     switch (estado) {
-      case "Pendiente":
+      case DB_CONFIG.ESTADOS_AUSENCIA.PENDIENTE:
         return "bg-warning bg-opacity-10 border-warning";
-      case "Aceptada":
+      case DB_CONFIG.ESTADOS_AUSENCIA.ACEPTADA:
         return "bg-success bg-opacity-10 border-success";
-      case "Rechazada":
+      case DB_CONFIG.ESTADOS_AUSENCIA.RECHAZADA:
         return "bg-danger bg-opacity-10 border-danger";
       default:
         return "bg-primary bg-opacity-10 border-primary";
@@ -326,11 +331,11 @@ export default function AusenciasPage() {
   // Obtener el color del badge según el estado de la ausencia
   const getBadgeColor = (estado: string) => {
     switch (estado) {
-      case "Pendiente":
+      case DB_CONFIG.ESTADOS_AUSENCIA.PENDIENTE:
         return "bg-warning text-dark";
-      case "Aceptada":
+      case DB_CONFIG.ESTADOS_AUSENCIA.ACEPTADA:
         return "bg-success";
-      case "Rechazada":
+      case DB_CONFIG.ESTADOS_AUSENCIA.RECHAZADA:
         return "bg-danger";
       default:
         return "bg-primary";
@@ -628,7 +633,7 @@ export default function AusenciasPage() {
                         </td>
                         <td>
                           <div className="d-flex gap-1">
-                            {ausencia.estado === "Pendiente" && (
+                            {ausencia.estado === DB_CONFIG.ESTADOS_AUSENCIA.PENDIENTE && (
                               <>
                                 <button
                                   className="btn btn-sm btn-outline-primary"
@@ -784,9 +789,9 @@ export default function AusenciasPage() {
                               </h6>
                               <p className="card-text">
                                 <span className={`badge ${
-                                  guardia.estado === "Pendiente" ? "bg-warning text-dark" : 
-                                  guardia.estado === "Asignada" ? "bg-info" : 
-                                  guardia.estado === "Firmada" ? "bg-success" : "bg-secondary"
+                                  guardia.estado === DB_CONFIG.ESTADOS_GUARDIA.PENDIENTE ? "bg-warning text-dark" : 
+                                  guardia.estado === DB_CONFIG.ESTADOS_GUARDIA.ASIGNADA ? "bg-info" : 
+                                  guardia.estado === DB_CONFIG.ESTADOS_GUARDIA.FIRMADA ? "bg-success" : "bg-secondary"
                                 }`}>{guardia.estado}</span>
                               </p>
                             </div>

@@ -1,11 +1,13 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useGuardias } from "@/src/contexts/GuardiasContext"
 import { useUsuarios } from "@/src/contexts/UsuariosContext"
 import { useLugares } from "@/src/contexts/LugaresContext"
 import GuardiaCard from "@/app/guardia/guardia-card"
 import { Pagination } from "@/components/ui/pagination"
+import Link from "next/link"
+import { DB_CONFIG } from "@/lib/db-config"
 
 export default function SalaGuardiasPage() {
   const { guardias, getProfesorAusenteIdByGuardia } = useGuardias()
@@ -27,7 +29,12 @@ export default function SalaGuardiasPage() {
   })));
 
   // Estados disponibles para el filtro
-  const estadosGuardia = ["Pendiente", "Asignada", "Firmada", "Anulada"]
+  const estadosGuardia = [
+    DB_CONFIG.ESTADOS_GUARDIA.PENDIENTE, 
+    DB_CONFIG.ESTADOS_GUARDIA.ASIGNADA, 
+    DB_CONFIG.ESTADOS_GUARDIA.FIRMADA, 
+    DB_CONFIG.ESTADOS_GUARDIA.ANULADA
+  ]
 
   // Calcular fechas de inicio y fin de la semana
   const getWeekDates = (date: string) => {
@@ -65,7 +72,7 @@ export default function SalaGuardiasPage() {
     const { monday } = getWeekDates(selectedDate)
     
     // Crear un objeto para cada día de la semana
-    for (let i = 0; i < 7; i++) {
+    for (let i = 0; i < DB_CONFIG.NUMEROS.DIAS_SEMANA; i++) {
       const currentDate = new Date(monday)
       currentDate.setDate(monday.getDate() + i)
       const dateString = currentDate.toISOString().split("T")[0]
@@ -109,8 +116,8 @@ export default function SalaGuardiasPage() {
     })
   }
 
-  // Tramos horarios disponibles
-  const tramosHorarios = ["1ª Hora", "2ª Hora", "3ª Hora", "4ª Hora", "5ª Hora", "6ª Hora"]
+  // Tramos horarios disponibles - Usar los centralizados
+  const tramosHorarios = DB_CONFIG.TRAMOS_HORARIOS
   const tramosOrdenados = viewMode === "day" 
     ? sortTramos(Object.keys(guardiasByTramo))
     : tramosHorarios
@@ -136,26 +143,31 @@ export default function SalaGuardiasPage() {
   }
 
   // Contar guardias por estado
-  const pendientes = filteredGuardias.filter((g) => g.estado === "Pendiente").length
-  const asignadas = filteredGuardias.filter((g) => g.estado === "Asignada").length
-  const firmadas = filteredGuardias.filter((g) => g.estado === "Firmada").length
+  const pendientes = filteredGuardias.filter((g) => g.estado === DB_CONFIG.ESTADOS_GUARDIA.PENDIENTE).length
+  const asignadas = filteredGuardias.filter((g) => g.estado === DB_CONFIG.ESTADOS_GUARDIA.ASIGNADA).length
+  const firmadas = filteredGuardias.filter((g) => g.estado === DB_CONFIG.ESTADOS_GUARDIA.FIRMADA).length
+  const anuladas = filteredGuardias.filter((g) => g.estado === DB_CONFIG.ESTADOS_GUARDIA.ANULADA).length
   const total = filteredGuardias.length
 
   // Obtener fechas ordenadas para la vista semanal
   const fechasOrdenadas = viewMode === "week" 
-    ? Object.keys(guardiasByDateAndTramo).sort()
+    ? Object.keys(guardiasByDateAndTramo).sort((a, b) => {
+        const fechaA = new Date(a);
+        const fechaB = new Date(b);
+        return fechaA.getTime() - fechaB.getTime();
+      })
     : []
 
   // Obtener el color de fondo según el estado de la guardia
   const getBackgroundColor = (estado: string) => {
     switch (estado) {
-      case "Pendiente":
+      case DB_CONFIG.ESTADOS_GUARDIA.PENDIENTE:
         return "bg-warning bg-opacity-10 border-warning";
-      case "Asignada":
+      case DB_CONFIG.ESTADOS_GUARDIA.ASIGNADA:
         return "bg-info bg-opacity-10 border-info";
-      case "Firmada":
+      case DB_CONFIG.ESTADOS_GUARDIA.FIRMADA:
         return "bg-success bg-opacity-10 border-success";
-      case "Anulada":
+      case DB_CONFIG.ESTADOS_GUARDIA.ANULADA:
         return "bg-secondary bg-opacity-10 border-secondary";
       default:
         return "bg-light";
@@ -165,13 +177,13 @@ export default function SalaGuardiasPage() {
   // Obtener el color del badge según el estado de la guardia
   const getBadgeColor = (estado: string) => {
     switch (estado) {
-      case "Pendiente":
+      case DB_CONFIG.ESTADOS_GUARDIA.PENDIENTE:
         return "bg-warning text-dark";
-      case "Asignada":
+      case DB_CONFIG.ESTADOS_GUARDIA.ASIGNADA:
         return "bg-info";
-      case "Firmada":
+      case DB_CONFIG.ESTADOS_GUARDIA.FIRMADA:
         return "bg-success";
-      case "Anulada":
+      case DB_CONFIG.ESTADOS_GUARDIA.ANULADA:
         return "bg-secondary";
       default:
         return "bg-light";
@@ -181,11 +193,11 @@ export default function SalaGuardiasPage() {
   // Obtener el icono según el tipo de guardia
   const getTipoIcon = (tipo: string) => {
     switch (tipo) {
-      case "Aula":
+      case DB_CONFIG.TIPOS_GUARDIA[0]: // Aula
         return <i className="bi bi-building me-1"></i>;
-      case "Patio":
+      case DB_CONFIG.TIPOS_GUARDIA[1]: // Patio
         return <i className="bi bi-tree me-1"></i>;
-      case "Recreo":
+      case DB_CONFIG.TIPOS_GUARDIA[2]: // Recreo
         return <i className="bi bi-people me-1"></i>;
       default:
         return <i className="bi bi-question-circle me-1"></i>;
@@ -194,7 +206,7 @@ export default function SalaGuardiasPage() {
 
   // Estado para la paginación (solo para vista diaria)
   const [currentPage, setCurrentPage] = useState(1)
-  const itemsPerPage = 10
+  const itemsPerPage = DB_CONFIG.PAGINACION.ELEMENTOS_POR_PAGINA.SALA_GUARDIAS
   
   // Obtener los elementos de la página actual para la vista de tarjetas
   const getCurrentPageItems = () => {
@@ -350,7 +362,7 @@ export default function SalaGuardiasPage() {
           {tramosOrdenados.length === 0 ? (
             <div className="alert alert-warning">
               <i className="bi bi-exclamation-triangle me-2"></i>
-              No hay guardias registradas para esta fecha.
+              {DB_CONFIG.ETIQUETAS.MENSAJES.SIN_GUARDIAS_FECHA}
             </div>
           ) : (
             tramosOrdenados.map((tramo) => (
@@ -429,7 +441,7 @@ export default function SalaGuardiasPage() {
                                       <i className="bi bi-geo-alt me-1"></i>
                                       {guardia.lugarId ? 
                                         `${getLugarById(guardia.lugarId)?.codigo} - ${getLugarById(guardia.lugarId)?.descripcion}` : 
-                                        "Sin lugar"
+                                        DB_CONFIG.ETIQUETAS.LUGARES.SIN_LUGAR
                                       }
                                     </small>
                                     <small className="d-block">
@@ -449,7 +461,7 @@ export default function SalaGuardiasPage() {
                                       ) : (
                                         <>
                                           <i className="bi bi-person-fill-x me-1"></i>
-                                          Sin asignar
+                                          {DB_CONFIG.ETIQUETAS.USUARIOS.SIN_ASIGNAR}
                                         </>
                                       )}
                                     </small>
@@ -522,7 +534,7 @@ export default function SalaGuardiasPage() {
                                       <i className="bi bi-geo-alt me-1"></i>
                                       {guardia.lugarId ? 
                                         `${getLugarById(guardia.lugarId)?.codigo} - ${getLugarById(guardia.lugarId)?.descripcion}` : 
-                                        "Sin lugar"
+                                        DB_CONFIG.ETIQUETAS.LUGARES.SIN_LUGAR
                                       }
                                     </small>
                                     <small className="d-block">
@@ -542,7 +554,7 @@ export default function SalaGuardiasPage() {
                                       ) : (
                                         <>
                                           <i className="bi bi-person-fill-x me-1"></i>
-                                          Sin asignar
+                                          {DB_CONFIG.ETIQUETAS.USUARIOS.SIN_ASIGNAR}
                                         </>
                                       )}
                                     </small>
@@ -555,7 +567,7 @@ export default function SalaGuardiasPage() {
                       })}
                       {!fechasOrdenadas.some(fecha => (guardiasByDateAndTramo[fecha][tramo] || []).length > 0) && (
                         <div className="alert alert-light">
-                          No hay guardias para este tramo horario.
+                          {DB_CONFIG.ETIQUETAS.MENSAJES.SIN_GUARDIAS_TRAMO}
                         </div>
                       )}
                     </div>

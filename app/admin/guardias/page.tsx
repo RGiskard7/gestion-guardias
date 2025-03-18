@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useGuardias } from "@/src/contexts/GuardiasContext"
 import { useUsuarios } from "@/src/contexts/UsuariosContext"
 import { useLugares } from "@/src/contexts/LugaresContext"
@@ -48,14 +48,14 @@ export default function GuardiasPage() {
   }
 
   // Obtener solo profesores (no admins)
-  const profesores = usuarios.filter((u: Usuario) => u.rol === "profesor" && u.activo)
+  const profesores = usuarios.filter((u: Usuario) => u.rol === DB_CONFIG.ROLES.PROFESOR && u.activo)
 
   // Estado para el formulario
   const [formData, setFormData] = useState({
     fecha: "",
     tramoHorario: "",
     tramosHorarios: [] as string[],
-    tipoGuardia: "Aula",
+    tipoGuardia: DB_CONFIG.TIPOS_GUARDIA[0], // Usar el primer tipo por defecto
     lugarId: "",
     tarea: "",
     observaciones: "",
@@ -139,14 +139,19 @@ export default function GuardiasPage() {
     setCurrentPage(1) // Resetear a la primera página cuando cambia el número de elementos
   }
 
-  // Tramos horarios
-  const tramosHorarios = ["1ª Hora", "2ª Hora", "3ª Hora", "4ª Hora", "5ª Hora", "6ª Hora"]
+  // Tramos horarios disponibles
+  const tramosHorarios = DB_CONFIG.TRAMOS_HORARIOS
 
   // Usar los tipos de guardia de la configuración
   const tiposGuardia = DB_CONFIG.TIPOS_GUARDIA
 
   // Estados de guardia
-  const estadosGuardia = ["Pendiente", "Asignada", "Firmada", "Anulada"]
+  const estadosGuardia = [
+    DB_CONFIG.ESTADOS_GUARDIA.PENDIENTE,
+    DB_CONFIG.ESTADOS_GUARDIA.ASIGNADA,
+    DB_CONFIG.ESTADOS_GUARDIA.FIRMADA,
+    DB_CONFIG.ESTADOS_GUARDIA.ANULADA
+  ]
 
   // Función para cambiar el orden
   const handleSort = (field: 'fecha' | 'tramoHorario') => {
@@ -233,106 +238,266 @@ export default function GuardiasPage() {
   // Manejar envío del formulario
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setError(null)
 
-    if (editingId) {
-      // Actualizar guardia existente
-      const { tarea, tramosHorarios, ...guardiaData } = formData
-      // Convertir lugarId a número
-      updateGuardia(editingId, {
-        ...guardiaData,
-        lugarId: guardiaData.lugarId ? Number(guardiaData.lugarId) : 0
-      })
-      setEditingId(null)
-    } else if (isRangeMode) {
-      // Crear guardias para un rango de fechas
-      const fechas = generateDateRange(rangoFechas.fechaInicio, rangoFechas.fechaFin)
-      
-      try {
-        let guardiaCreadas = 0;
-        
-        // Para cada fecha en el rango (solo incluye días laborables, lunes a viernes)
-        for (const fecha of fechas) {
-          // Para cada tramo horario (usar todos los tramos definidos)
-          for (const tramoHorario of tramosHorarios) {
-            // Para cada lugar seleccionado (o el lugar específico si se ha seleccionado uno)
-            const lugaresAUtilizar = formData.lugarId 
-              ? [{ id: Number(formData.lugarId) }] 
-              : lugares;
-              
-            for (const lugar of lugaresAUtilizar) {
-              // Verificar si ya existe una guardia para esta fecha, tramo y lugar
-              const existingGuardia = guardias.find(
-                g => g.fecha === fecha && 
-                     g.tramoHorario === tramoHorario && 
-                     g.lugarId === lugar.id
-              );
-              
-              if (!existingGuardia) {
-                // Crear nueva guardia
-                const guardiaWithDate: Omit<Guardia, "id"> = {
-                  fecha,
-                  tramoHorario: tramoHorario,
-                  tipoGuardia: formData.tipoGuardia,
-                  firmada: false,
-                  estado: "Pendiente",
-                  observaciones: "Guardia creada automáticamente",
-                  lugarId: lugar.id,
-                  profesorCubridorId: null
-                }
-                
-                // Log para verificar el tipo de guardia antes de crearla
-                console.log("Creando guardia con tipo:", guardiaWithDate.tipoGuardia);
-                
-                // No crear tarea automáticamente
-                await addGuardia(guardiaWithDate)
-                guardiaCreadas++;
+    try {
+      if (editingId) {
+        await handleEditGuardia()
+      } else if (isRangeMode) {
+        await handleRangoGuardias()
+      } else {
+        await handleNuevaGuardia()
+      }
+    } catch (error) {
+      console.error("Error en la operación:", error)
+      if (error instanceof Error) {
+        setError(`Error: ${error.message}`)
+      } else {
+        setError("Error desconocido al procesar la solicitud")
+      }
+    }
+  }
 
-                // Pequeña pausa para evitar problemas de concurrencia
-                await new Promise(resolve => setTimeout(resolve, 50));
-              }
-            }
+  // Función para manejar edición de una guardia existente
+  const handleEditGuardia = async () => {
+    // Validar que la guardia existe
+    const guardiaActual = guardias.find(g => g.id === editingId)
+    if (!guardiaActual || editingId === null) {
+      alert("Error: La guardia que intentas editar ya no existe.")
+      resetForm()
+      return
+    }
+    
+    // Extraer datos necesarios del formulario
+    const { tarea, tramosHorarios, ...guardiaData } = formData
+    
+    // Convertir lugarId a número
+    await updateGuardia(editingId, {
+      ...guardiaData,
+      lugarId: guardiaData.lugarId ? Number(guardiaData.lugarId) : 0
+    })
+    
+    alert("Guardia actualizada correctamente")
+    setEditingId(null)
+    resetForm()
+  }
+
+  // Función para manejar creación de guardias por rango
+  const handleRangoGuardias = async () => {
+    // Validar fechas
+    if (!validarRangoFechas()) return
+    
+    // Validar lugar seleccionado
+    if (!formData.lugarId) {
+      setError("Debes seleccionar un lugar para las guardias")
+      return
+    }
+    
+    // Obtener fechas laborables en el rango
+    const fechas = generateDateRange(rangoFechas.fechaInicio, rangoFechas.fechaFin)
+    
+    if (fechas.length === 0) {
+      setError("No hay días laborables en el rango de fechas seleccionado")
+      return
+    }
+    
+    // Crear guardias para el rango
+    const { guardiasCreadas, guardiasDuplicadas } = await crearGuardiasParaRango(fechas)
+    
+    // Mostrar mensaje según el resultado
+    mostrarResultadoCreacionPorRango(guardiasCreadas, guardiasDuplicadas)
+    
+    resetForm()
+  }
+
+  // Validar rango de fechas
+  const validarRangoFechas = () => {
+    if (new Date(rangoFechas.fechaInicio) > new Date(rangoFechas.fechaFin)) {
+      setError("La fecha de inicio no puede ser posterior a la fecha de fin")
+      return false
+    }
+    return true
+  }
+
+  // Crear guardias para un rango de fechas
+  const crearGuardiasParaRango = async (fechas: string[]) => {
+    let guardiasCreadas = 0
+    let guardiasDuplicadas = 0
+    
+    // Para cada fecha en el rango (solo incluye días laborables, lunes a viernes)
+    for (const fecha of fechas) {
+      // Para cada tramo horario (usar todos los tramos definidos)
+      for (const tramoHorario of tramosHorarios) {
+        // Para cada lugar seleccionado (o el lugar específico si se ha seleccionado uno)
+        const lugaresAUtilizar = formData.lugarId 
+          ? [{ id: Number(formData.lugarId) }] 
+          : lugares
+          
+        for (const lugar of lugaresAUtilizar) {
+          // Verificar si ya existe una guardia para esta fecha, tramo, lugar y tipo
+          const existingGuardia = guardias.find(
+            g => g.fecha === fecha && 
+                 g.tramoHorario === tramoHorario && 
+                 g.lugarId === lugar.id &&
+                 g.tipoGuardia === formData.tipoGuardia &&
+                 g.estado !== DB_CONFIG.ESTADOS_GUARDIA.ANULADA
+          )
+          
+          if (!existingGuardia) {
+            // Crear nueva guardia
+            const guardiaData = prepararDatosGuardia(fecha, tramoHorario, lugar.id)
+            
+            // Crear guardia en la base de datos
+            await crearGuardia(guardiaData)
+            guardiasCreadas++
+            
+            // Pequeña pausa para evitar problemas de concurrencia
+            await new Promise(resolve => setTimeout(resolve, 50))
+          } else {
+            guardiasDuplicadas++
           }
-        }
-        
-        // Resetear formulario
-        resetForm();
-        alert(`Se han creado ${guardiaCreadas} guardias correctamente para el rango de fechas seleccionado.`);
-      } catch (error) {
-        console.error("Error al crear guardias por rango:", error);
-        setError("Error al crear guardias en el rango de fechas");
-      }
-    } else {
-      // Validar que se hayan seleccionado tramos horarios
-      if (!formData.tramosHorarios || formData.tramosHorarios.length === 0) {
-        setError("Por favor, selecciona al menos un tramo horario")
-        return
-      }
-
-      // Crear guardias para cada tramo horario seleccionado
-      for (const tramoHorario of formData.tramosHorarios) {
-        const guardiaData: Omit<Guardia, "id"> = {
-          fecha: formData.fecha,
-          tramoHorario: tramoHorario,
-          tipoGuardia: formData.tipoGuardia,
-          firmada: false,
-          estado: "Pendiente",
-          observaciones: formData.observaciones || "Guardia creada manualmente",
-          lugarId: Number(formData.lugarId),
-          profesorCubridorId: null
-        }
-        
-        // Solo crear tarea si hay contenido en el campo
-        if (formData.tarea && formData.tarea.trim() !== "") {
-          await addGuardia(guardiaData, formData.tarea);
-        } else {
-          await addGuardia(guardiaData);
         }
       }
     }
+    
+    return { guardiasCreadas, guardiasDuplicadas }
+  }
 
-    // Resetear formulario
-    resetForm()
-    alert(editingId ? "Guardia actualizada correctamente" : "Guardias creadas correctamente")
+  // Preparar datos de guardia para crear
+  const prepararDatosGuardia = (fecha: string, tramoHorario: string, lugarId: number): Omit<Guardia, "id"> => {
+    return {
+      fecha,
+      tramoHorario,
+      tipoGuardia: formData.tipoGuardia,
+      firmada: false,
+      estado: DB_CONFIG.ESTADOS_GUARDIA.PENDIENTE,
+      observaciones: formData.observaciones || "Guardia creada automáticamente",
+      lugarId: Number(lugarId), // Convertir a número para asegurar compatibilidad
+      profesorCubridorId: null
+    }
+  }
+
+  // Crear guardia en la base de datos
+  const crearGuardia = async (guardiaData: Omit<Guardia, "id">) => {
+    if (formData.tarea && formData.tarea.trim() !== "") {
+      await addGuardia(guardiaData, formData.tarea)
+    } else {
+      await addGuardia(guardiaData)
+    }
+  }
+
+  // Mostrar mensaje según resultado de creación por rango
+  const mostrarResultadoCreacionPorRango = (guardiasCreadas: number, guardiasDuplicadas: number) => {
+    if (guardiasCreadas > 0 && guardiasDuplicadas === 0) {
+      alert(`Se han creado ${guardiasCreadas} guardias correctamente para el rango de fechas seleccionado.`)
+    } else if (guardiasCreadas > 0 && guardiasDuplicadas > 0) {
+      alert(`Se han creado ${guardiasCreadas} guardias correctamente. Se omitieron ${guardiasDuplicadas} guardias por ya existir en el sistema.`)
+    } else if (guardiasCreadas === 0 && guardiasDuplicadas > 0) {
+      alert("No se crearon guardias porque todas las combinaciones ya existen en el sistema.")
+    } else {
+      alert("No se pudieron crear guardias para el rango seleccionado.")
+    }
+  }
+
+  // Función para manejar creación de guardia individual
+  const handleNuevaGuardia = async () => {
+    // Validar formulario
+    if (!validarFormularioGuardia()) return
+    
+    // Verificar duplicados
+    const guardiasExistentes = verificarGuardiasDuplicadas()
+    if (guardiasExistentes.length > 0) {
+      setError(`Ya existen guardias activas para los tramos: ${guardiasExistentes.join(", ")}. No pueden existir guardias duplicadas.`)
+      return
+    }
+    
+    // Crear guardias individuales
+    const { guardiasCreadas, guardiasConError } = await crearGuardiasIndividuales()
+    
+    // Mostrar resultados
+    if (guardiasCreadas > 0) {
+      if (guardiasConError === 0) {
+        alert(`${guardiasCreadas} ${guardiasCreadas === 1 ? 'guardia creada' : 'guardias creadas'} correctamente.`)
+      } else {
+        alert(`${guardiasCreadas} ${guardiasCreadas === 1 ? 'guardia creada' : 'guardias creadas'} correctamente. ${guardiasConError} no pudieron crearse.`)
+      }
+      resetForm()
+    }
+  }
+
+  // Validar formulario de creación de guardia
+  const validarFormularioGuardia = () => {
+    if (!formData.fecha) {
+      setError("La fecha es obligatoria")
+      return false
+    }
+    
+    if (!formData.tramosHorarios || formData.tramosHorarios.length === 0) {
+      setError("Debes seleccionar al menos un tramo horario")
+      return false
+    }
+    
+    if (!formData.lugarId) {
+      setError("Debes seleccionar un lugar para la guardia")
+      return false
+    }
+    
+    return true
+  }
+
+  // Verificar si ya existen guardias duplicadas
+  const verificarGuardiasDuplicadas = () => {
+    const guardiasExistentes = []
+    
+    for (const tramoHorario of formData.tramosHorarios) {
+      const existingGuardia = guardias.find(
+        g => g.fecha === formData.fecha && 
+             g.tramoHorario === tramoHorario && 
+             g.lugarId === Number(formData.lugarId) &&
+             g.tipoGuardia === formData.tipoGuardia &&
+             g.estado !== DB_CONFIG.ESTADOS_GUARDIA.ANULADA
+      )
+      
+      if (existingGuardia) {
+        guardiasExistentes.push(tramoHorario)
+      }
+    }
+    
+    return guardiasExistentes
+  }
+
+  // Crear guardias individuales para cada tramo
+  const crearGuardiasIndividuales = async () => {
+    let guardiasCreadas = 0
+    let guardiasConError = 0
+    
+    for (const tramoHorario of formData.tramosHorarios) {
+      const guardiaData: Omit<Guardia, "id"> = {
+        fecha: formData.fecha,
+        tramoHorario: tramoHorario,
+        tipoGuardia: formData.tipoGuardia,
+        firmada: false,
+        estado: DB_CONFIG.ESTADOS_GUARDIA.PENDIENTE,
+        observaciones: formData.observaciones || "Guardia creada manualmente",
+        lugarId: Number(formData.lugarId),
+        profesorCubridorId: null
+      }
+      
+      try {
+        await crearGuardia(guardiaData)
+        guardiasCreadas++
+      } catch (err) {
+        console.error("Error al crear guardia:", err)
+        guardiasConError++
+        
+        if (err instanceof Error) {
+          setError(`Error: ${err.message}`)
+          break
+        }
+      }
+    }
+    
+    return { guardiasCreadas, guardiasConError }
   }
 
   // Resetear formulario y estado
@@ -341,7 +506,7 @@ export default function GuardiasPage() {
       fecha: "",
       tramoHorario: "",
       tramosHorarios: [],
-      tipoGuardia: "Aula",
+      tipoGuardia: DB_CONFIG.TIPOS_GUARDIA[0], // Usar el primer tipo por defecto
       lugarId: "",
       tarea: "",
       observaciones: "",
@@ -358,7 +523,7 @@ export default function GuardiasPage() {
     setHasAssociatedAusencia(false)
   }
 
-  // Comenzar edición de guardia
+  // Manejar edición de guardia
   const handleEdit = (guardia: Guardia) => {
     // Verificar si la guardia tiene una ausencia asociada
     const profesorAusenteId = getProfesorAusenteIdByGuardia(guardia.id)
@@ -412,7 +577,7 @@ export default function GuardiasPage() {
         }
         
         // Verificar que la guardia está anulada
-        if (guardiaToDelete.estado !== "Anulada") {
+        if (guardiaToDelete.estado !== DB_CONFIG.ESTADOS_GUARDIA.ANULADA) {
           alert("Error: Solo se pueden eliminar guardias que estén en estado 'Anulada'.");
           return;
         }
@@ -451,112 +616,16 @@ export default function GuardiasPage() {
     return lugar ? `${lugar.codigo} - ${lugar.descripcion}` : "Desconocido"
   }
 
-  // Función para crear guardias para una fecha
-  const createGuardiasForDate = async (fecha: string) => {
-    try {
-      // Log para verificar el tipo de guardia seleccionado
-      console.log("Tipo de guardia seleccionado:", formData.tipoGuardia);
-      
-      // Crear guardias para cada tramo horario y lugar
-      for (const tramo of tramosHorarios) {
-        for (const lugar of lugares) {
-          // Verificar si ya existe una guardia para esta fecha, tramo y lugar
-          const existingGuardia = guardias.find(
-            g => g.fecha === fecha && g.tramoHorario === tramo && g.lugarId === lugar.id
-          )
-          
-          if (!existingGuardia) {
-            // Crear nueva guardia
-            const guardiaWithDate: Omit<Guardia, "id"> = {
-              fecha,
-              tramoHorario: tramo,
-              tipoGuardia: formData.tipoGuardia,
-              firmada: false,
-              estado: "Pendiente",
-              observaciones: "Guardia creada automáticamente",
-              lugarId: lugar.id,
-              profesorCubridorId: null
-            }
-            
-            // Log para verificar el tipo de guardia antes de crearla
-            console.log("Creando guardia con tipo:", guardiaWithDate.tipoGuardia);
-            
-            // No crear tarea automáticamente
-            await addGuardia(guardiaWithDate)
-          }
-        }
-      }
-      
-      alert(`Guardias creadas correctamente para ${new Date(fecha).toLocaleDateString()}`)
-    } catch (error) {
-      console.error("Error al crear guardias:", error)
-      alert("Error al crear guardias")
-    }
-  }
-
-  // Función para crear una guardia manualmente
-  const handleCreateGuardia = async () => {
-    try {
-      // Validar formulario
-      if (!formData.fecha || formData.tramosHorarios.length === 0 || !formData.lugarId) {
-        setError("Todos los campos son obligatorios")
-        return
-      }
-      
-      // Verificar si ya existen guardias para esta fecha, tramos y lugar
-      for (const tramoHorario of formData.tramosHorarios) {
-        const existingGuardia = guardias.find(
-          g => g.fecha === formData.fecha && 
-               g.tramoHorario === tramoHorario && 
-               g.lugarId === Number(formData.lugarId)
-        )
-        
-        if (existingGuardia) {
-          setError(`Ya existe una guardia para esta fecha, tramo (${tramoHorario}) y lugar`)
-          return
-        }
-      }
-      
-      // Crear guardias para cada tramo horario seleccionado
-      for (const tramoHorario of formData.tramosHorarios) {
-        const guardiaData: Omit<Guardia, "id"> = {
-          fecha: formData.fecha,
-          tramoHorario: tramoHorario,
-          tipoGuardia: formData.tipoGuardia,
-          firmada: false,
-          estado: "Pendiente",
-          observaciones: formData.observaciones || "Guardia creada manualmente",
-          lugarId: Number(formData.lugarId),
-          profesorCubridorId: null
-        }
-        
-        // Solo crear tarea si hay contenido en el campo
-        if (formData.tarea && formData.tarea.trim() !== "") {
-          await addGuardia(guardiaData, formData.tarea);
-        } else {
-          await addGuardia(guardiaData);
-        }
-      }
-      
-      // Resetear formulario
-      resetForm()
-      alert("Guardias creadas correctamente")
-    } catch (error) {
-      console.error("Error al crear guardia:", error)
-      setError("Error al crear guardia")
-    }
-  }
-
   // Obtener el color del badge según el estado
   const getBadgeColor = (estado: string) => {
     switch (estado) {
-      case "Pendiente":
+      case DB_CONFIG.ESTADOS_GUARDIA.PENDIENTE:
         return "bg-warning text-dark";
-      case "Asignada":
+      case DB_CONFIG.ESTADOS_GUARDIA.ASIGNADA:
         return "bg-info";
-      case "Firmada":
+      case DB_CONFIG.ESTADOS_GUARDIA.FIRMADA:
         return "bg-success";
-      case "Anulada":
+      case DB_CONFIG.ESTADOS_GUARDIA.ANULADA:
         return "bg-danger";
       default:
         return "bg-primary";
@@ -1112,11 +1181,11 @@ export default function GuardiasPage() {
                         <td>
                           <span
                             className={`badge ${
-                              guardia.estado === "Pendiente"
+                              guardia.estado === DB_CONFIG.ESTADOS_GUARDIA.PENDIENTE
                                 ? "bg-warning text-dark"
-                                : guardia.estado === "Asignada"
+                                : guardia.estado === DB_CONFIG.ESTADOS_GUARDIA.ASIGNADA
                                 ? "bg-info"
-                                : guardia.estado === "Firmada"
+                                : guardia.estado === DB_CONFIG.ESTADOS_GUARDIA.FIRMADA
                                 ? "bg-success"
                                 : "bg-danger"
                             } rounded-pill px-3 py-2`}
@@ -1133,7 +1202,7 @@ export default function GuardiasPage() {
                             >
                               <i className="bi bi-pencil"></i>
                             </button>
-                            {guardia.estado !== "Firmada" && guardia.estado !== "Anulada" && (
+                            {guardia.estado !== DB_CONFIG.ESTADOS_GUARDIA.FIRMADA && guardia.estado !== DB_CONFIG.ESTADOS_GUARDIA.ANULADA && (
                               <button
                                 className="btn btn-sm btn-outline-danger"
                                 onClick={() => handleAnular(guardia.id)}
@@ -1149,7 +1218,7 @@ export default function GuardiasPage() {
                             >
                               <i className="bi bi-eye"></i>
                             </button>
-                            {guardia.estado === "Anulada" && (
+                            {guardia.estado === DB_CONFIG.ESTADOS_GUARDIA.ANULADA && (
                               <button
                                 className="btn btn-sm btn-outline-danger"
                                 onClick={() => handleDelete(guardia.id)}

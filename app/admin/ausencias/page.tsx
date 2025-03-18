@@ -39,8 +39,8 @@ export default function AdminAusenciasPage() {
   const [hasAssociatedGuardia, setHasAssociatedGuardia] = useState(false)
   const [desasociarGuardia, setDesasociarGuardia] = useState(false)
 
-  // Tramos horarios
-  const tramosHorariosOptions = ["1ª hora", "2ª hora", "3ª hora", "4ª hora", "5ª hora", "6ª hora"]
+  // Tramos horarios - Usar los centralizados
+  const tramosHorariosOptions = DB_CONFIG.TRAMOS_HORARIOS
 
   // Actualizar datos al cargar la página
   useEffect(() => {
@@ -72,7 +72,7 @@ export default function AdminAusenciasPage() {
       fecha: "",
       tramoHorario: "",
       tramosHorarios: [],
-      estado: "Pendiente",
+      estado: DB_CONFIG.ESTADOS_AUSENCIA.PENDIENTE,
       observaciones: "",
     },
     onSubmit: async (values) => {
@@ -139,7 +139,7 @@ export default function AdminAusenciasPage() {
                   fecha: values.fecha,
                   tramoHorario,
                   // Al desasociar la guardia, siempre cambiamos a Pendiente
-                  estado: "Pendiente",
+                  estado: DB_CONFIG.ESTADOS_AUSENCIA.PENDIENTE,
                   observaciones: values.observaciones
                 })
                 
@@ -191,7 +191,7 @@ export default function AdminAusenciasPage() {
               profesorId: values.profesorId,
               fecha: values.fecha,
               tramoHorario,
-              estado: "Pendiente",
+              estado: DB_CONFIG.ESTADOS_AUSENCIA.PENDIENTE,
               observaciones: values.observaciones,
             }
 
@@ -250,7 +250,7 @@ export default function AdminAusenciasPage() {
     handleSubmit: handleAcceptFormSubmit 
   } = useForm({
     initialValues: {
-      tipoGuardia: "Aula",
+      tipoGuardia: DB_CONFIG.TIPOS_GUARDIA[0],
       lugarId: "",
       observaciones: "",
     },
@@ -441,9 +441,9 @@ export default function AdminAusenciasPage() {
     
     // Configurar formulario de procesamiento
     setAcceptFormData({
-      tipoGuardia: "Aula",
+      tipoGuardia: DB_CONFIG.TIPOS_GUARDIA[0],
       lugarId: "",
-      observaciones: ausencia.observaciones,
+      observaciones: ausencia.observaciones || "",
     })
     
     setProcessingAusenciaId(ausencia.id)
@@ -462,7 +462,7 @@ export default function AdminAusenciasPage() {
 
         await updateAusencia(id, {
           ...ausencia,
-          estado: "Rechazada",
+          estado: DB_CONFIG.ESTADOS_AUSENCIA.RECHAZADA,
           observaciones: `${ausencia.observaciones}\nAnulada: ${motivo}`
         })
 
@@ -502,11 +502,11 @@ export default function AdminAusenciasPage() {
   // Obtener el color del badge según el estado
   const getBadgeColor = (estado: string) => {
     switch (estado) {
-      case "Pendiente":
+      case DB_CONFIG.ESTADOS_AUSENCIA.PENDIENTE:
         return "bg-warning text-dark";
-      case "Aceptada":
+      case DB_CONFIG.ESTADOS_AUSENCIA.ACEPTADA:
         return "bg-success";
-      case "Rechazada":
+      case DB_CONFIG.ESTADOS_AUSENCIA.RECHAZADA:
         return "bg-danger";
       default:
         return "bg-primary";
@@ -563,9 +563,9 @@ export default function AdminAusenciasPage() {
                 onChange={(e) => setFilterEstado(e.target.value)}
               >
                 <option value="">Todos los estados</option>
-                <option value="Pendiente">Pendiente</option>
-                <option value="Aceptada">Aceptada</option>
-                <option value="Rechazada">Rechazada</option>
+                <option value={DB_CONFIG.ESTADOS_AUSENCIA.PENDIENTE}>Pendiente</option>
+                <option value={DB_CONFIG.ESTADOS_AUSENCIA.ACEPTADA}>Aceptada</option>
+                <option value={DB_CONFIG.ESTADOS_AUSENCIA.RECHAZADA}>Rechazada</option>
               </select>
               <small className="form-text text-muted">Filtrar por estado de ausencia</small>
             </div>
@@ -594,7 +594,7 @@ export default function AdminAusenciasPage() {
               >
                 <option value="">Todos los profesores</option>
                 {usuarios
-                  .filter(u => u.rol === "profesor")
+                  .filter(u => u.rol === DB_CONFIG.ROLES.PROFESOR)
                   .map(profesor => (
                     <option key={profesor.id} value={profesor.id}>
                       {profesor.nombre}
@@ -661,7 +661,7 @@ export default function AdminAusenciasPage() {
                       >
                         <option value="">Selecciona un profesor</option>
                         {usuarios
-                          .filter(u => u.rol === "profesor")
+                          .filter(u => u.rol === DB_CONFIG.ROLES.PROFESOR)
                           .map(profesor => (
                             <option key={profesor.id} value={profesor.id}>
                               {profesor.nombre}
@@ -979,9 +979,9 @@ export default function AdminAusenciasPage() {
                       <td>
                         <span
                           className={`badge ${
-                            ausencia.estado === "Pendiente"
+                            ausencia.estado === DB_CONFIG.ESTADOS_AUSENCIA.PENDIENTE
                               ? "bg-warning text-dark"
-                              : ausencia.estado === "Aceptada"
+                              : ausencia.estado === DB_CONFIG.ESTADOS_AUSENCIA.ACEPTADA
                               ? "bg-success"
                               : "bg-danger"
                           } rounded-pill px-3 py-2`}
@@ -1001,7 +1001,7 @@ export default function AdminAusenciasPage() {
                           >
                             <i className="bi bi-pencil"></i>
                           </button>
-                          {ausencia.estado === "Pendiente" && (
+                          {ausencia.estado === DB_CONFIG.ESTADOS_AUSENCIA.PENDIENTE && (
                             <button
                               className="btn btn-sm btn-outline-success"
                               onClick={() => handleProcess(ausencia)}
@@ -1010,7 +1010,7 @@ export default function AdminAusenciasPage() {
                               <i className="bi bi-check-circle"></i>
                             </button>
                           )}
-                          {ausencia.estado === "Pendiente" && (
+                          {ausencia.estado === DB_CONFIG.ESTADOS_AUSENCIA.PENDIENTE && (
                             <button
                               className="btn btn-sm btn-outline-danger"
                               onClick={() => handleAnular(ausencia.id)}
@@ -1170,9 +1170,9 @@ export default function AdminAusenciasPage() {
                               </h6>
                               <p className="card-text">
                                 <span className={`badge ${
-                                  guardia.estado === "Pendiente" ? "bg-warning text-dark" : 
-                                  guardia.estado === "Asignada" ? "bg-info" : 
-                                  guardia.estado === "Firmada" ? "bg-success" : "bg-secondary"
+                                  guardia.estado === DB_CONFIG.ESTADOS_GUARDIA.PENDIENTE ? "bg-warning text-dark" : 
+                                  guardia.estado === DB_CONFIG.ESTADOS_GUARDIA.ASIGNADA ? "bg-info" : 
+                                  guardia.estado === DB_CONFIG.ESTADOS_GUARDIA.FIRMADA ? "bg-success" : "bg-secondary"
                                 }`}>{guardia.estado}</span>
                               </p>
                             </div>

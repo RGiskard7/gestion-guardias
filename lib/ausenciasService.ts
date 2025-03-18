@@ -11,7 +11,6 @@ export interface Ausencia {
   tramo_horario: string;
   estado: string; // 'Pendiente', 'Aceptada', 'Rechazada'
   observaciones?: string;
-  tareas?: string;
 }
 
 /**

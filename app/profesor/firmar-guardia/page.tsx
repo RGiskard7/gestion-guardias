@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { useGuardias } from "@/src/contexts/GuardiasContext"
 import { useAuth } from "@/src/contexts/AuthContext"
 import GuardiaCard from "@/app/guardia/guardia-card"
+import { DB_CONFIG } from "@/lib/db-config"
 
 export default function FirmarGuardiaPage() {
   const { user } = useAuth()
@@ -11,7 +12,7 @@ export default function FirmarGuardiaPage() {
 
   if (!user) return null
 
-  const [filterEstado, setFilterEstado] = useState<string>("Asignada")
+  const [filterEstado, setFilterEstado] = useState<string>(DB_CONFIG.ESTADOS_GUARDIA.ASIGNADA)
 
   // Get guardias where the profesor is cubridor
   const misGuardias = guardias
@@ -40,8 +41,8 @@ export default function FirmarGuardiaPage() {
               aria-label="Filtrar guardias por estado"
             >
               <option value="">Todos</option>
-              <option value="Asignada">Pendientes de firma</option>
-              <option value="Firmada">Firmadas</option>
+              <option value={DB_CONFIG.ESTADOS_GUARDIA.ASIGNADA}>Pendientes de firma</option>
+              <option value={DB_CONFIG.ESTADOS_GUARDIA.FIRMADA}>Firmadas</option>
             </select>
           </div>
         </div>
@@ -50,7 +51,7 @@ export default function FirmarGuardiaPage() {
       {misGuardias.length === 0 ? (
         <div className="alert alert-info">
           No tienes guardias{" "}
-          {filterEstado === "Asignada" ? "pendientes de firma" : filterEstado === "Firmada" ? "firmadas" : ""}.
+          {filterEstado === DB_CONFIG.ESTADOS_GUARDIA.ASIGNADA ? "pendientes de firma" : filterEstado === DB_CONFIG.ESTADOS_GUARDIA.FIRMADA ? "firmadas" : ""}.
         </div>
       ) : (
         <div className="row">
@@ -58,7 +59,7 @@ export default function FirmarGuardiaPage() {
             <div key={guardia.id} className="col-md-6 col-lg-4 mb-3">
               <GuardiaCard
                 guardia={guardia}
-                showActions={guardia.estado === "Asignada"}
+                showActions={guardia.estado === DB_CONFIG.ESTADOS_GUARDIA.ASIGNADA}
                 onFirmar={handleFirmarGuardia}
               />
             </div>

@@ -30,8 +30,7 @@ CREATE TABLE IF NOT EXISTS Ausencias (
     fecha DATE NOT NULL,
     tramo_horario VARCHAR(50) NOT NULL,
     estado VARCHAR(50) NOT NULL DEFAULT 'Pendiente',
-    observaciones TEXT,
-    tareas TEXT
+    observaciones TEXT
 );
 
 -- Crear tabla de guardias

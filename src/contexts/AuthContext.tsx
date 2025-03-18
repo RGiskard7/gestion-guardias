@@ -87,7 +87,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         id: data.id,
         nombre: data.nombre,
         email: data.email,
-        rol: data.rol as "admin" | "profesor",
+        rol: data.rol as typeof DB_CONFIG.ROLES.ADMIN | typeof DB_CONFIG.ROLES.PROFESOR,
         activo: data.activo
       }
       
