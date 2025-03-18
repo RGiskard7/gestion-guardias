@@ -2,7 +2,33 @@
 
 Este documento registra todos los cambios, mejoras y correcciones realizadas en el proyecto de Sistema de Gestión de Guardias.
 
-## [2025-03-18] - Documentación técnica y mejoras en la estructura del proyecto
+## [2025-03-18] (4) - Mejora en la anulación de guardias y corrección de errores en la creación
+
+### Autor(es)
+- Equipo de Desarrollo
+
+### Cambios realizados
+- Implementación de la funcionalidad para que al anular una guardia con ausencia asociada, la ausencia vuelva a estado "Pendiente"
+- Corrección del error en la creación de guardias donde el tipo de guardia no se establecía correctamente
+- Adición de logs para diagnóstico y seguimiento del flujo de creación de guardias
+- Verificación y mejora del proceso de anulación de guardias
+
+### Archivos modificados
+- `src/contexts/GuardiasContext.tsx`: Modificación de la función `anularGuardia` para gestionar la actualización del estado de la ausencia asociada
+- `lib/guardiasService.ts`: Adición de logs para verificar el tipo de guardia durante la creación
+- `app/admin/guardias/page.tsx`: Mejora en el manejo de la anulación de guardias y adición de logs para diagnóstico
+
+### Problemas resueltos
+- Error donde la ausencia quedaba sin guardia asociada pero no volvía a estado "Pendiente" al anular la guardia
+- Problema en la creación de guardias donde el tipo de guardia no se establecía correctamente
+- Mejora en la trazabilidad del proceso de creación y anulación de guardias mediante logs
+
+### Notas adicionales
+- Se ha implementado una comprobación adicional para verificar si una guardia tiene ausencia asociada antes de anularla
+- Se ha mejorado el flujo de trabajo para que el administrador reciba confirmación explícita sobre el cambio de estado de la ausencia
+- Se ha mejorado la gestión de errores en todo el proceso de anulación de guardias 
+
+## [2025-03-18] (3) - Documentación técnica y mejoras en la estructura del proyecto
 
 ### Autor(es)
 - Equipo de Desarrollo
@@ -41,7 +67,7 @@ Este documento registra todos los cambios, mejoras y correcciones realizadas en 
 - Esta reorganización facilita el mantenimiento futuro de la documentación
 - La estructura actual sigue las mejores prácticas de la industria para proyectos profesionales
 
-## [2025-03-18] - Documentación exhaustiva del sistema
+## [2025-03-18] (2) - Documentación exhaustiva del sistema
 
 ### Autor(es)
 - Equipo de Desarrollo
@@ -70,7 +96,7 @@ Este documento registra todos los cambios, mejoras y correcciones realizadas en 
 - Los diagramas de flujo utilizan la sintaxis de Mermaid para una representación visual clara y mantenible
 - La documentación se ha estructurado de manera modular para facilitar futuras actualizaciones
 
-## [2025-03-18] - Reorganización de la documentación del proyecto
+## [2025-03-18] (1) - Reorganización de la documentación del proyecto
 
 ### Autor(es)
 - Equipo de Desarrollo
@@ -268,4 +294,4 @@ Este documento registra todos los cambios, mejoras y correcciones realizadas en 
 ### Añadido
 - Versión inicial del sistema de gestión de guardias
 - Funcionalidad básica para profesores y administradores
-- Sistema de autenticación y autorización 
+- Sistema de autenticación y autorización
