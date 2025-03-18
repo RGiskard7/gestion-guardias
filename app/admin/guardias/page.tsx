@@ -393,6 +393,22 @@ export default function GuardiasPage() {
 
   return (
     <div className="container py-4">
+      <style jsx>{`
+        .spin {
+          animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+        .cursor-pointer {
+          cursor: pointer;
+        }
+        .user-select-none {
+          user-select: none;
+        }
+      `}</style>
+
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h1 className="mb-0">Gestión de Guardias</h1>
         <button 
@@ -414,62 +430,71 @@ export default function GuardiasPage() {
         </button>
       </div>
 
-      <DataCard
-        title="Filtros y Acciones"
+      <DataCard 
+        title="Filtros y Acciones" 
         icon="filter"
         className="mb-4"
       >
-        <div className="row mb-3">
-          <div className="col-md-4 mb-3 mb-md-0">
-            <label htmlFor="filterEstado" className="form-label">Estado</label>
-            <select 
-              id="filterEstado"
-              className="form-select" 
-              value={filterEstado} 
-              onChange={(e) => setFilterEstado(e.target.value)}
-            >
-              <option value="">Todos los estados</option>
-              {estadosGuardia.map((estado) => (
-                <option key={estado} value={estado}>
-                  {estado}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="col-md-4 mb-3 mb-md-0">
-            <label htmlFor="filterFecha" className="form-label">Fecha</label>
-            <input
-              type="date"
-              id="filterFecha"
-              className="form-control"
-              value={filterFecha}
-              onChange={(e) => setFilterFecha(e.target.value)}
-            />
-          </div>
-          <div className="col-md-4 d-flex align-items-end">
-            <div className="d-flex gap-2">
-              <button
-                className="btn btn-primary"
-                onClick={() => {
-                  resetForm()
-                  setShowForm(!showForm)
-                  setIsRangeMode(false)
-                }}
+        <div className="row g-4">
+          <div className="col-md-4">
+            <div className="form-group">
+              <label htmlFor="filterEstado" className="form-label fw-bold">Estado</label>
+              <select
+                id="filterEstado"
+                className="form-select"
+                value={filterEstado}
+                onChange={(e) => setFilterEstado(e.target.value)}
               >
-                {showForm ? "Cancelar" : "Nueva Guardia"}
-              </button>
-              {!showForm && (
+                <option value="">Todos los estados</option>
+                {estadosGuardia.map((estado) => (
+                  <option key={estado} value={estado}>
+                    {estado}
+                  </option>
+                ))}
+              </select>
+              <small className="form-text text-muted">Filtrar por estado de guardia</small>
+            </div>
+          </div>
+          <div className="col-md-4">
+            <div className="form-group">
+              <label htmlFor="filterFecha" className="form-label fw-bold">Fecha</label>
+              <input
+                type="date"
+                id="filterFecha"
+                className="form-control"
+                value={filterFecha}
+                onChange={(e) => setFilterFecha(e.target.value)}
+              />
+              <small className="form-text text-muted">Filtrar por fecha específica</small>
+            </div>
+          </div>
+          <div className="col-md-4">
+            <div className="form-group d-flex flex-column h-100">
+              <label className="form-label fw-bold">Acciones</label>
+              <div className="d-flex gap-2 mt-auto">
                 <button
-                  className="btn btn-secondary"
+                  className="btn btn-primary"
                   onClick={() => {
                     resetForm()
-                    setShowForm(true)
+                    setShowForm(!showForm)
+                    setIsRangeMode(false)
+                  }}
+                >
+                  <i className={`bi ${showForm && !isRangeMode ? "bi-x-circle" : "bi-plus-circle"} me-2`}></i>
+                  {showForm && !isRangeMode ? "Cancelar" : "Nueva Guardia"}
+                </button>
+                <button
+                  className="btn btn-outline-primary"
+                  onClick={() => {
+                    resetForm()
+                    setShowForm(!isRangeMode || !showForm)
                     setIsRangeMode(true)
                   }}
                 >
-                  Rango de Guardias
+                  <i className={`bi ${showForm && isRangeMode ? "bi-x-circle" : "bi-calendar-range"} me-2`}></i>
+                  {showForm && isRangeMode ? "Cancelar" : "Rango de Guardias"}
                 </button>
-              )}
+              </div>
             </div>
           </div>
         </div>
@@ -477,126 +502,145 @@ export default function GuardiasPage() {
 
       {showForm && (
         <DataCard
-          title={editingId ? "Editar Guardia" : isRangeMode ? "Añadir Guardias por Rango" : "Añadir Nueva Guardia"}
+          title={editingId ? "Editar Guardia" : isRangeMode ? "Añadir Guardias por Rango" : "Nueva Guardia"}
+          icon={editingId ? "pencil-square" : isRangeMode ? "calendar-range" : "clipboard-plus"}
           className="mb-4"
         >
           <form onSubmit={handleSubmit}>
             {isRangeMode ? (
-              <div className="row mb-3">
+              <div className="row g-4">
                 <div className="col-md-6">
-                  <label htmlFor="fechaInicio" className="form-label">
-                    Fecha Inicio
-                  </label>
-                  <input
-                    type="date"
-                    className="form-control"
-                    id="fechaInicio"
-                    name="fechaInicio"
-                    value={rangoFechas.fechaInicio}
-                    onChange={handleRangeChange}
-                    required
-                  />
+                  <div className="form-group">
+                    <label htmlFor="fechaInicio" className="form-label fw-bold">
+                      Fecha Inicio
+                    </label>
+                    <input
+                      type="date"
+                      className="form-control"
+                      id="fechaInicio"
+                      name="fechaInicio"
+                      value={rangoFechas.fechaInicio}
+                      onChange={handleRangeChange}
+                      required
+                    />
+                    <small className="form-text text-muted">Fecha de inicio del rango</small>
+                  </div>
                 </div>
                 <div className="col-md-6">
-                  <label htmlFor="fechaFin" className="form-label">
-                    Fecha Fin
-                  </label>
-                  <input
-                    type="date"
-                    className="form-control"
-                    id="fechaFin"
-                    name="fechaFin"
-                    value={rangoFechas.fechaFin}
-                    onChange={handleRangeChange}
-                    required
-                  />
+                  <div className="form-group">
+                    <label htmlFor="fechaFin" className="form-label fw-bold">
+                      Fecha Fin
+                    </label>
+                    <input
+                      type="date"
+                      className="form-control"
+                      id="fechaFin"
+                      name="fechaFin"
+                      value={rangoFechas.fechaFin}
+                      onChange={handleRangeChange}
+                      required
+                    />
+                    <small className="form-text text-muted">Fecha de fin del rango</small>
+                  </div>
                 </div>
               </div>
             ) : (
-              <div className="row mb-3">
+              <div className="row g-4">
                 <div className="col-md-6">
-                  <label htmlFor="fecha" className="form-label">
-                    Fecha
-                  </label>
-                  <input
-                    type="date"
-                    className="form-control"
-                    id="fecha"
-                    name="fecha"
-                    value={formData.fecha}
-                    onChange={handleChange}
-                    required
-                  />
+                  <div className="form-group">
+                    <label htmlFor="fecha" className="form-label fw-bold">
+                      Fecha
+                    </label>
+                    <input
+                      type="date"
+                      className="form-control"
+                      id="fecha"
+                      name="fecha"
+                      value={formData.fecha}
+                      onChange={handleChange}
+                      required
+                    />
+                    <small className="form-text text-muted">Fecha en la que se realizará la guardia</small>
+                  </div>
                 </div>
                 <div className="col-md-6">
-                  <label htmlFor="tramoHorario" className="form-label">
-                    Tramo Horario
-                  </label>
-                  <select
-                    className="form-select"
-                    id="tramoHorario"
-                    name="tramoHorario"
-                    value={formData.tramoHorario}
-                    onChange={handleChange}
-                    required
-                  >
-                    <option value="">Selecciona un tramo</option>
-                    <option value="1ª Hora">1ª Hora</option>
-                    <option value="2ª Hora">2ª Hora</option>
-                    <option value="3ª Hora">3ª Hora</option>
-                    <option value="Recreo">Recreo</option>
-                    <option value="4ª Hora">4ª Hora</option>
-                    <option value="5ª Hora">5ª Hora</option>
-                    <option value="6ª Hora">6ª Hora</option>
-                  </select>
+                  <div className="form-group">
+                    <label htmlFor="tramoHorario" className="form-label fw-bold">
+                      Tramo Horario
+                    </label>
+                    <select
+                      className="form-select"
+                      id="tramoHorario"
+                      name="tramoHorario"
+                      value={formData.tramoHorario}
+                      onChange={handleChange}
+                      required
+                    >
+                      <option value="">Selecciona un tramo</option>
+                      <option value="1ª Hora">1ª Hora</option>
+                      <option value="2ª Hora">2ª Hora</option>
+                      <option value="3ª Hora">3ª Hora</option>
+                      <option value="Recreo">Recreo</option>
+                      <option value="4ª Hora">4ª Hora</option>
+                      <option value="5ª Hora">5ª Hora</option>
+                      <option value="6ª Hora">6ª Hora</option>
+                    </select>
+                    <small className="form-text text-muted">Tramo horario de la guardia</small>
+                  </div>
                 </div>
               </div>
             )}
 
-            <div className="row mb-3">
+            <div className="row g-4 mt-2">
               <div className="col-md-6">
-                <label htmlFor="tipoGuardia" className="form-label">
-                  Tipo de Guardia
-                </label>
-                <select
-                  className="form-select"
-                  id="tipoGuardia"
-                  name="tipoGuardia"
-                  value={formData.tipoGuardia}
-                  onChange={handleChange}
-                  required
-                >
-                  {tiposGuardia.map((tipo) => (
-                    <option key={tipo} value={tipo}>
-                      {tipo}
-                    </option>
-                  ))}
-                </select>
+                <div className="form-group">
+                  <label htmlFor="tipoGuardia" className="form-label fw-bold">
+                    Tipo de Guardia
+                  </label>
+                  <select
+                    className="form-select"
+                    id="tipoGuardia"
+                    name="tipoGuardia"
+                    value={formData.tipoGuardia}
+                    onChange={handleChange}
+                    required
+                  >
+                    {tiposGuardia.map((tipo) => (
+                      <option key={tipo} value={tipo}>
+                        {tipo}
+                      </option>
+                    ))}
+                  </select>
+                  <small className="form-text text-muted">Seleccione el tipo de guardia</small>
+                </div>
               </div>
               <div className="col-md-6">
-                <label htmlFor="lugarId" className="form-label">
-                  Lugar
-                </label>
-                <select
-                  className="form-select"
-                  id="lugarId"
-                  name="lugarId"
-                  value={formData.lugarId}
-                  onChange={handleChange}
-                  required
-                >
-                  <option value="">Selecciona un lugar</option>
-                  {lugares.map((lugar) => (
-                    <option key={lugar.id} value={lugar.id}>
-                      {lugar.codigo} - {lugar.descripcion}
-                    </option>
-                  ))}
-                </select>
+                <div className="form-group">
+                  <label htmlFor="lugarId" className="form-label fw-bold">
+                    Lugar
+                  </label>
+                  <select
+                    className="form-select"
+                    id="lugarId"
+                    name="lugarId"
+                    value={formData.lugarId}
+                    onChange={handleChange}
+                    required
+                  >
+                    <option value="">Selecciona un lugar</option>
+                    {lugares.map((lugar) => (
+                      <option key={lugar.id} value={lugar.id}>
+                        {lugar.codigo} - {lugar.descripcion}
+                      </option>
+                    ))}
+                  </select>
+                  <small className="form-text text-muted">Ubicación donde se realizará la guardia</small>
+                </div>
               </div>
             </div>
 
-            <div className="mb-3">
-              <label htmlFor="tarea" className="form-label">
+            <div className="form-group mt-4">
+              <label htmlFor="tarea" className="form-label fw-bold">
                 Tarea
               </label>
               <textarea
@@ -608,10 +652,11 @@ export default function GuardiasPage() {
                 onChange={handleChange}
                 placeholder="Descripción de la tarea a realizar durante la guardia"
               ></textarea>
+              <small className="form-text text-muted">Tarea que debe realizar el profesor durante la guardia</small>
             </div>
 
-            <div className="mb-3">
-              <label htmlFor="observaciones" className="form-label">
+            <div className="form-group mt-4">
+              <label htmlFor="observaciones" className="form-label fw-bold">
                 Observaciones
               </label>
               <textarea
@@ -623,16 +668,23 @@ export default function GuardiasPage() {
                 onChange={handleChange}
                 placeholder="Observaciones adicionales sobre la guardia"
               ></textarea>
+              <small className="form-text text-muted">Información adicional importante para esta guardia</small>
             </div>
 
-            {error && <div className="alert alert-danger">{error}</div>}
+            {error && <div className="alert alert-danger mt-3">{error}</div>}
 
-            <div className="d-flex justify-content-end">
-              <button type="button" className="btn btn-secondary me-2" onClick={resetForm}>
+            <div className="d-flex justify-content-end mt-4 pt-3 border-top">
+              <button type="button" className="btn btn-outline-secondary me-3" onClick={() => {
+                resetForm()
+                setShowForm(false)
+                setIsRangeMode(false)
+              }}>
+                <i className="bi bi-x-circle me-2"></i>
                 Cancelar
               </button>
               <button type="submit" className="btn btn-primary">
-                {editingId ? "Actualizar" : "Guardar"}
+                <i className={`bi ${editingId ? "bi-check-circle" : "bi-plus-circle"} me-2`}></i>
+                {editingId ? "Actualizar" : isRangeMode ? "Crear Guardias" : "Crear Guardia"}
               </button>
             </div>
           </form>
@@ -642,53 +694,53 @@ export default function GuardiasPage() {
       <DataCard
         title="Listado de Guardias"
         icon="clipboard-check"
-        actions={
-          <button
-            className="btn btn-outline-primary"
-            onClick={handleRefresh}
-            disabled={isRefreshing}
-          >
-            {isRefreshing ? (
-              <span className="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
-            ) : (
-              <i className="bi bi-arrow-clockwise me-1"></i>
-            )}
-            Actualizar
-          </button>
-        }
+        className="mb-4"
       >
         {filteredGuardias.length === 0 ? (
-          <div className="alert alert-info">
-            No hay guardias que coincidan con los filtros seleccionados.
+          <div className="alert alert-info d-flex align-items-center">
+            <i className="bi bi-info-circle-fill fs-4 me-3"></i>
+            <div>No hay guardias que coincidan con los filtros seleccionados.</div>
           </div>
         ) : (
           <>
             <div className="table-responsive">
-              <table className="table table-striped table-hover">
-                <thead>
+              <table className="table table-striped table-hover align-middle">
+                <thead className="table-light">
                   <tr>
-                  <th onClick={() => handleSort('fecha')} className="cursor-pointer">
-                      Fecha
-                      {sortField === 'fecha' && (
-                        <span className="ms-1">
-                          {sortDirection === 'asc' ? '▲' : '▼'}
-                        </span>
-                      )}
+                    <th 
+                      scope="col" 
+                      onClick={() => handleSort('fecha')} 
+                      className="cursor-pointer user-select-none"
+                    >
+                      <div className="d-flex align-items-center">
+                        Fecha
+                        {sortField === 'fecha' && (
+                          <span className="ms-2 text-primary">
+                            <i className={`bi bi-sort-${sortDirection === 'asc' ? 'up' : 'down'}-alt`}></i>
+                          </span>
+                        )}
+                      </div>
                     </th>
-                    <th onClick={() => handleSort('tramoHorario')} className="cursor-pointer">
-                      Tramo
-                      {sortField === 'tramoHorario' && (
-                        <span className="ms-1">
-                          {sortDirection === 'asc' ? '▲' : '▼'}
-                        </span>
-                      )}
+                    <th 
+                      scope="col" 
+                      onClick={() => handleSort('tramoHorario')} 
+                      className="cursor-pointer user-select-none"
+                    >
+                      <div className="d-flex align-items-center">
+                        Tramo
+                        {sortField === 'tramoHorario' && (
+                          <span className="ms-2 text-primary">
+                            <i className={`bi bi-sort-${sortDirection === 'asc' ? 'up' : 'down'}-alt`}></i>
+                          </span>
+                        )}
+                      </div>
                     </th>
-                    <th>Tipo</th>
-                    <th>Lugar</th>
-                    <th>Profesor Ausente</th>
-                    <th>Profesor Cubridor</th>
-                    <th>Estado</th>
-                    <th>Acciones</th>
+                    <th scope="col">Tipo</th>
+                    <th scope="col">Lugar</th>
+                    <th scope="col">Profesor Ausente</th>
+                    <th scope="col">Profesor Cubridor</th>
+                    <th scope="col">Estado</th>
+                    <th scope="col" className="text-center">Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -720,17 +772,17 @@ export default function GuardiasPage() {
                                 : guardia.estado === "Firmada"
                                 ? "bg-success"
                                 : "bg-danger"
-                            }`}
+                            } rounded-pill px-3 py-2`}
                           >
                             {guardia.estado}
                           </span>
                         </td>
                         <td>
-                          <div className="btn-group">
+                          <div className="d-flex justify-content-center gap-2">
                             <button
                               className="btn btn-sm btn-outline-primary"
                               onClick={() => handleEdit(guardia)}
-                              title="Editar"
+                              title="Editar guardia"
                             >
                               <i className="bi bi-pencil"></i>
                             </button>
@@ -738,7 +790,7 @@ export default function GuardiasPage() {
                               <button
                                 className="btn btn-sm btn-outline-danger"
                                 onClick={() => handleAnular(guardia.id)}
-                                title="Anular"
+                                title="Anular guardia"
                               >
                                 <i className="bi bi-x-circle"></i>
                               </button>
@@ -746,7 +798,7 @@ export default function GuardiasPage() {
                             <button
                               className="btn btn-sm btn-outline-danger"
                               onClick={() => deleteGuardia(guardia.id)}
-                              title="Eliminar"
+                              title="Eliminar guardia"
                             >
                               <i className="bi bi-trash"></i>
                             </button>
@@ -759,16 +811,14 @@ export default function GuardiasPage() {
               </table>
             </div>
 
-            <div className="d-flex justify-content-between align-items-center mt-4">
-              <div>
-                Mostrando {currentPage * itemsPerPage - itemsPerPage + 1}-{Math.min(currentPage * itemsPerPage, filteredGuardias.length)} de {filteredGuardias.length} guardias
+            <div className="d-flex justify-content-between align-items-center mt-4 pt-3 border-top">
+              <div className="text-muted small">
+                Mostrando <span className="fw-bold">{currentPage * itemsPerPage - itemsPerPage + 1}-{Math.min(currentPage * itemsPerPage, filteredGuardias.length)}</span> de <span className="fw-bold">{filteredGuardias.length}</span> guardias
               </div>
               <Pagination
                 currentPage={currentPage}
                 totalPages={totalPages}
                 onPageChange={handlePageChange}
-                onItemsPerPageChange={handleItemsPerPageChange}
-                itemsPerPage={itemsPerPage}
               />
             </div>
           </>

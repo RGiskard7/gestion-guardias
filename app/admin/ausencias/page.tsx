@@ -14,7 +14,7 @@ import { DB_CONFIG } from "@/lib/db-config"
 export default function AdminAusenciasPage() {
   const { ausencias, addAusencia, updateAusencia, deleteAusencia, acceptAusencia, rejectAusencia, refreshAusencias } = useAusencias()
   const { usuarios, getUsuarioById } = useUsuarios()
-  const { guardias, getGuardiaByAusenciaId, desasociarGuardiaDeAusencia } = useGuardias()
+  const { guardias, getGuardiaByAusenciaId, desasociarGuardiaDeAusencia, refreshGuardias } = useGuardias()
   const { lugares, getLugarById } = useLugares()
 
   // Estados para la gestión de la interfaz
@@ -405,14 +405,30 @@ export default function AdminAusenciasPage() {
 
   // Manejar eliminación de ausencia
   const handleDelete = async (id: number) => {
-    if (window.confirm("¿Estás seguro de que deseas eliminar esta ausencia?")) {
+    // Verificar si la ausencia tiene guardias asociadas
+    const guardia = getGuardiaByAusenciaId(id);
+    let mensaje = "¿Estás seguro de que deseas eliminar esta ausencia?";
+    
+    if (guardia) {
+      mensaje = "Esta ausencia tiene una guardia asociada. Si continúas, la guardia será anulada automáticamente. ¿Deseas continuar?";
+    }
+    
+    if (window.confirm(mensaje)) {
       try {
-        await deleteAusencia(id)
-        alert("Ausencia eliminada correctamente")
-        refreshAusencias()
+        await deleteAusencia(id);
+        
+        if (guardia) {
+          alert("Ausencia eliminada correctamente. La guardia asociada ha sido anulada.");
+        } else {
+          alert("Ausencia eliminada correctamente");
+        }
+        
+        refreshAusencias();
+        // Refrescar también las guardias para ver los cambios reflejados
+        await refreshGuardias();
       } catch (error) {
-        console.error("Error al eliminar la ausencia:", error)
-        alert("Error al eliminar la ausencia")
+        console.error("Error al eliminar la ausencia:", error);
+        alert("Error al eliminar la ausencia");
       }
     }
   }
@@ -682,32 +698,43 @@ export default function AdminAusenciasPage() {
                 </div>
               </div>
               
-              {!editingId && (
-                <div className="col-12">
-                  <div className="form-group mb-3">
-                    <label className="form-label fw-bold">Tramos Horarios</label>
-                    <div className="d-flex flex-wrap gap-3">
-                      {tramosHorariosOptions.map((tramo) => (
-                        <div key={tramo} className="form-check">
-                          <input
-                            className="form-check-input"
-                            type="checkbox"
-                            id={`tramo-${tramo}`}
-                            name={tramo}
-                            value={tramo}
-                            checked={formData.tramosHorarios?.includes(tramo) || false}
-                            onChange={handleTramoHorarioChange}
-                          />
-                          <label className="form-check-label" htmlFor={`tramo-${tramo}`}>
-                            {tramo}
-                          </label>
-                        </div>
-                      ))}
+              <div className="col-12">
+                <div className="form-group mb-3">
+                  <label className="form-label fw-bold">Tramos Horarios</label>
+                  <div className="d-flex flex-wrap gap-3">
+                    <div className="form-check w-100 mb-2 border-bottom pb-2">
+                      <input
+                        className="form-check-input"
+                        type="checkbox"
+                        id="todo-el-dia"
+                        value="todo-el-dia"
+                        checked={formData.tramosHorarios?.length === tramosHorariosOptions.length}
+                        onChange={handleTramoHorarioChange}
+                      />
+                      <label className="form-check-label" htmlFor="todo-el-dia">
+                        <strong>Todo el día</strong>
+                      </label>
                     </div>
-                    <small className="form-text text-muted">Seleccione los tramos horarios en los que estará ausente</small>
+                    {tramosHorariosOptions.map((tramo) => (
+                      <div key={tramo} className="form-check">
+                        <input
+                          className="form-check-input"
+                          type="checkbox"
+                          id={`tramo-${tramo}`}
+                          name={tramo}
+                          value={tramo}
+                          checked={formData.tramosHorarios?.includes(tramo) || false}
+                          onChange={handleTramoHorarioChange}
+                        />
+                        <label className="form-check-label" htmlFor={`tramo-${tramo}`}>
+                          {tramo}
+                        </label>
+                      </div>
+                    ))}
                   </div>
+                  <small className="form-text text-muted">Seleccione los tramos horarios en los que estará ausente</small>
                 </div>
-              )}
+              </div>
               
               {editingId && (
                 <div className="col-md-6">

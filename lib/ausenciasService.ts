@@ -267,6 +267,38 @@ export async function deleteAusencia(id: number): Promise<boolean> {
       throw new Error(`No existe una ausencia con ID ${id}`);
     }
 
+    // Buscar guardias asociadas a esta ausencia
+    const { data: guardiasAsociadas, error: errorGuardias } = await supabase
+      .from(getTableName('GUARDIAS'))
+      .select('*')
+      .eq('ausencia_id', id);
+
+    if (errorGuardias) {
+      console.error(`Error al buscar guardias asociadas a la ausencia ${id}:`, errorGuardias);
+      throw errorGuardias;
+    }
+
+    // Primero desasociar y anular las guardias asociadas
+    if (guardiasAsociadas && guardiasAsociadas.length > 0) {
+      for (const guardia of guardiasAsociadas) {
+        // Desasociar la guardia de la ausencia primero (poner ausencia_id a null)
+        const { error: errorDesasociar } = await supabase
+          .from(getTableName('GUARDIAS'))
+          .update({
+            ausencia_id: null,
+            estado: DB_CONFIG.ESTADOS_GUARDIA.ANULADA,
+            observaciones: `ANULADA: La ausencia asociada ha sido eliminada`,
+          })
+          .eq('id', guardia.id);
+
+        if (errorDesasociar) {
+          console.error(`Error al desasociar/anular guardia ${guardia.id}:`, errorDesasociar);
+          throw errorDesasociar;
+        }
+      }
+    }
+
+    // Una vez desasociadas todas las guardias, eliminar la ausencia
     const { error } = await supabase
       .from(getTableName('AUSENCIAS'))
       .delete()
