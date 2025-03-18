@@ -10,7 +10,7 @@ export interface UsuarioDB {
 export interface LugarDB {
   id: number;
   codigo: string;
-  descripcion: string;
+  descripcion?: string;
   tipo_lugar: string;
 }
 
@@ -62,7 +62,7 @@ export interface Usuario {
 export interface Lugar {
   id: number;
   codigo: string;
-  descripcion: string;
+  descripcion?: string;
   tipoLugar: string;
 }
 
@@ -125,7 +125,7 @@ export function mapLugarFromDB(lugar: LugarDB): Lugar {
   return {
     id: lugar.id,
     codigo: lugar.codigo,
-    descripcion: lugar.descripcion || "",
+    descripcion: lugar.descripcion,
     tipoLugar: lugar.tipo_lugar
   };
 }

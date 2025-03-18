@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS Usuarios (
 CREATE TABLE IF NOT EXISTS Lugares (
     id SERIAL PRIMARY KEY,
     codigo VARCHAR(20) NOT NULL UNIQUE,
-    descripcion VARCHAR(255) NOT NULL,
+    descripcion VARCHAR(255),
     tipo_lugar VARCHAR(50) NOT NULL
 );
 

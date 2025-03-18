@@ -89,7 +89,7 @@ export const LugaresProvider: React.FC<LugaresProviderProps> = ({ children }) =>
       // Convertir al formato de la base de datos
       const lugarDB: Partial<LugarDB> = {}
       if (lugar.codigo !== undefined) lugarDB.codigo = lugar.codigo
-      if (lugar.descripcion !== undefined) lugarDB.descripcion = lugar.descripcion || undefined
+      if (lugar.descripcion !== undefined) lugarDB.descripcion = lugar.descripcion
       if (lugar.tipoLugar !== undefined) lugarDB.tipo_lugar = lugar.tipoLugar
 
       await updateLugarService(id, lugarDB)

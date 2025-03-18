@@ -41,7 +41,7 @@ export default function LugaresPage() {
       const searchTerm = filterTexto.toLowerCase()
       return (
         lugar.codigo.toLowerCase().includes(searchTerm) ||
-        lugar.descripcion.toLowerCase().includes(searchTerm)
+        (lugar.descripcion?.toLowerCase().includes(searchTerm) ?? false)
       )
     }
     
@@ -298,9 +298,8 @@ export default function LugaresPage() {
                     value={formData.descripcion}
                     onChange={handleChange}
                     placeholder="Ej: Aula 1ºA, Patio Principal"
-                    required
                   />
-                  <small className="form-text text-muted">Descripción detallada del lugar</small>
+                  <small className="form-text text-muted">Descripción detallada del lugar (opcional)</small>
                 </div>
               </div>
             </div>

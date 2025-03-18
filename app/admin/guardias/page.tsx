@@ -54,6 +54,7 @@ export default function GuardiasPage() {
   const [formData, setFormData] = useState({
     fecha: "",
     tramoHorario: "",
+    tramosHorarios: [] as string[],
     tipoGuardia: "Normal",
     lugarId: "",
     tarea: "",
@@ -75,8 +76,15 @@ export default function GuardiasPage() {
   const [filterEstado, setFilterEstado] = useState<string>("")
   const [filterFecha, setFilterFecha] = useState<string>("")
 
+  // Estado para guardia asociada a ausencia
+  const [hasAssociatedAusencia, setHasAssociatedAusencia] = useState(false)
+
   const [sortField, setSortField] = useState<'fecha' | 'tramoHorario'>('fecha')
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc')
+
+  // Estado para el modal de detalles
+  const [selectedGuardia, setSelectedGuardia] = useState<Guardia | null>(null)
+  const [showModal, setShowModal] = useState(false)
 
   // Filtrar guardias según los criterios
   const filteredGuardias = guardias
@@ -132,7 +140,7 @@ export default function GuardiasPage() {
   }
 
   // Tramos horarios
-  const tramosHorarios = ["1ª hora", "2ª hora", "3ª hora", "4ª hora", "5ª hora", "6ª hora"]
+  const tramosHorarios = ["1ª Hora", "2ª Hora", "3ª Hora", "4ª Hora", "5ª Hora", "6ª Hora"]
 
   // Usar los tipos de guardia de la configuración
   const tiposGuardia = DB_CONFIG.TIPOS_GUARDIA
@@ -169,6 +177,31 @@ export default function GuardiasPage() {
     }))
   }
 
+  // Método personalizado para manejar cambios en los checkboxes de tramos horarios
+  const handleTramoHorarioChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { value, checked } = e.target
+    
+    if (value === "todo-el-dia") {
+      // Si se marca "Todo el día", seleccionar todos los tramos
+      // Si se desmarca, deseleccionar todos los tramos
+      setFormData(prev => ({
+        ...prev,
+        tramosHorarios: checked ? [...tramosHorarios] : []
+      }))
+    } else {
+      setFormData(prev => {
+        const tramosHorarios = checked
+          ? [...(prev.tramosHorarios || []), value]
+          : (prev.tramosHorarios || []).filter(t => t !== value)
+        
+        return {
+          ...prev,
+          tramosHorarios
+        }
+      })
+    }
+  }
+
   // Manejar cambios en el rango de fechas
   const handleRangeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
@@ -199,7 +232,7 @@ export default function GuardiasPage() {
 
     if (editingId) {
       // Actualizar guardia existente
-      const { tarea, ...guardiaData } = formData
+      const { tarea, tramosHorarios, ...guardiaData } = formData
       // Convertir lugarId a número
       updateGuardia(editingId, {
         ...guardiaData,
@@ -212,7 +245,7 @@ export default function GuardiasPage() {
       
       // Crear una guardia para cada fecha
       fechas.forEach(async (fecha) => {
-        const { tarea, ...guardiaData } = formData
+        const { tarea, tramosHorarios, ...guardiaData } = formData
         const guardiaWithDate = { 
           ...guardiaData, 
           fecha,
@@ -226,21 +259,49 @@ export default function GuardiasPage() {
         await addGuardia(guardiaWithDate, tarea)
       })
     } else {
-      // Añadir una sola guardia
-      const { tarea, ...guardiaData } = formData
-      
-      // Añadir guardia con tarea
-      await addGuardia({
-        ...guardiaData,
-        lugarId: guardiaData.lugarId ? Number(guardiaData.lugarId) : 0,
-        firmada: false,
-        estado: "Pendiente" as "Pendiente" | "Asignada" | "Firmada" | "Anulada",
-        profesorCubridorId: null
-      }, tarea)
+      // Validar que se hayan seleccionado tramos horarios
+      if (!formData.tramosHorarios || formData.tramosHorarios.length === 0) {
+        setError("Por favor, selecciona al menos un tramo horario")
+        return
+      }
+
+      // Crear guardias para cada tramo horario seleccionado
+      for (const tramoHorario of formData.tramosHorarios) {
+        // Verificar si ya existe una guardia para esta fecha, tramo y lugar
+        const existingGuardia = guardias.find(
+          g => g.fecha === formData.fecha && 
+               g.tramoHorario === tramoHorario && 
+               g.lugarId === Number(formData.lugarId)
+        )
+        
+        if (existingGuardia) {
+          setError(`Ya existe una guardia para esta fecha, tramo (${tramoHorario}) y lugar`)
+          return
+        }
+        
+        // Crear nueva guardia
+        const tarea = formData.tarea || "Guardia creada manualmente"
+        const guardiaData: Omit<Guardia, "id"> = {
+          fecha: formData.fecha,
+          tramoHorario: tramoHorario,
+          tipoGuardia: formData.tipoGuardia,
+          firmada: false,
+          estado: "Pendiente",
+          observaciones: formData.observaciones || "",
+          lugarId: Number(formData.lugarId),
+          profesorCubridorId: null
+        }
+        
+        await addGuardia(guardiaData, tarea)
+        
+        // Pequeña pausa para evitar problemas de concurrencia
+        await new Promise(resolve => setTimeout(resolve, 100))
+      }
     }
 
     // Resetear formulario
     resetForm()
+    alert(editingId ? "Guardia actualizada correctamente" : "Guardias creadas correctamente")
   }
 
   // Resetear formulario y estado
@@ -248,6 +309,7 @@ export default function GuardiasPage() {
     setFormData({
       fecha: "",
       tramoHorario: "",
+      tramosHorarios: [],
       tipoGuardia: "Normal",
       lugarId: "",
       tarea: "",
@@ -262,13 +324,19 @@ export default function GuardiasPage() {
     setShowForm(false)
     setIsRangeMode(false)
     setError(null)
+    setHasAssociatedAusencia(false)
   }
 
   // Comenzar edición de guardia
   const handleEdit = (guardia: Guardia) => {
+    // Verificar si la guardia tiene una ausencia asociada
+    const profesorAusenteId = getProfesorAusenteIdByGuardia(guardia.id)
+    setHasAssociatedAusencia(profesorAusenteId !== null)
+
     setFormData({
       fecha: guardia.fecha,
       tramoHorario: guardia.tramoHorario,
+      tramosHorarios: [guardia.tramoHorario], // Solo incluimos el tramo actual en modo edición
       tipoGuardia: guardia.tipoGuardia,
       observaciones: guardia.observaciones,
       lugarId: String(guardia.lugarId),
@@ -350,45 +418,80 @@ export default function GuardiasPage() {
   const handleCreateGuardia = async () => {
     try {
       // Validar formulario
-      if (!formData.fecha || !formData.tramoHorario || !formData.lugarId) {
+      if (!formData.fecha || formData.tramosHorarios.length === 0 || !formData.lugarId) {
         setError("Todos los campos son obligatorios")
         return
       }
       
-      // Verificar si ya existe una guardia para esta fecha, tramo y lugar
-      const existingGuardia = guardias.find(
-        g => g.fecha === formData.fecha && 
-             g.tramoHorario === formData.tramoHorario && 
-             g.lugarId === Number(formData.lugarId)
-      )
-      
-      if (existingGuardia) {
-        setError("Ya existe una guardia para esta fecha, tramo y lugar")
-        return
+      // Verificar si ya existen guardias para esta fecha, tramos y lugar
+      for (const tramoHorario of formData.tramosHorarios) {
+        const existingGuardia = guardias.find(
+          g => g.fecha === formData.fecha && 
+               g.tramoHorario === tramoHorario && 
+               g.lugarId === Number(formData.lugarId)
+        )
+        
+        if (existingGuardia) {
+          setError(`Ya existe una guardia para esta fecha, tramo (${tramoHorario}) y lugar`)
+          return
+        }
       }
       
-      // Crear nueva guardia
-      const tarea = formData.tarea || "Guardia creada manualmente"
-      const guardiaData: Omit<Guardia, "id"> = {
-        fecha: formData.fecha,
-        tramoHorario: formData.tramoHorario,
-        tipoGuardia: formData.tipoGuardia,
-        firmada: false,
-        estado: "Pendiente",
-        observaciones: formData.observaciones || "",
-        lugarId: Number(formData.lugarId),
-        profesorCubridorId: null
+      // Crear guardias para cada tramo horario seleccionado
+      for (const tramoHorario of formData.tramosHorarios) {
+        const tarea = formData.tarea || "Guardia creada manualmente"
+        const guardiaData: Omit<Guardia, "id"> = {
+          fecha: formData.fecha,
+          tramoHorario: tramoHorario,
+          tipoGuardia: formData.tipoGuardia,
+          firmada: false,
+          estado: "Pendiente",
+          observaciones: formData.observaciones || "",
+          lugarId: Number(formData.lugarId),
+          profesorCubridorId: null
+        }
+        
+        await addGuardia(guardiaData, tarea)
+        
+        // Pequeña pausa para evitar problemas de concurrencia
+        await new Promise(resolve => setTimeout(resolve, 100))
       }
-      
-      await addGuardia(guardiaData, tarea)
       
       // Resetear formulario
       resetForm()
-      alert("Guardia creada correctamente")
+      alert("Guardias creadas correctamente")
     } catch (error) {
       console.error("Error al crear guardia:", error)
       setError("Error al crear guardia")
     }
+  }
+
+  // Obtener el color del badge según el estado
+  const getBadgeColor = (estado: string) => {
+    switch (estado) {
+      case "Pendiente":
+        return "bg-warning text-dark";
+      case "Asignada":
+        return "bg-info";
+      case "Firmada":
+        return "bg-success";
+      case "Anulada":
+        return "bg-danger";
+      default:
+        return "bg-primary";
+    }
+  }
+
+  // Manejar visualización de guardia
+  const handleViewGuardia = (guardia: Guardia) => {
+    setSelectedGuardia(guardia)
+    setShowModal(true)
+  }
+
+  // Cerrar modal de detalles
+  const handleCloseModal = () => {
+    setSelectedGuardia(null)
+    setShowModal(false)
   }
 
   return (
@@ -559,35 +662,83 @@ export default function GuardiasPage() {
                       value={formData.fecha}
                       onChange={handleChange}
                       required
+                      disabled={!!editingId && hasAssociatedAusencia}
                     />
-                    <small className="form-text text-muted">Fecha en la que se realizará la guardia</small>
+                    {!!editingId && hasAssociatedAusencia && (
+                      <small className="form-text text-muted">
+                        <i className="bi bi-info-circle-fill me-1"></i>
+                        No es posible cambiar la fecha porque esta guardia tiene una ausencia asociada.
+                      </small>
+                    )}
+                    {!editingId && (
+                      <small className="form-text text-muted">Fecha en la que se realizará la guardia</small>
+                    )}
                   </div>
                 </div>
-                <div className="col-md-6">
-                  <div className="form-group">
-                    <label htmlFor="tramoHorario" className="form-label fw-bold">
-                      Tramo Horario
-                    </label>
-                    <select
-                      className="form-select"
-                      id="tramoHorario"
-                      name="tramoHorario"
-                      value={formData.tramoHorario}
-                      onChange={handleChange}
-                      required
-                    >
-                      <option value="">Selecciona un tramo</option>
-                      <option value="1ª Hora">1ª Hora</option>
-                      <option value="2ª Hora">2ª Hora</option>
-                      <option value="3ª Hora">3ª Hora</option>
-                      <option value="Recreo">Recreo</option>
-                      <option value="4ª Hora">4ª Hora</option>
-                      <option value="5ª Hora">5ª Hora</option>
-                      <option value="6ª Hora">6ª Hora</option>
-                    </select>
-                    <small className="form-text text-muted">Tramo horario de la guardia</small>
+                
+                {editingId ? (
+                  <div className="col-md-6">
+                    <div className="form-group">
+                      <label htmlFor="tramoHorario" className="form-label fw-bold">Tramo Horario</label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        value={formData.tramoHorario}
+                        readOnly
+                        title="Tramo horario"
+                        aria-label="Tramo horario"
+                      />
+                      <small className="form-text text-muted">
+                        {hasAssociatedAusencia ? (
+                          <>
+                            <i className="bi bi-info-circle-fill me-1"></i>
+                            No es posible cambiar el tramo horario porque esta guardia tiene una ausencia asociada.
+                          </>
+                        ) : (
+                          "No es posible cambiar el tramo horario de una guardia existente."
+                        )}
+                      </small>
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <div className="col-md-6">
+                    <div className="form-group mb-3">
+                      <label className="form-label fw-bold">Tramos Horarios</label>
+                      <div className="d-flex flex-wrap gap-3">
+                        <div className="form-check w-100 mb-2 border-bottom pb-2">
+                          <input
+                            className="form-check-input"
+                            type="checkbox"
+                            id="todo-el-dia"
+                            value="todo-el-dia"
+                            checked={formData.tramosHorarios?.length === tramosHorarios.length}
+                            onChange={handleTramoHorarioChange}
+                          />
+                          <label className="form-check-label" htmlFor="todo-el-dia">
+                            <strong>Todo el día</strong>
+                          </label>
+                        </div>
+                        {tramosHorarios.map((tramo) => (
+                          <div key={tramo} className="form-check">
+                            <input
+                              className="form-check-input"
+                              type="checkbox"
+                              id={`tramo-${tramo}`}
+                              name={tramo}
+                              value={tramo}
+                              checked={formData.tramosHorarios?.includes(tramo) || false}
+                              onChange={handleTramoHorarioChange}
+                            />
+                            <label className="form-check-label" htmlFor={`tramo-${tramo}`}>
+                              {tramo}
+                            </label>
+                          </div>
+                        ))}
+                      </div>
+                      <small className="form-text text-muted">Seleccione los tramos horarios en los que se realizará la guardia</small>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -786,7 +937,7 @@ export default function GuardiasPage() {
                             >
                               <i className="bi bi-pencil"></i>
                             </button>
-                            {guardia.estado === "Pendiente" && (
+                            {guardia.estado !== "Firmada" && guardia.estado !== "Anulada" && (
                               <button
                                 className="btn btn-sm btn-outline-danger"
                                 onClick={() => handleAnular(guardia.id)}
@@ -796,11 +947,11 @@ export default function GuardiasPage() {
                               </button>
                             )}
                             <button
-                              className="btn btn-sm btn-outline-danger"
-                              onClick={() => deleteGuardia(guardia.id)}
-                              title="Eliminar guardia"
+                              className="btn btn-sm btn-outline-info"
+                              onClick={() => handleViewGuardia(guardia)}
+                              title="Ver detalles"
                             >
-                              <i className="bi bi-trash"></i>
+                              <i className="bi bi-eye"></i>
                             </button>
                           </div>
                         </td>
@@ -824,6 +975,196 @@ export default function GuardiasPage() {
           </>
         )}
       </DataCard>
+
+      {/* Modal para mostrar detalles de la guardia */}
+      {showModal && selectedGuardia && (
+        <div className="modal fade show" 
+             tabIndex={-1} 
+             role="dialog"
+             style={{ display: 'block', backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <div className="modal-dialog modal-dialog-centered modal-lg">
+            <div className="modal-content">
+              <div className="modal-header bg-primary text-white">
+                <h5 className="modal-title">
+                  <i className="bi bi-info-circle me-2"></i>
+                  Detalles de la Guardia
+                </h5>
+                <button 
+                  type="button" 
+                  className="btn-close btn-close-white" 
+                  onClick={handleCloseModal}
+                  aria-label="Cerrar">
+                </button>
+              </div>
+              <div className="modal-body p-4">
+                <div className="row mb-4">
+                  <div className="col-md-6">
+                    <h6 className="fw-bold">
+                      <i className="bi bi-hash me-1"></i>
+                      ID de la Guardia
+                    </h6>
+                    <p className="mb-0">{selectedGuardia.id}</p>
+                  </div>
+                  <div className="col-md-6">
+                    <h6 className="fw-bold">
+                      <i className="bi bi-flag-fill me-1"></i>
+                      Estado
+                    </h6>
+                    <p className="mb-0">
+                      <span className={`badge ${getBadgeColor(selectedGuardia.estado)}`}>
+                        {selectedGuardia.estado}
+                      </span>
+                      {selectedGuardia.firmada && (
+                        <span className="badge bg-success ms-2">
+                          <i className="bi bi-check-circle me-1"></i>
+                          Firmada
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="row mb-4">
+                  <div className="col-md-6">
+                    <h6 className="fw-bold">
+                      <i className="bi bi-calendar-event me-1"></i>
+                      Fecha
+                    </h6>
+                    <p className="mb-0">{new Date(selectedGuardia.fecha).toLocaleDateString('es-ES', { 
+                      weekday: 'long', 
+                      year: 'numeric', 
+                      month: 'long', 
+                      day: 'numeric' 
+                    })}</p>
+                  </div>
+                  <div className="col-md-6">
+                    <h6 className="fw-bold">
+                      <i className="bi bi-clock me-1"></i>
+                      Tramo Horario
+                    </h6>
+                    <p className="mb-0">{selectedGuardia.tramoHorario}</p>
+                  </div>
+                </div>
+                
+                <div className="row mb-4">
+                  <div className="col-md-6">
+                    <h6 className="fw-bold">
+                      <i className="bi bi-tag-fill me-1"></i>
+                      Tipo de Guardia
+                    </h6>
+                    <p className="mb-0">{selectedGuardia.tipoGuardia}</p>
+                  </div>
+                  <div className="col-md-6">
+                    <h6 className="fw-bold">
+                      <i className="bi bi-geo-alt-fill me-1"></i>
+                      Lugar
+                    </h6>
+                    {(() => {
+                      const lugar = lugares.find(l => l.id === selectedGuardia.lugarId)
+                      return lugar ? (
+                        <p className="mb-0">
+                          <strong>{lugar.codigo}</strong> - {lugar.descripcion}
+                          <br />
+                          <span className="text-muted small">
+                            <i className="bi bi-building me-1"></i>
+                            {lugar.tipoLugar}
+                          </span>
+                        </p>
+                      ) : (
+                        <p className="mb-0">ID: {selectedGuardia.lugarId}</p>
+                      )
+                    })()}
+                  </div>
+                </div>
+                
+                <div className="row mb-4">
+                  {selectedGuardia.profesorCubridorId && (
+                    <div className="col-md-6">
+                      <h6 className="fw-bold">
+                        <i className="bi bi-person-fill me-1"></i>
+                        Profesor Cubridor
+                      </h6>
+                      {(() => {
+                        const profesor = profesores.find(p => p.id === selectedGuardia.profesorCubridorId)
+                        return profesor ? (
+                          <p className="mb-0">
+                            <i className="bi bi-person-badge me-1"></i>
+                            {profesor.nombre}
+                          </p>
+                        ) : (
+                          <p className="mb-0">ID: {selectedGuardia.profesorCubridorId}</p>
+                        )
+                      })()}
+                    </div>
+                  )}
+                  
+                  <div className={selectedGuardia.profesorCubridorId ? "col-md-6" : "col-12"}>
+                    <h6 className="fw-bold">
+                      <i className="bi bi-card-text me-1"></i>
+                      Observaciones
+                    </h6>
+                    {selectedGuardia.observaciones ? (
+                      <p className="mb-0">{selectedGuardia.observaciones}</p>
+                    ) : (
+                      <p className="text-muted mb-0">Sin observaciones</p>
+                    )}
+                  </div>
+                </div>
+                
+                <div className="mb-3">
+                  <h6 className="fw-bold border-bottom pb-2 mb-3">
+                    <i className="bi bi-person-dash me-1"></i>
+                    Información del Profesor Ausente
+                  </h6>
+                  {(() => {
+                    const profesorAusenteId = getProfesorAusenteIdByGuardia(selectedGuardia.id)
+                    return profesorAusenteId ? (
+                      <div className="card border">
+                        <div className="card-body">
+                          <div className="row mb-3">
+                            <div className="col-12">
+                              <h6 className="card-subtitle mb-1 text-muted">
+                                <i className="bi bi-person-fill me-1"></i>
+                                Profesor Ausente
+                              </h6>
+                              {(() => {
+                                const profesor = usuarios.find(u => u.id === profesorAusenteId)
+                                return profesor ? (
+                                  <p className="card-text">
+                                    <i className="bi bi-person-badge me-1"></i>
+                                    {profesor.nombre}
+                                    <span className="text-muted small ms-2">(ID: {profesor.id})</span>
+                                  </p>
+                                ) : (
+                                  <p className="card-text">ID: {profesorAusenteId}</p>
+                                )
+                              })()}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="alert alert-info">
+                        <i className="bi bi-info-circle me-2"></i>
+                        No hay profesor ausente asociado a esta guardia (guardia creada manualmente)
+                      </div>
+                    )
+                  })()}
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button 
+                  type="button" 
+                  className="btn btn-secondary" 
+                  onClick={handleCloseModal}>
+                  <i className="bi bi-x-circle me-2"></i>
+                  Cerrar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 } 
