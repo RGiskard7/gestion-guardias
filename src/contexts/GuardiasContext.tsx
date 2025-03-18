@@ -36,6 +36,7 @@ export interface GuardiasContextType {
   asignarGuardia: (guardiaId: number, profesorCubridorId: number) => Promise<boolean>
   firmarGuardia: (id: number, observaciones?: string) => Promise<void>
   anularGuardia: (id: number, motivo: string) => Promise<void>
+  desasociarGuardiaDeAusencia: (guardiaId: number) => Promise<boolean>
   
   // Consultas
   getGuardiasByDate: (fecha: string) => Guardia[]
@@ -64,6 +65,7 @@ export const GuardiasContext = createContext<GuardiasContextType>({
   asignarGuardia: async () => false,
   firmarGuardia: async () => {},
   anularGuardia: async () => {},
+  desasociarGuardiaDeAusencia: async () => false,
   
   getGuardiasByDate: () => [],
   getGuardiasByProfesor: () => [],
@@ -277,6 +279,41 @@ export const GuardiasProvider: React.FC<GuardiasProviderProps> = ({ children }) 
     }
   }
 
+  // Función para desasociar una guardia de una ausencia
+  const desasociarGuardiaDeAusencia = async (guardiaId: number): Promise<boolean> => {
+    try {
+      const guardia = guardias.find(g => g.id === guardiaId);
+      if (!guardia || !guardia.ausenciaId) {
+        console.log("No se encontró la guardia o no tiene ausencia asociada");
+        return false;
+      }
+
+      // Guardar el ID de la ausencia para el mensaje de log
+      const ausenciaId = guardia.ausenciaId;
+
+      // Actualizar la guardia para eliminar la referencia a la ausencia
+      // Establecemos ausenciaId explícitamente a undefined para asegurarnos de que 
+      // se elimina la referencia en la base de datos
+      await updateGuardia(guardiaId, {
+        ausenciaId: undefined
+      });
+
+      // Actualizar también el estado local para reflejar el cambio inmediatamente
+      setGuardias(guardias.map(g => {
+        if (g.id === guardiaId) {
+          return { ...g, ausenciaId: undefined };
+        }
+        return g;
+      }));
+
+      console.log(`Guardia con ID ${guardiaId} desasociada correctamente de la ausencia con ID ${ausenciaId}`);
+      return true;
+    } catch (error) {
+      console.error(`Error al desasociar guardia con ID ${guardiaId}:`, error);
+      return false;
+    }
+  };
+
   // Función para obtener guardias por fecha
   const getGuardiasByDate = (fecha: string): Guardia[] => {
     return guardias.filter(g => g.fecha === fecha)
@@ -329,6 +366,7 @@ export const GuardiasProvider: React.FC<GuardiasProviderProps> = ({ children }) 
     asignarGuardia,
     firmarGuardia,
     anularGuardia,
+    desasociarGuardiaDeAusencia,
     
     getGuardiasByDate,
     getGuardiasByProfesor,

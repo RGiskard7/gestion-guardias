@@ -326,6 +326,23 @@ export async function updateGuardia(id: number, guardia: Partial<Guardia>): Prom
       }
     }
 
+    // Manejar ausencia_id de manera similar cuando es undefined para establecerlo a NULL
+    if ('ausencia_id' in guardiaToUpdate && guardiaToUpdate.ausencia_id === undefined) {
+      // Eliminar la propiedad del objeto para no enviarla en el update normal
+      delete guardiaToUpdate.ausencia_id;
+      
+      // Ejecutar SQL directo para establecer el campo a NULL
+      const { error: sqlError } = await supabase
+        .from(getTableName('GUARDIAS'))
+        .update({ ausencia_id: null })
+        .eq('id', id);
+        
+      if (sqlError) {
+        console.error(`Error al establecer ausencia_id a NULL para guardia ${id}:`, sqlError);
+        throw sqlError;
+      }
+    }
+
     // Si no hay más campos que actualizar, devolver la guardia actualizada
     if (Object.keys(guardiaToUpdate).length === 0) {
       const guardiaActualizada = await getGuardiaById(id);

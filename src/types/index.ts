@@ -28,7 +28,6 @@ export interface AusenciaDB {
   tramo_horario: string;
   estado: string;
   observaciones?: string;
-  tareas?: string;
 }
 
 export interface GuardiaDB {
@@ -81,7 +80,6 @@ export interface Ausencia {
   tramoHorario: string;
   estado: "Pendiente" | "Aceptada" | "Rechazada";
   observaciones: string;
-  tareas?: string;
 }
 
 export interface Guardia {
@@ -165,7 +163,6 @@ export function mapAusenciaFromDB(ausencia: AusenciaDB): Ausencia {
     tramoHorario: ausencia.tramo_horario,
     estado: ausencia.estado as "Pendiente" | "Aceptada" | "Rechazada",
     observaciones: ausencia.observaciones || "",
-    tareas: ausencia.tareas
   };
 }
 
@@ -176,7 +173,6 @@ export function mapAusenciaToDB(ausencia: Omit<Ausencia, "id">): Omit<AusenciaDB
     tramo_horario: ausencia.tramoHorario,
     estado: ausencia.estado,
     observaciones: ausencia.observaciones || undefined,
-    tareas: ausencia.tareas
   };
 }
 

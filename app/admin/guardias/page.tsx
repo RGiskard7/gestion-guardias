@@ -8,6 +8,7 @@ import { useHorarios } from "@/src/contexts/HorariosContext"
 import { Guardia, Usuario, Lugar, Horario } from "@/src/types"
 import { Pagination } from "@/components/ui/pagination"
 import DataCard from "@/components/common/DataCard"
+import { DB_CONFIG } from "@/lib/db-config"
 
 export default function GuardiasPage() {
   const { 
@@ -133,8 +134,8 @@ export default function GuardiasPage() {
   // Tramos horarios
   const tramosHorarios = ["1ª hora", "2ª hora", "3ª hora", "4ª hora", "5ª hora", "6ª hora"]
 
-  // Tipos de guardia
-  const tiposGuardia = ["Aula", "Patio", "Recreo"]
+  // Usar los tipos de guardia de la configuración
+  const tiposGuardia = DB_CONFIG.TIPOS_GUARDIA
 
   // Estados de guardia
   const estadosGuardia = ["Pendiente", "Asignada", "Firmada", "Anulada"]

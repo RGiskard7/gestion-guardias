@@ -195,15 +195,13 @@ export async function updateAusencia(id: number, ausencia: Partial<Ausencia>): P
  * @param tipoGuardia Tipo de guardia a crear
  * @param lugarId ID del lugar donde se realizará la guardia
  * @param observaciones Observaciones adicionales (opcional)
- * @param tarea Descripción de la tarea asociada a la guardia (opcional)
  * @returns Guardia creada o null si hubo un error
  */
 export async function acceptAusencia(
   ausenciaId: number, 
   tipoGuardia: string, 
   lugarId: number, 
-  observaciones?: string,
-  tarea?: string
+  observaciones?: string
 ): Promise<Guardia | null> {
   try {
     // Obtener la ausencia
@@ -217,9 +215,6 @@ export async function acceptAusencia(
       estado: DB_CONFIG.ESTADOS_AUSENCIA.ACEPTADA 
     });
 
-    // Usar la tarea de la ausencia si existe y no se proporciona una nueva
-    const tareaFinal = tarea || ausencia.tareas;
-
     // Crear la guardia asociada
     const nuevaGuardia = await createGuardia({
       fecha: ausencia.fecha,
@@ -232,14 +227,6 @@ export async function acceptAusencia(
       profesor_cubridor_id: undefined,
       ausencia_id: ausenciaId
     });
-
-    // Si hay tarea, crearla
-    if (tareaFinal && nuevaGuardia) {
-      await createTareaGuardia({
-        guardia_id: nuevaGuardia.id,
-        descripcion: tareaFinal
-      });
-    }
 
     return nuevaGuardia;
   } catch (error) {

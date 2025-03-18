@@ -15,7 +15,7 @@ export interface AusenciasContextType {
   deleteAusencia: (id: number) => Promise<void>
   
   // Operaciones específicas
-  acceptAusencia: (ausenciaId: number, tipoGuardia: string, lugarId: number, observaciones?: string, tarea?: string) => Promise<number | null>
+  acceptAusencia: (ausenciaId: number, tipoGuardia: string, lugarId: number, observaciones?: string) => Promise<number | null>
   rejectAusencia: (ausenciaId: number, motivo?: string) => Promise<void>
   anularAusencia: (ausenciaId: number, motivo: string) => Promise<boolean>
   
@@ -128,9 +128,9 @@ export const AusenciasProvider: React.FC<AusenciasProviderProps> = ({ children }
   }
 
   // Función para aceptar una ausencia
-  const acceptAusencia = async (ausenciaId: number, tipoGuardia: string, lugarId: number, observaciones?: string, tarea?: string): Promise<number | null> => {
+  const acceptAusencia = async (ausenciaId: number, tipoGuardia: string, lugarId: number, observaciones?: string): Promise<number | null> => {
     try {
-      const guardia = await acceptAusenciaService(ausenciaId, tipoGuardia, lugarId, observaciones, tarea)
+      const guardia = await acceptAusenciaService(ausenciaId, tipoGuardia, lugarId, observaciones)
       if (guardia) {
         // Actualizar el estado de la ausencia en el estado local
         setAusencias(ausencias.map(a => 
