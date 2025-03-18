@@ -20,7 +20,8 @@ export default function GuardiasPage() {
     anularGuardia,
     canProfesorAsignarGuardia,
     getProfesorAusenteIdByGuardia,
-    refreshGuardias
+    refreshGuardias,
+    desasociarGuardiaDeAusencia
   } = useGuardias()
   
   const { usuarios } = useUsuarios()
@@ -78,6 +79,7 @@ export default function GuardiasPage() {
 
   // Estado para guardia asociada a ausencia
   const [hasAssociatedAusencia, setHasAssociatedAusencia] = useState(false)
+  const [desasociarAusencia, setDesasociarAusencia] = useState(false)
 
   const [sortField, setSortField] = useState<'fecha' | 'tramoHorario'>('fecha')
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc')
@@ -100,18 +102,30 @@ export default function GuardiasPage() {
       return true
     })
     .sort((a: Guardia, b: Guardia) => {
-      // Ordenar por fecha (más reciente primero) y luego por tramo horario
-      if (a.fecha !== b.fecha) {
-        return new Date(b.fecha).getTime() - new Date(a.fecha).getTime()
-      }
-
       // Extraer número del tramo horario (ej: "1ª hora" -> 1)
       const getTramoNumber = (tramo: string) => {
         const match = tramo.match(/(\d+)/)
         return match ? Number.parseInt(match[1]) : 0
       }
-
-      return getTramoNumber(a.tramoHorario) - getTramoNumber(b.tramoHorario)
+      
+      // Ordenar según el campo seleccionado y la dirección
+      if (sortField === 'fecha') {
+        // Convertir fechas a timestamps para comparación
+        const timeA = new Date(a.fecha).getTime();
+        const timeB = new Date(b.fecha).getTime();
+        
+        // Aplicar dirección de ordenación
+        return sortDirection === 'asc' ? timeA - timeB : timeB - timeA;
+      } else if (sortField === 'tramoHorario') {
+        const numA = getTramoNumber(a.tramoHorario);
+        const numB = getTramoNumber(b.tramoHorario);
+        
+        // Aplicar dirección de ordenación
+        return sortDirection === 'asc' ? numA - numB : numB - numA;
+      }
+      
+      // Si llegamos aquí, usar ordenación por defecto (fecha descendente)
+      return new Date(b.fecha).getTime() - new Date(a.fecha).getTime();
     })
 
   // Estado para la paginación
@@ -271,15 +285,47 @@ export default function GuardiasPage() {
     // Extraer datos necesarios del formulario
     const { tarea, tramosHorarios, ...guardiaData } = formData
     
-    // Convertir lugarId a número
-    await updateGuardia(editingId, {
-      ...guardiaData,
-      lugarId: guardiaData.lugarId ? Number(guardiaData.lugarId) : 0
-    })
-    
-    alert("Guardia actualizada correctamente")
-    setEditingId(null)
-    resetForm()
+    try {
+      // Si la guardia tiene ausencia asociada y se quiere desasociar
+      if (hasAssociatedAusencia && desasociarAusencia) {
+        // Primero desasociar la guardia de la ausencia
+        const desasociado = await desasociarGuardiaDeAusencia(editingId)
+        
+        if (desasociado) {
+          // Actualizar la guardia con los nuevos datos
+          await updateGuardia(editingId, {
+            ...guardiaData,
+            lugarId: guardiaData.lugarId ? Number(guardiaData.lugarId) : 0,
+            // Al desasociar, establecer el estado como pendiente
+            estado: DB_CONFIG.ESTADOS_GUARDIA.PENDIENTE
+          })
+          
+          // Refrescar las guardias para asegurar que el estado de asociación está actualizado
+          await refreshGuardias()
+          
+          alert("Guardia actualizada correctamente y desasociada de la ausencia. La guardia ha pasado a estado 'Pendiente'.")
+        } else {
+          alert("Error al desasociar la guardia de la ausencia.")
+          return
+        }
+      } else {
+        // Actualización normal sin desasociar
+        await updateGuardia(editingId, {
+          ...guardiaData,
+          lugarId: guardiaData.lugarId ? Number(guardiaData.lugarId) : 0
+        })
+        
+        alert("Guardia actualizada correctamente")
+      }
+      
+      setEditingId(null)
+      setHasAssociatedAusencia(false)
+      setDesasociarAusencia(false)
+      resetForm()
+    } catch (error) {
+      console.error("Error al actualizar la guardia:", error)
+      alert(`Error al actualizar la guardia: ${error instanceof Error ? error.message : 'Error desconocido'}`)
+    }
   }
 
   // Función para manejar creación de guardias por rango
@@ -521,6 +567,7 @@ export default function GuardiasPage() {
     setIsRangeMode(false)
     setError(null)
     setHasAssociatedAusencia(false)
+    setDesasociarAusencia(false)
   }
 
   // Manejar edición de guardia
@@ -528,6 +575,7 @@ export default function GuardiasPage() {
     // Verificar si la guardia tiene una ausencia asociada
     const profesorAusenteId = getProfesorAusenteIdByGuardia(guardia.id)
     setHasAssociatedAusencia(profesorAusenteId !== null)
+    setDesasociarAusencia(false) // Restablecer el estado de desasociación
 
     setFormData({
       fecha: guardia.fecha,
@@ -1084,6 +1132,31 @@ export default function GuardiasPage() {
                   ></textarea>
                   <small className="form-text text-muted">Información adicional importante para esta guardia</small>
                 </div>
+
+                {editingId && hasAssociatedAusencia && (
+                  <div className="mt-4">
+                    <div className="alert alert-warning d-flex align-items-center">
+                      <i className="bi bi-exclamation-triangle-fill fs-4 me-3"></i>
+                      <div>
+                        <p className="mb-0">
+                          Esta guardia está asociada a una ausencia. Si desea desasociarla, marque la casilla a continuación.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="form-check">
+                      <input
+                        type="checkbox"
+                        className="form-check-input"
+                        id="desasociarAusencia"
+                        checked={desasociarAusencia}
+                        onChange={(e) => setDesasociarAusencia(e.target.checked)}
+                      />
+                      <label className="form-check-label" htmlFor="desasociarAusencia">
+                        Desasociar ausencia de esta guardia
+                      </label>
+                    </div>
+                  </div>
+                )}
     
                 {error && <div className="alert alert-danger mt-3">{error}</div>}
     

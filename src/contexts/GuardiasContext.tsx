@@ -332,17 +332,19 @@ export const GuardiasProvider: React.FC<GuardiasProviderProps> = ({ children }) 
       // Guardar el ID de la ausencia para el mensaje de log
       const ausenciaId = guardia.ausenciaId;
 
-      // Actualizar la guardia para eliminar la referencia a la ausencia
-      // Establecemos ausenciaId explícitamente a undefined para asegurarnos de que 
-      // se elimina la referencia en la base de datos
+      // Usar directamente updateGuardia que llamará a updateGuardiaService
+      // y se encargará de establecer ausencia_id a NULL correctamente
       await updateGuardia(guardiaId, {
-        ausenciaId: undefined
+        ausenciaId: undefined  // updateGuardia maneja esto correctamente convirtiéndolo a NULL en la BD
       });
 
       // Actualizar también el estado local para reflejar el cambio inmediatamente
       setGuardias(guardias.map(g => {
         if (g.id === guardiaId) {
-          return { ...g, ausenciaId: undefined };
+          // Crear una copia y eliminar la propiedad ausenciaId
+          const updatedGuardia = { ...g };
+          updatedGuardia.ausenciaId = undefined;
+          return updatedGuardia;
         }
         return g;
       }));

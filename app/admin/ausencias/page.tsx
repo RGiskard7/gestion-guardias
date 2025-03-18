@@ -133,7 +133,15 @@ export default function AdminAusenciasPage() {
             if (desasociarGuardia && guardia) {
               // Si explícitamente quiere desasociar la guardia, cambiamos automáticamente a Pendiente
               try {
-                // Primero actualizamos la ausencia
+                // Primero desasociamos la guardia para evitar problemas de concurrencia
+                const desasociado = await desasociarGuardiaDeAusencia(guardia.id);
+                
+                if (!desasociado) {
+                  alert("Error al desasociar la guardia. No se pudo completar la operación.");
+                  return;
+                }
+                
+                // Ahora actualizamos la ausencia y su estado
                 await updateAusencia(editingId, {
                   profesorId: values.profesorId,
                   fecha: values.fecha,
@@ -141,15 +149,15 @@ export default function AdminAusenciasPage() {
                   // Al desasociar la guardia, siempre cambiamos a Pendiente
                   estado: DB_CONFIG.ESTADOS_AUSENCIA.PENDIENTE,
                   observaciones: values.observaciones
-                })
+                });
                 
-                // Luego desasociamos la guardia
-                await desasociarGuardiaDeAusencia(guardia.id)
+                alert("Ausencia actualizada correctamente y guardia desasociada. La ausencia ha pasado a estado 'Pendiente'.");
                 
-                alert("Ausencia actualizada correctamente y guardia desasociada. La ausencia ha pasado a estado 'Pendiente'.")
+                // Refrescar las guardias para asegurar que el estado de asociación está actualizado
+                await refreshGuardias();
               } catch (error) {
-                console.error("Error al actualizar ausencia:", error)
-                alert("Error al actualizar la ausencia: " + error)
+                console.error("Error al actualizar ausencia:", error);
+                alert("Error al actualizar la ausencia: " + error);
               }
             } else {
               // Si no hay que desasociar, solo actualizamos la ausencia pero sin cambiar el estado
