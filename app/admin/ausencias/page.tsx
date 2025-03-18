@@ -27,7 +27,8 @@ export default function AdminAusenciasPage() {
   const [filterProfesorId, setFilterProfesorId] = useState<number | null>(null)
   const [filterFecha, setFilterFecha] = useState("")
   const [filterEstado, setFilterEstado] = useState("")
-  const [sortField, setSortField] = useState<'fecha' | 'tramoHorario'>('fecha')
+  const [filterId, setFilterId] = useState("")
+  const [sortField, setSortField] = useState<'id' | 'fecha' | 'tramoHorario'>('fecha')
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc')
   const [isRefreshing, setIsRefreshing] = useState(false)
   
@@ -58,6 +59,26 @@ export default function AdminAusenciasPage() {
       setIsRefreshing(false)
     }
   }
+
+  // Función mejorada para actualizar todos los datos relevantes
+  const refreshAllData = async () => {
+    setIsRefreshing(true);
+    try {
+      // Actualizar ausencias
+      await refreshAusencias();
+      
+      // Actualizar guardias
+      await refreshGuardias();
+      
+      // Si hay otros contextos que necesiten ser actualizados, añadirlos aquí
+      
+      console.log("Datos actualizados completamente");
+    } catch (error) {
+      console.error("Error al actualizar los datos:", error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   // Formulario principal usando el hook personalizado
   const { 
@@ -190,7 +211,7 @@ export default function AdminAusenciasPage() {
           setHasAssociatedGuardia(false)
           setDesasociarGuardia(false)
           setShowForm(false)
-          refreshAusencias()
+          await refreshAllData()
         } else {
           // Crear ausencias para cada tramo horario seleccionado
           for (const tramoHorario of values.tramosHorarios) {
@@ -215,7 +236,7 @@ export default function AdminAusenciasPage() {
           // Limpiar formulario y actualizar lista
           resetForm()
           setShowForm(false)
-          refreshAusencias()
+          await refreshAllData()
         }
       } catch (error) {
         console.error("Error al guardar la ausencia:", error)
@@ -224,30 +245,63 @@ export default function AdminAusenciasPage() {
     }
   })
 
-  // Método personalizado para manejar cambios en los checkboxes
+  // Manejar cambios en los checkboxes de tramos horarios
   const handleTramoHorarioChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { value, checked } = e.target
+    const { value, checked } = e.target;
     
-    if (value === "todo-el-dia") {
-      // Si se marca "Todo el día", seleccionar todos los tramos
-      // Si se desmarca, deseleccionar todos los tramos
-      setFormData(prev => ({
-        ...prev,
-        tramosHorarios: checked ? [...tramosHorariosOptions] : []
-      }))
-    } else {
-      setFormData(prev => {
-        const tramosHorarios = checked
-          ? [...(prev.tramosHorarios || []), value]
-          : (prev.tramosHorarios || []).filter(t => t !== value)
-        
-        return {
-          ...prev,
-          tramosHorarios
-        }
-      })
+    // Si estamos en modo edición, solo permitir seleccionar un tramo
+    if (editingId) {
+      if (value === "todo-el-dia") {
+        // No permitir "Todo el día" en modo edición
+        return;
+      }
+      
+      // En modo edición, comportarse como radio buttons
+      if (checked) {
+        setFormData({
+          ...formData,
+          tramosHorarios: [value],
+          tramoHorario: value
+        });
+      }
+      return;
     }
-  }
+    
+    // Modo creación - comportamiento normal de múltiples selecciones
+    if (value === "todo-el-dia") {
+      // Si se selecciona "Todo el día", marcar todos los tramos
+      if (checked) {
+        setFormData({
+          ...formData,
+          tramosHorarios: [...tramosHorariosOptions]
+        });
+      } else {
+        // Si se desmarca, vaciar la selección
+        setFormData({
+          ...formData,
+          tramosHorarios: []
+        });
+      }
+    } else {
+      // Para los tramos individuales
+      let newTramosHorarios: string[] = [];
+      
+      if (checked) {
+        // Agregar el tramo a la selección
+        newTramosHorarios = [...(formData.tramosHorarios || []), value];
+      } else {
+        // Quitar el tramo de la selección
+        newTramosHorarios = (formData.tramosHorarios || []).filter(
+          tramo => tramo !== value
+        );
+      }
+      
+      setFormData({
+        ...formData,
+        tramosHorarios: newTramosHorarios
+      });
+    }
+  };
 
   // Formulario de aceptación usando el hook personalizado
   const { 
@@ -285,23 +339,37 @@ export default function AdminAusenciasPage() {
 
         if (guardiaId) {
           alert("Ausencia aceptada correctamente. Se ha creado una guardia.")
+          
+          resetAcceptForm()
+          setProcessingAusenciaId(null)
+          setShowAcceptForm(false)
+          await refreshAllData()
         } else {
-          alert("Error al aceptar la ausencia. No se ha podido crear la guardia.")
+          // Si no se ha podido crear la guardia, mostrar mensaje de error
+          // pero no cambiar el estado de la ausencia (sigue en pendiente)
+          alert("Error al crear la guardia. La ausencia se mantiene en estado 'Pendiente'.")
+          
+          // Cerrar el formulario pero no cambiar el estado de la ausencia
+          resetAcceptForm()
+          setProcessingAusenciaId(null)
+          setShowAcceptForm(false)
+          await refreshAllData()
         }
-
+      } catch (error) {
+        console.error("Error al procesar la ausencia:", error)
+        alert("Error al procesar la ausencia. La ausencia se mantiene en estado 'Pendiente'.")
+        
+        // Cerrar el formulario pero no cambiar el estado de la ausencia
         resetAcceptForm()
         setProcessingAusenciaId(null)
         setShowAcceptForm(false)
-        refreshAusencias()
-      } catch (error) {
-        console.error("Error al procesar la ausencia:", error)
-        alert("Error al procesar la ausencia")
+        await refreshAllData()
       }
     }
   })
 
   // Función para cambiar el orden
-  const handleSort = (field: 'fecha' | 'tramoHorario') => {
+  const handleSort = (field: 'id' | 'fecha' | 'tramoHorario') => {
     if (sortField === field) {
       // Si ya estamos ordenando por este campo, cambiamos la dirección
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
@@ -320,6 +388,11 @@ export default function AdminAusenciasPage() {
 
   // Filtrar ausencias
   const filteredAusencias = ausencias.filter(ausencia => {
+    // Filtrar por ID
+    if (filterId && ausencia.id.toString() !== filterId) {
+      return false
+    }
+    
     // Filtrar por profesor
     if (filterProfesorId && ausencia.profesorId !== filterProfesorId) {
       return false
@@ -340,26 +413,23 @@ export default function AdminAusenciasPage() {
 
   // Ordenar ausencias según el campo y dirección seleccionados
   const sortedAusencias = [...filteredAusencias].sort((a, b) => {
-    if (sortField === 'fecha') {
+    if (sortField === 'id') {
+      // Ordenar por ID
+      return sortDirection === 'asc' ? a.id - b.id : b.id - a.id
+    } else if (sortField === 'fecha') {
       // Ordenar por fecha
       const dateA = new Date(a.fecha).getTime()
       const dateB = new Date(b.fecha).getTime()
       return sortDirection === 'asc' ? dateA - dateB : dateB - dateA
     } else if (sortField === 'tramoHorario') {
-      // Ordenar por tramo horario
-      // Definir el orden de los tramos
-      const tramoOrder: { [key: string]: number } = {
-        "1ª Hora": 1,
-        "2ª Hora": 2,
-        "3ª Hora": 3,
-        "4ª Hora": 4,
-        "5ª Hora": 5,
-        "6ª Hora": 6
+      // Extraer número del tramo horario (ej: "1ª hora" -> 1)
+      const getTramoNumber = (tramo: string) => {
+        const match = tramo.match(/(\d+)/)
+        return match ? Number.parseInt(match[1]) : 0
       }
       
-      // Obtener el valor numérico de cada tramo
-      const tramoA = tramoOrder[a.tramoHorario] || 999
-      const tramoB = tramoOrder[b.tramoHorario] || 999
+      const tramoA = getTramoNumber(a.tramoHorario)
+      const tramoB = getTramoNumber(b.tramoHorario)
       
       // Si los tramos son iguales, ordenar por fecha
       if (tramoA === tramoB) {
@@ -372,7 +442,9 @@ export default function AdminAusenciasPage() {
     }
     
     // Por defecto, ordenar por fecha
-    return 0
+    const dateA = new Date(a.fecha).getTime()
+    const dateB = new Date(b.fecha).getTime()
+    return dateB - dateA
   })
 
   // Paginar ausencias
@@ -431,9 +503,7 @@ export default function AdminAusenciasPage() {
           alert("Ausencia eliminada correctamente");
         }
         
-        refreshAusencias();
-        // Refrescar también las guardias para ver los cambios reflejados
-        await refreshGuardias();
+        await refreshAllData();
       } catch (error) {
         console.error("Error al eliminar la ausencia:", error);
         alert("Error al eliminar la ausencia");
@@ -475,7 +545,7 @@ export default function AdminAusenciasPage() {
         })
 
         alert("Ausencia anulada correctamente")
-        refreshAusencias()
+        await refreshAllData()
       } catch (error) {
         console.error("Error al anular la ausencia:", error)
         alert("Error al anular la ausencia")
@@ -532,6 +602,18 @@ export default function AdminAusenciasPage() {
           from { transform: rotate(0deg); }
           to { transform: rotate(360deg); }
         }
+        .cursor-pointer {
+          cursor: pointer;
+        }
+        .user-select-none {
+          user-select: none;
+        }
+        .sortable-header {
+          transition: background-color 0.2s;
+        }
+        .sortable-header:hover {
+          background-color: rgba(0, 0, 0, 0.05);
+        }
       `}</style>
 
       <div className="d-flex justify-content-between align-items-center mb-4">
@@ -561,7 +643,21 @@ export default function AdminAusenciasPage() {
         className="mb-4"
       >
         <div className="row g-4">
-          <div className="col-md-4">
+          <div className="col-md-3">
+            <div className="form-group">
+              <label htmlFor="filterId" className="form-label fw-bold">ID</label>
+              <input
+                type="text"
+                id="filterId"
+                className="form-control"
+                value={filterId}
+                onChange={(e) => setFilterId(e.target.value)}
+                placeholder="Buscar por ID exacto"
+              />
+              <small className="form-text text-muted">Filtrar por ID específico</small>
+            </div>
+          </div>
+          <div className="col-md-3">
             <div className="form-group">
               <label htmlFor="filterEstado" className="form-label fw-bold">Estado</label>
               <select
@@ -578,7 +674,7 @@ export default function AdminAusenciasPage() {
               <small className="form-text text-muted">Filtrar por estado de ausencia</small>
             </div>
           </div>
-          <div className="col-md-4">
+          <div className="col-md-3">
             <div className="form-group">
               <label htmlFor="filterFecha" className="form-label fw-bold">Fecha</label>
               <input
@@ -591,7 +687,7 @@ export default function AdminAusenciasPage() {
               <small className="form-text text-muted">Filtrar por fecha específica</small>
             </div>
           </div>
-          <div className="col-md-4">
+          <div className="col-md-3">
             <div className="form-group">
               <label htmlFor="filterProfesor" className="form-label fw-bold">Profesor</label>
               <select
@@ -710,62 +806,91 @@ export default function AdminAusenciasPage() {
               <div className="col-12">
                 <div className="form-group mb-3">
                   <label className="form-label fw-bold">Tramos Horarios</label>
-                  <div className="d-flex flex-wrap gap-3">
-                    <div className="form-check w-100 mb-2 border-bottom pb-2">
-                      <input
-                        className="form-check-input"
-                        type="checkbox"
-                        id="todo-el-dia"
-                        value="todo-el-dia"
-                        checked={formData.tramosHorarios?.length === tramosHorariosOptions.length}
-                        onChange={handleTramoHorarioChange}
-                      />
-                      <label className="form-check-label" htmlFor="todo-el-dia">
-                        <strong>Todo el día</strong>
-                      </label>
+                  {editingId ? (
+                    // Modo edición: solo un tramo horario permitido
+                    <div className="d-flex flex-column">
+                      {hasAssociatedGuardia && !desasociarGuardia ? (
+                        // Si tiene guardia asociada y no se va a desasociar, mostrar solo el tramo actual sin poder cambiarlo
+                        <div className="form-control bg-light" style={{ cursor: 'not-allowed' }}>
+                          {formData.tramosHorarios?.[0] || formData.tramoHorario}
+                          <small className="d-block text-muted mt-1">
+                            <i className="bi bi-info-circle-fill me-1"></i>
+                            No se puede modificar el tramo horario mientras esté asociado a una guardia
+                          </small>
+                        </div>
+                      ) : (
+                        // Si no tiene guardia asociada o se va a desasociar, permitir seleccionar un tramo
+                        <div className="d-flex flex-row flex-wrap gap-3">
+                          {tramosHorariosOptions.map((tramo) => (
+                            <div key={tramo} className="form-check me-3">
+                              <input
+                                className="form-check-input"
+                                type="radio"
+                                id={`tramo-radio-${tramo}`}
+                                name="tramo-radio"
+                                value={tramo}
+                                checked={formData.tramosHorarios?.[0] === tramo}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setFormData({
+                                      ...formData,
+                                      tramosHorarios: [tramo],
+                                      tramoHorario: tramo
+                                    });
+                                  }
+                                }}
+                              />
+                              <label className="form-check-label" htmlFor={`tramo-radio-${tramo}`}>
+                                {tramo}
+                              </label>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                    {tramosHorariosOptions.map((tramo) => (
-                      <div key={tramo} className="form-check">
+                  ) : (
+                    // Modo creación: permitir seleccionar múltiples tramos horarios
+                    <div className="d-flex flex-wrap gap-3">
+                      <div className="form-check w-100 mb-2 border-bottom pb-2">
                         <input
                           className="form-check-input"
                           type="checkbox"
-                          id={`tramo-${tramo}`}
-                          name={tramo}
-                          value={tramo}
-                          checked={formData.tramosHorarios?.includes(tramo) || false}
+                          id="todo-el-dia"
+                          value="todo-el-dia"
+                          checked={formData.tramosHorarios?.length === tramosHorariosOptions.length}
                           onChange={handleTramoHorarioChange}
                         />
-                        <label className="form-check-label" htmlFor={`tramo-${tramo}`}>
-                          {tramo}
+                        <label className="form-check-label" htmlFor="todo-el-dia">
+                          <strong>Todo el día</strong>
                         </label>
                       </div>
-                    ))}
-                  </div>
-                  <small className="form-text text-muted">Seleccione los tramos horarios en los que estará ausente</small>
+                      {tramosHorariosOptions.map((tramo) => (
+                        <div key={tramo} className="form-check">
+                          <input
+                            className="form-check-input"
+                            type="checkbox"
+                            id={`tramo-${tramo}`}
+                            name={tramo}
+                            value={tramo}
+                            checked={formData.tramosHorarios?.includes(tramo) || false}
+                            onChange={handleTramoHorarioChange}
+                          />
+                          <label className="form-check-label" htmlFor={`tramo-${tramo}`}>
+                            {tramo}
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <small className="form-text text-muted">
+                    {editingId 
+                      ? "Seleccione el tramo horario de la ausencia" 
+                      : "Seleccione los tramos horarios en los que estará ausente"}
+                  </small>
                 </div>
               </div>
               
-              {editingId && (
-                <div className="col-md-6">
-                  <div className="form-group">
-                    <label htmlFor="tramoHorario" className="form-label fw-bold">Tramo Horario</label>
-                    <input
-                      type="text"
-                      className="form-control"
-                      value={formData.tramoHorario}
-                      readOnly
-                      title="Tramo horario"
-                      aria-label="Tramo horario"
-                    />
-                    <small className="form-text text-muted">
-                      <i className="bi bi-info-circle-fill me-1"></i>
-                      No es posible cambiar el tramo horario de una ausencia existente.
-                    </small>
-                  </div>
-                </div>
-              )}
-              
-              <div className={editingId ? "col-md-6" : "col-12"}>
+              <div className="col-12">
                 <div className="form-group">
                   <label htmlFor="observaciones" className="form-label fw-bold">Observaciones</label>
                   <textarea
@@ -944,11 +1069,27 @@ export default function AdminAusenciasPage() {
               <table className="table table-striped table-hover align-middle">
                 <thead className="table-light">
                   <tr>
+                    <th 
+                      scope="col" 
+                      onClick={() => handleSort('id')} 
+                      className="cursor-pointer user-select-none sortable-header"
+                      title="Ordenar por ID"
+                    >
+                      <div className="d-flex align-items-center">
+                        ID
+                        {sortField === 'id' && (
+                          <span className="ms-2 text-primary">
+                            <i className={`bi bi-sort-${sortDirection === 'asc' ? 'up' : 'down'}-alt`}></i>
+                          </span>
+                        )}
+                      </div>
+                    </th>
                     <th scope="col">Profesor</th>
                     <th 
                       scope="col" 
                       onClick={() => handleSort('fecha')} 
-                      className="cursor-pointer user-select-none"
+                      className="cursor-pointer user-select-none sortable-header"
+                      title="Ordenar por fecha"
                     >
                       <div className="d-flex align-items-center">
                         Fecha
@@ -962,7 +1103,8 @@ export default function AdminAusenciasPage() {
                     <th 
                       scope="col" 
                       onClick={() => handleSort('tramoHorario')} 
-                      className="cursor-pointer user-select-none"
+                      className="cursor-pointer user-select-none sortable-header"
+                      title="Ordenar por tramo horario"
                     >
                       <div className="d-flex align-items-center">
                         Tramo
@@ -981,6 +1123,7 @@ export default function AdminAusenciasPage() {
                 <tbody>
                   {currentAusencias.map(ausencia => (
                     <tr key={ausencia.id}>
+                      <td>{ausencia.id}</td>
                       <td className="fw-medium">{getProfesorName(ausencia.profesorId)}</td>
                       <td>{new Date(ausencia.fecha).toLocaleDateString()}</td>
                       <td>{ausencia.tramoHorario}</td>
