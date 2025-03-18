@@ -295,3 +295,29 @@ Este documento registra todos los cambios, mejoras y correcciones realizadas en 
 - Versión inicial del sistema de gestión de guardias
 - Funcionalidad básica para profesores y administradores
 - Sistema de autenticación y autorización
+
+## [2025-03-25] - Mejora en la validación de fechas para guardias y ausencias
+
+### Autor(es)
+- Equipo de desarrollo
+
+### Cambios realizados
+- Añadida validación para impedir la creación de guardias y ausencias con fechas pasadas
+- Implementada validación en formularios web para evitar la selección de fechas anteriores a la actual
+- Agregada validación a nivel de servicios para rechazar operaciones con fechas pasadas
+- Implementada validación en `createGuardia` y `createAusencia` para verificar fechas válidas
+
+### Archivos modificados
+- `app/admin/guardias/page.tsx`: Añadido atributo `min` a los campos de fecha para prevenir selección de fechas pasadas
+- `app/admin/ausencias/page.tsx`: Añadido atributo `min` al campo de fecha para prevenir selección de fechas pasadas
+- `lib/guardiasService.ts`: Implementada validación en `createGuardia` para rechazar fechas pasadas
+- `lib/ausenciasService.ts`: Implementada validación en `createAusencia` para rechazar fechas pasadas
+
+### Problemas resueltos
+- Eliminada la posibilidad de crear guardias y ausencias con fechas pasadas
+- Mejorada la validación de datos para garantizar la integridad temporal del sistema
+- Prevenidos errores de consistencia en la asignación de profesores a guardias pasadas
+
+### Notas adicionales
+- Esta implementación forma parte de las mejoras de seguridad y consistencia del sistema
+- Se mantiene la funcionalidad para visualizar registros históricos, solo se impide la creación en fechas pasadas

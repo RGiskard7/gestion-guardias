@@ -124,6 +124,17 @@ export async function getAusenciasPendientes(): Promise<Ausencia[]> {
  */
 export async function createAusencia(ausencia: Omit<Ausencia, 'id'>): Promise<Ausencia> {
   try {
+    // Validar que la fecha no sea en el pasado
+    const fechaAusencia = new Date(ausencia.fecha);
+    fechaAusencia.setHours(0, 0, 0, 0);
+    
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    
+    if (fechaAusencia < hoy) {
+      throw new Error('No se pueden crear ausencias con fechas pasadas');
+    }
+    
     // Obtener el próximo ID disponible
     const { data: maxIdData } = await supabase
       .from(getTableName('AUSENCIAS'))
@@ -152,7 +163,7 @@ export async function createAusencia(ausencia: Omit<Ausencia, 'id'>): Promise<Au
 
     return data;
   } catch (error) {
-    console.error('Error inesperado al crear ausencia:', error);
+    console.error('Error al crear ausencia:', error);
     throw error;
   }
 }

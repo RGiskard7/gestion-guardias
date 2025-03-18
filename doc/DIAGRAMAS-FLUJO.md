@@ -54,14 +54,16 @@ flowchart TD
 flowchart TD
     A[Profesor] -->|Accede a| B[Mis Ausencias]
     B -->|Clic en| C[Nueva Ausencia]
-    C -->|Completa formulario| D{Validación}
-    D -->|Datos correctos| E[Enviar solicitud]
+    C -->|Completa formulario| D{Validaciones}
+    D -->|Fecha en pasado| E[Error: No se permiten fechas pasadas]
+    E -->|Corrige| C
     D -->|Datos incorrectos| C
-    E -->|Solicitud enviada| F[Ausencia registrada como Pendiente]
-    F -->|Espera aprobación| G{Decisión Admin}
-    G -->|Aceptada| H[Ausencia Aceptada]
-    G -->|Rechazada| I[Ausencia Rechazada]
-    H -->|Genera| J[Guardia Pendiente]
+    D -->|Datos correctos| F[Enviar solicitud]
+    F -->|Solicitud enviada| G[Ausencia registrada como Pendiente]
+    G -->|Espera aprobación| H{Decisión Admin}
+    H -->|Aceptada| I[Ausencia Aceptada]
+    H -->|Rechazada| J[Ausencia Rechazada]
+    I -->|Genera| K[Guardia Pendiente]
 ```
 
 ### Visualización de Horario
@@ -191,11 +193,14 @@ flowchart TD
 ```mermaid
 flowchart TD
     A[Administrador] -->|Acepta| B[Ausencia pendiente]
-    B -->|Completa formulario| C[Datos de guardia]
-    C -->|Sistema procesa| D[Crear guardia]
-    D -->|Actualiza| E[Estado ausencia a Aceptada]
-    D -->|Crea| F[Nueva guardia en estado Pendiente]
-    F -->|Disponible en| G[Lista de guardias pendientes]
+    B -->|Sistema verifica| C{Fecha válida}
+    C -->|Fecha en pasado| D[Error: No permitido]
+    C -->|Fecha válida| E[Completa formulario]
+    E -->|Sistema procesa| F[Crear guardia]
+    F -->|Actualiza| G[Estado ausencia a Aceptada]
+    F -->|Crea| H[Nueva guardia en estado Pendiente]
+    H -->|Disponible en| I[Lista de guardias pendientes]
+    D -->|Notifica| J[Mensaje de error]
 ```
 
 ### Anulación de Guardia
@@ -371,15 +376,21 @@ flowchart TD
     
     D -->|Administrador completa| G[Formulario de guardia]
     
-    F -->|Administrador selecciona| H[Tipo de guardia y lugar]
-    G -->|Completar| H
+    F -->|Sistema valida fecha| H{Fecha válida}
+    G -->|Sistema valida fecha| H
     
-    H -->|"tipoGuardia = Aula/Patio/Recreo"| I[Convertir a formato DB]
-    I -->|mapGuardiaToDB| J[Objeto API]
-    J -->|createGuardia| K[Guardia creada]
+    H -->|Fecha en pasado| I[Error: No se permiten fechas pasadas]
+    I -->|Notifica error| J[Mensaje al usuario]
+    J -->|Corregir| G
     
-    K -->|addGuardia| L[Actualizacion UI]
-    L --> M[Fin]
+    H -->|Fecha válida| K[Administrador selecciona tipo y lugar]
+    
+    K -->|"tipoGuardia = Aula/Patio/Recreo"| L[Convertir a formato DB]
+    L -->|mapGuardiaToDB| M[Objeto API]
+    M -->|createGuardia| N[Guardia creada]
+    
+    N -->|addGuardia| O[Actualización UI]
+    O --> P[Fin]
 ```
 
 ### Proceso de Firma de Guardias con Tareas

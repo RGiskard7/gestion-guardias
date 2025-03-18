@@ -705,6 +705,7 @@ export default function GuardiasPage() {
                       name="fechaInicio"
                       value={rangoFechas.fechaInicio}
                       onChange={handleRangeChange}
+                      min={new Date().toISOString().split("T")[0]}
                       required
                     />
                     <small className="form-text text-muted">Fecha de inicio del rango</small>
@@ -722,6 +723,7 @@ export default function GuardiasPage() {
                       name="fechaFin"
                       value={rangoFechas.fechaFin}
                       onChange={handleRangeChange}
+                      min={new Date().toISOString().split("T")[0]}
                       required
                     />
                     <small className="form-text text-muted">Fecha de fin del rango</small>
@@ -856,6 +858,7 @@ export default function GuardiasPage() {
                         value={formData.fecha}
                         onChange={handleChange}
                         required
+                        min={new Date().toISOString().split("T")[0]}
                         disabled={!!editingId && hasAssociatedAusencia}
                       />
                       {!!editingId && hasAssociatedAusencia && (

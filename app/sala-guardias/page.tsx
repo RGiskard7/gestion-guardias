@@ -13,7 +13,18 @@ export default function SalaGuardiasPage() {
   const { getLugarById } = useLugares()
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split("T")[0])
   const [viewMode, setViewMode] = useState<"day" | "week">("day")
-  const [filterEstado, setFilterEstado] = useState<string>("Pendiente")
+  const [filterEstado, setFilterEstado] = useState<string>("")
+
+  // Log para depuración - Muestra todas las guardias recuperadas
+  console.log("TODAS LAS GUARDIAS RECUPERADAS:", guardias.map(g => ({
+    id: g.id,
+    fecha: g.fecha,
+    tramoHorario: g.tramoHorario,
+    estado: g.estado,
+    tipoGuardia: g.tipoGuardia,
+    lugarId: g.lugarId,
+    profesorCubridorId: g.profesorCubridorId
+  })));
 
   // Estados disponibles para el filtro
   const estadosGuardia = ["Pendiente", "Asignada", "Firmada", "Anulada"]
@@ -98,7 +109,8 @@ export default function SalaGuardiasPage() {
     })
   }
 
-  const tramosHorarios = ["1ª hora", "2ª hora", "3ª hora", "4ª hora", "5ª hora", "6ª hora"]
+  // Tramos horarios disponibles
+  const tramosHorarios = ["1ª Hora", "2ª Hora", "3ª Hora", "4ª Hora", "5ª Hora", "6ª Hora"]
   const tramosOrdenados = viewMode === "day" 
     ? sortTramos(Object.keys(guardiasByTramo))
     : tramosHorarios

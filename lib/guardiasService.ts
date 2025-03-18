@@ -266,7 +266,18 @@ export async function anularGuardia(guardiaId: number, motivo: string): Promise<
 export async function createGuardia(guardia: Omit<Guardia, 'id'>): Promise<Guardia> {
   try {
     // Log para verificar el tipo de guardia
-    console.log("Tipo de guardia en createGuardia:", guardia.tipoGuardia);
+    console.log("Tipo de guardia en createGuardia:", guardia.tipo_guardia);
+    
+    // Validar que la fecha no sea en el pasado
+    const fechaGuardia = new Date(guardia.fecha);
+    fechaGuardia.setHours(0, 0, 0, 0);
+    
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    
+    if (fechaGuardia < hoy) {
+      throw new Error('No se pueden crear guardias con fechas pasadas');
+    }
     
     // Obtener el próximo ID disponible
     const nextId = await getNextId();

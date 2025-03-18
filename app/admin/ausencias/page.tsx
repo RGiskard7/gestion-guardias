@@ -684,6 +684,7 @@ export default function AdminAusenciasPage() {
                     value={formData.fecha}
                     onChange={handleChange}
                     required
+                    min={new Date().toISOString().split("T")[0]}
                     disabled={editingId ? hasAssociatedGuardia : false}
                   />
                   {editingId && hasAssociatedGuardia && (
