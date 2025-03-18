@@ -265,6 +265,9 @@ export async function anularGuardia(guardiaId: number, motivo: string): Promise<
  */
 export async function createGuardia(guardia: Omit<Guardia, 'id'>): Promise<Guardia> {
   try {
+    // Log para verificar el tipo de guardia
+    console.log("Tipo de guardia en createGuardia:", guardia.tipoGuardia);
+    
     // Obtener el próximo ID disponible
     const nextId = await getNextId();
     

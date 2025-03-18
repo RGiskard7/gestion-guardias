@@ -9,6 +9,7 @@ import { DB_CONFIG } from "@/lib/db-config"
 import { useAusencias } from "./AusenciasContext"
 import { useLugares } from "./LugaresContext"
 import { useUsuarios } from "./UsuariosContext"
+import { updateAusencia as updateAusenciaService } from "@/lib/ausenciasService"
 import { 
   Guardia, GuardiaDB as GuardiaDBType, 
   TareaGuardia, TareaGuardiaDB as TareaGuardiaDBType,
@@ -135,6 +136,9 @@ export const GuardiasProvider: React.FC<GuardiasProviderProps> = ({ children }) 
   // Función para añadir una guardia
   const addGuardia = async (guardia: Omit<Guardia, "id">, tarea?: string): Promise<number | null> => {
     try {
+      // Log para verificar el tipo de guardia
+      console.log("Tipo de guardia en addGuardia:", guardia.tipoGuardia);
+      
       const guardiaDB = mapGuardiaToDB(guardia)
       const newGuardia = await createGuardiaService(guardiaDB as Omit<GuardiaDB, "id">)
       
@@ -269,13 +273,42 @@ export const GuardiasProvider: React.FC<GuardiasProviderProps> = ({ children }) 
   // Función para anular una guardia
   const anularGuardia = async (id: number, motivo: string) => {
     try {
+      // Verificar si la guardia tiene una ausencia asociada
+      const guardia = guardias.find(g => g.id === id);
+      if (!guardia) {
+        console.error(`No se encontró la guardia con ID ${id}`);
+        return;
+      }
+      
+      // Si la guardia tiene una ausencia asociada, desasociar la guardia y actualizar el estado de la ausencia
+      if (guardia.ausenciaId) {
+        const ausenciaId = guardia.ausenciaId;
+        
+        // Buscar la ausencia en el contexto de ausencias
+        const ausencia = ausencias.find(a => a.id === ausenciaId);
+        if (ausencia) {
+          // Actualizar la ausencia a estado "Pendiente"
+          await updateAusenciaService(ausenciaId, { 
+            estado: DB_CONFIG.ESTADOS_AUSENCIA.PENDIENTE,
+            observaciones: `${ausencia.observaciones || ''}\nGuardia anulada: ${motivo}`
+          });
+          
+          // Refrescar ausencias para reflejar los cambios
+          await refreshAusencias();
+        }
+      }
+      
       // Actualizar el estado de la guardia a "Anulada"
       await updateGuardia(id, {
         estado: "Anulada",
-        observaciones: `ANULADA: ${motivo}`
-      })
+        observaciones: `ANULADA: ${motivo}`,
+        ausenciaId: undefined // Eliminar la referencia a la ausencia
+      });
+      
+      // Refrescar guardias para reflejar los cambios
+      await refreshGuardias();
     } catch (error) {
-      console.error(`Error al anular guardia con ID ${id}:`, error)
+      console.error(`Error al anular guardia con ID ${id}:`, error);
     }
   }
 

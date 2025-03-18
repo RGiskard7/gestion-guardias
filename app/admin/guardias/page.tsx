@@ -55,7 +55,7 @@ export default function GuardiasPage() {
     fecha: "",
     tramoHorario: "",
     tramosHorarios: [] as string[],
-    tipoGuardia: "Normal",
+    tipoGuardia: "Aula",
     lugarId: "",
     tarea: "",
     observaciones: "",
@@ -219,7 +219,11 @@ export default function GuardiasPage() {
     const endDate = new Date(end)
 
     while (currentDate <= endDate) {
-      dates.push(new Date(currentDate).toISOString().split("T")[0])
+      // Solo incluir días de lunes a viernes (0 = domingo, 6 = sábado)
+      const dayOfWeek = currentDate.getDay()
+      if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+        dates.push(new Date(currentDate).toISOString().split("T")[0])
+      }
       currentDate.setDate(currentDate.getDate() + 1)
     }
 
@@ -243,21 +247,60 @@ export default function GuardiasPage() {
       // Crear guardias para un rango de fechas
       const fechas = generateDateRange(rangoFechas.fechaInicio, rangoFechas.fechaFin)
       
-      // Crear una guardia para cada fecha
-      fechas.forEach(async (fecha) => {
-        const { tarea, tramosHorarios, ...guardiaData } = formData
-        const guardiaWithDate = { 
-          ...guardiaData, 
-          fecha,
-          lugarId: guardiaData.lugarId ? Number(guardiaData.lugarId) : 0,
-          firmada: false,
-          estado: "Pendiente" as "Pendiente" | "Asignada" | "Firmada" | "Anulada",
-          profesorCubridorId: null
+      try {
+        let guardiaCreadas = 0;
+        
+        // Para cada fecha en el rango (solo incluye días laborables, lunes a viernes)
+        for (const fecha of fechas) {
+          // Para cada tramo horario (usar todos los tramos definidos)
+          for (const tramoHorario of tramosHorarios) {
+            // Para cada lugar seleccionado (o el lugar específico si se ha seleccionado uno)
+            const lugaresAUtilizar = formData.lugarId 
+              ? [{ id: Number(formData.lugarId) }] 
+              : lugares;
+              
+            for (const lugar of lugaresAUtilizar) {
+              // Verificar si ya existe una guardia para esta fecha, tramo y lugar
+              const existingGuardia = guardias.find(
+                g => g.fecha === fecha && 
+                     g.tramoHorario === tramoHorario && 
+                     g.lugarId === lugar.id
+              );
+              
+              if (!existingGuardia) {
+                // Crear nueva guardia
+                const guardiaWithDate: Omit<Guardia, "id"> = {
+                  fecha,
+                  tramoHorario: tramoHorario,
+                  tipoGuardia: formData.tipoGuardia,
+                  firmada: false,
+                  estado: "Pendiente",
+                  observaciones: "Guardia creada automáticamente",
+                  lugarId: lugar.id,
+                  profesorCubridorId: null
+                }
+                
+                // Log para verificar el tipo de guardia antes de crearla
+                console.log("Creando guardia con tipo:", guardiaWithDate.tipoGuardia);
+                
+                // No crear tarea automáticamente
+                await addGuardia(guardiaWithDate)
+                guardiaCreadas++;
+
+                // Pequeña pausa para evitar problemas de concurrencia
+                await new Promise(resolve => setTimeout(resolve, 50));
+              }
+            }
+          }
         }
         
-        // Añadir guardia con tarea
-        await addGuardia(guardiaWithDate, tarea)
-      })
+        // Resetear formulario
+        resetForm();
+        alert(`Se han creado ${guardiaCreadas} guardias correctamente para el rango de fechas seleccionado.`);
+      } catch (error) {
+        console.error("Error al crear guardias por rango:", error);
+        setError("Error al crear guardias en el rango de fechas");
+      }
     } else {
       // Validar que se hayan seleccionado tramos horarios
       if (!formData.tramosHorarios || formData.tramosHorarios.length === 0) {
@@ -267,35 +310,23 @@ export default function GuardiasPage() {
 
       // Crear guardias para cada tramo horario seleccionado
       for (const tramoHorario of formData.tramosHorarios) {
-        // Verificar si ya existe una guardia para esta fecha, tramo y lugar
-        const existingGuardia = guardias.find(
-          g => g.fecha === formData.fecha && 
-               g.tramoHorario === tramoHorario && 
-               g.lugarId === Number(formData.lugarId)
-        )
-        
-        if (existingGuardia) {
-          setError(`Ya existe una guardia para esta fecha, tramo (${tramoHorario}) y lugar`)
-          return
-        }
-        
-        // Crear nueva guardia
-        const tarea = formData.tarea || "Guardia creada manualmente"
         const guardiaData: Omit<Guardia, "id"> = {
           fecha: formData.fecha,
           tramoHorario: tramoHorario,
           tipoGuardia: formData.tipoGuardia,
           firmada: false,
           estado: "Pendiente",
-          observaciones: formData.observaciones || "",
+          observaciones: formData.observaciones || "Guardia creada manualmente",
           lugarId: Number(formData.lugarId),
           profesorCubridorId: null
         }
         
-        await addGuardia(guardiaData, tarea)
-        
-        // Pequeña pausa para evitar problemas de concurrencia
-        await new Promise(resolve => setTimeout(resolve, 100))
+        // Solo crear tarea si hay contenido en el campo
+        if (formData.tarea && formData.tarea.trim() !== "") {
+          await addGuardia(guardiaData, formData.tarea);
+        } else {
+          await addGuardia(guardiaData);
+        }
       }
     }
 
@@ -310,7 +341,7 @@ export default function GuardiasPage() {
       fecha: "",
       tramoHorario: "",
       tramosHorarios: [],
-      tipoGuardia: "Normal",
+      tipoGuardia: "Aula",
       lugarId: "",
       tarea: "",
       observaciones: "",
@@ -352,7 +383,50 @@ export default function GuardiasPage() {
     if (window.confirm("¿Estás seguro de que quieres anular esta guardia?")) {
       const motivo = prompt("Por favor, indica el motivo de la anulación:", "");
       if (motivo !== null) {
+        // Verificar si esta guardia tiene una ausencia asociada
+        const guardia = guardias.find(g => g.id === id);
+        const tieneAusencia = guardia && guardia.ausenciaId;
+        
+        // Anular la guardia
         anularGuardia(id, motivo);
+        
+        // Mostrar mensaje informativo
+        if (tieneAusencia) {
+          alert("Guardia anulada correctamente. La ausencia asociada ha vuelto al estado 'Pendiente'.");
+        } else {
+          alert("Guardia anulada correctamente.");
+        }
+      }
+    }
+  }
+
+  // Manejar eliminación de guardia
+  const handleDelete = async (id: number) => {
+    if (window.confirm("¿Estás seguro de que quieres eliminar permanentemente esta guardia? Esta acción no se puede deshacer.")) {
+      try {
+        // Verificar que la guardia existe antes de intentar eliminarla
+        const guardiaToDelete = guardias.find(g => g.id === id);
+        if (!guardiaToDelete) {
+          alert("Error: No se encontró la guardia que intentas eliminar.");
+          return;
+        }
+        
+        // Verificar que la guardia está anulada
+        if (guardiaToDelete.estado !== "Anulada") {
+          alert("Error: Solo se pueden eliminar guardias que estén en estado 'Anulada'.");
+          return;
+        }
+        
+        // Intentar eliminar la guardia
+        await deleteGuardia(id);
+        
+        // Refrescar la lista de guardias para confirmar que se eliminó
+        handleRefresh();
+        
+        alert("Guardia eliminada correctamente.");
+      } catch (error) {
+        console.error("Error al eliminar la guardia:", error);
+        alert(`Error al eliminar la guardia: ${error instanceof Error ? error.message : 'Error desconocido'}`);
       }
     }
   }
@@ -380,6 +454,9 @@ export default function GuardiasPage() {
   // Función para crear guardias para una fecha
   const createGuardiasForDate = async (fecha: string) => {
     try {
+      // Log para verificar el tipo de guardia seleccionado
+      console.log("Tipo de guardia seleccionado:", formData.tipoGuardia);
+      
       // Crear guardias para cada tramo horario y lugar
       for (const tramo of tramosHorarios) {
         for (const lugar of lugares) {
@@ -390,19 +467,22 @@ export default function GuardiasPage() {
           
           if (!existingGuardia) {
             // Crear nueva guardia
-            const tarea = "Guardia creada automáticamente"
             const guardiaWithDate: Omit<Guardia, "id"> = {
               fecha,
               tramoHorario: tramo,
-              tipoGuardia: "Normal",
+              tipoGuardia: formData.tipoGuardia,
               firmada: false,
               estado: "Pendiente",
-              observaciones: "",
+              observaciones: "Guardia creada automáticamente",
               lugarId: lugar.id,
               profesorCubridorId: null
             }
             
-            await addGuardia(guardiaWithDate, tarea)
+            // Log para verificar el tipo de guardia antes de crearla
+            console.log("Creando guardia con tipo:", guardiaWithDate.tipoGuardia);
+            
+            // No crear tarea automáticamente
+            await addGuardia(guardiaWithDate)
           }
         }
       }
@@ -439,22 +519,23 @@ export default function GuardiasPage() {
       
       // Crear guardias para cada tramo horario seleccionado
       for (const tramoHorario of formData.tramosHorarios) {
-        const tarea = formData.tarea || "Guardia creada manualmente"
         const guardiaData: Omit<Guardia, "id"> = {
           fecha: formData.fecha,
           tramoHorario: tramoHorario,
           tipoGuardia: formData.tipoGuardia,
           firmada: false,
           estado: "Pendiente",
-          observaciones: formData.observaciones || "",
+          observaciones: formData.observaciones || "Guardia creada manualmente",
           lugarId: Number(formData.lugarId),
           profesorCubridorId: null
         }
         
-        await addGuardia(guardiaData, tarea)
-        
-        // Pequeña pausa para evitar problemas de concurrencia
-        await new Promise(resolve => setTimeout(resolve, 100))
+        // Solo crear tarea si hay contenido en el campo
+        if (formData.tarea && formData.tarea.trim() !== "") {
+          await addGuardia(guardiaData, formData.tarea);
+        } else {
+          await addGuardia(guardiaData);
+        }
       }
       
       // Resetear formulario
@@ -646,198 +727,310 @@ export default function GuardiasPage() {
                     <small className="form-text text-muted">Fecha de fin del rango</small>
                   </div>
                 </div>
-              </div>
-            ) : (
-              <div className="row g-4">
+                
                 <div className="col-md-6">
-                  <div className="form-group">
-                    <label htmlFor="fecha" className="form-label fw-bold">
-                      Fecha
-                    </label>
-                    <input
-                      type="date"
-                      className="form-control"
-                      id="fecha"
-                      name="fecha"
-                      value={formData.fecha}
-                      onChange={handleChange}
-                      required
-                      disabled={!!editingId && hasAssociatedAusencia}
-                    />
-                    {!!editingId && hasAssociatedAusencia && (
-                      <small className="form-text text-muted">
-                        <i className="bi bi-info-circle-fill me-1"></i>
-                        No es posible cambiar la fecha porque esta guardia tiene una ausencia asociada.
-                      </small>
-                    )}
-                    {!editingId && (
-                      <small className="form-text text-muted">Fecha en la que se realizará la guardia</small>
-                    )}
+                  <div className="form-group mb-3">
+                    <label className="form-label fw-bold">Tramos Horarios</label>
+                    <div className="alert alert-info">
+                      <i className="bi bi-info-circle me-2"></i>
+                      Se crearán guardias para todos los tramos horarios ({tramosHorarios.join(", ")}) en cada fecha seleccionada dentro del rango (solo días laborables, de lunes a viernes).
+                    </div>
                   </div>
                 </div>
                 
-                {editingId ? (
+                <div className="col-md-6">
+                  <div className="form-group">
+                    <label htmlFor="tipoGuardia" className="form-label fw-bold">
+                      Tipo de Guardia
+                    </label>
+                    <select
+                      className="form-select"
+                      id="tipoGuardia"
+                      name="tipoGuardia"
+                      value={formData.tipoGuardia}
+                      onChange={handleChange}
+                      required
+                    >
+                      {tiposGuardia.map((tipo) => (
+                        <option key={tipo} value={tipo}>
+                          {tipo}
+                        </option>
+                      ))}
+                    </select>
+                    <small className="form-text text-muted">Seleccione el tipo de guardia que se aplicará a todas las guardias del rango</small>
+                  </div>
+                </div>
+                
+                <div className="col-md-6">
+                  <div className="form-group">
+                    <label htmlFor="lugarId" className="form-label fw-bold">
+                      Lugar
+                    </label>
+                    <select
+                      className="form-select"
+                      id="lugarId"
+                      name="lugarId"
+                      value={formData.lugarId}
+                      onChange={handleChange}
+                      required
+                    >
+                      <option value="">Selecciona un lugar</option>
+                      {lugares.map((lugar) => (
+                        <option key={lugar.id} value={lugar.id}>
+                          {lugar.codigo} - {lugar.descripcion}
+                        </option>
+                      ))}
+                    </select>
+                    <small className="form-text text-muted">Ubicación donde se realizarán las guardias</small>
+                  </div>
+                </div>
+                
+                {/* Tarea y observaciones */}
+                <div className="col-12 mt-3">
+                  <div className="form-group">
+                    <label htmlFor="tarea" className="form-label fw-bold">
+                      Tarea
+                    </label>
+                    <textarea
+                      className="form-control"
+                      id="tarea"
+                      name="tarea"
+                      rows={2}
+                      value={formData.tarea}
+                      onChange={handleChange}
+                      placeholder="Descripción de la tarea a realizar durante las guardias (opcional)"
+                    ></textarea>
+                    <small className="form-text text-muted">Tarea que debe realizar el profesor durante la guardia</small>
+                  </div>
+                </div>
+                
+                <div className="col-12 mt-3">
+                  <div className="form-group">
+                    <label htmlFor="observaciones" className="form-label fw-bold">
+                      Observaciones
+                    </label>
+                    <textarea
+                      className="form-control"
+                      id="observaciones"
+                      name="observaciones"
+                      rows={2}
+                      value={formData.observaciones}
+                      onChange={handleChange}
+                      placeholder="Observaciones adicionales sobre las guardias (opcional)"
+                    ></textarea>
+                    <small className="form-text text-muted">Información adicional importante para estas guardias</small>
+                  </div>
+                </div>
+                
+                {error && <div className="alert alert-danger mt-3">{error}</div>}
+
+                <div className="d-flex justify-content-end mt-4 pt-3 border-top w-100">
+                  <button type="button" className="btn btn-outline-secondary me-3" onClick={() => {
+                    resetForm()
+                    setShowForm(false)
+                    setIsRangeMode(false)
+                  }}>
+                    <i className="bi bi-x-circle me-2"></i>
+                    Cancelar
+                  </button>
+                  <button type="submit" className="btn btn-primary">
+                    <i className="bi bi-plus-circle me-2"></i>
+                    Crear Guardias
+                  </button>
+                </div>
+              </div>
+            ) : (
+              // Formulario normal (no rango)
+              <div>
+                <div className="row g-4">
                   <div className="col-md-6">
                     <div className="form-group">
-                      <label htmlFor="tramoHorario" className="form-label fw-bold">Tramo Horario</label>
+                      <label htmlFor="fecha" className="form-label fw-bold">
+                        Fecha
+                      </label>
                       <input
-                        type="text"
+                        type="date"
                         className="form-control"
-                        value={formData.tramoHorario}
-                        readOnly
-                        title="Tramo horario"
-                        aria-label="Tramo horario"
+                        id="fecha"
+                        name="fecha"
+                        value={formData.fecha}
+                        onChange={handleChange}
+                        required
+                        disabled={!!editingId && hasAssociatedAusencia}
                       />
-                      <small className="form-text text-muted">
-                        {hasAssociatedAusencia ? (
-                          <>
-                            <i className="bi bi-info-circle-fill me-1"></i>
-                            No es posible cambiar el tramo horario porque esta guardia tiene una ausencia asociada.
-                          </>
-                        ) : (
-                          "No es posible cambiar el tramo horario de una guardia existente."
-                        )}
-                      </small>
+                      {!!editingId && hasAssociatedAusencia && (
+                        <small className="form-text text-muted">
+                          <i className="bi bi-info-circle-fill me-1"></i>
+                          No es posible cambiar la fecha porque esta guardia tiene una ausencia asociada.
+                        </small>
+                      )}
+                      {!editingId && (
+                        <small className="form-text text-muted">Fecha en la que se realizará la guardia</small>
+                      )}
                     </div>
                   </div>
-                ) : (
-                  <div className="col-md-6">
-                    <div className="form-group mb-3">
-                      <label className="form-label fw-bold">Tramos Horarios</label>
-                      <div className="d-flex flex-wrap gap-3">
-                        <div className="form-check w-100 mb-2 border-bottom pb-2">
-                          <input
-                            className="form-check-input"
-                            type="checkbox"
-                            id="todo-el-dia"
-                            value="todo-el-dia"
-                            checked={formData.tramosHorarios?.length === tramosHorarios.length}
-                            onChange={handleTramoHorarioChange}
-                          />
-                          <label className="form-check-label" htmlFor="todo-el-dia">
-                            <strong>Todo el día</strong>
-                          </label>
-                        </div>
-                        {tramosHorarios.map((tramo) => (
-                          <div key={tramo} className="form-check">
+                  
+                  {editingId ? (
+                    <div className="col-md-6">
+                      <div className="form-group">
+                        <label htmlFor="tramoHorario" className="form-label fw-bold">Tramo Horario</label>
+                        <input
+                          type="text"
+                          className="form-control"
+                          value={formData.tramoHorario}
+                          readOnly
+                          title="Tramo horario"
+                          aria-label="Tramo horario"
+                        />
+                        <small className="form-text text-muted">
+                          {hasAssociatedAusencia ? (
+                            <>
+                              <i className="bi bi-info-circle-fill me-1"></i>
+                              No es posible cambiar el tramo horario porque esta guardia tiene una ausencia asociada.
+                            </>
+                          ) : (
+                            "No es posible cambiar el tramo horario de una guardia existente."
+                          )}
+                        </small>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="col-md-6">
+                      <div className="form-group mb-3">
+                        <label className="form-label fw-bold">Tramos Horarios</label>
+                        <div className="d-flex flex-wrap gap-3">
+                          <div className="form-check w-100 mb-2 border-bottom pb-2">
                             <input
                               className="form-check-input"
                               type="checkbox"
-                              id={`tramo-${tramo}`}
-                              name={tramo}
-                              value={tramo}
-                              checked={formData.tramosHorarios?.includes(tramo) || false}
+                              id="todo-el-dia"
+                              value="todo-el-dia"
+                              checked={formData.tramosHorarios?.length === tramosHorarios.length}
                               onChange={handleTramoHorarioChange}
                             />
-                            <label className="form-check-label" htmlFor={`tramo-${tramo}`}>
-                              {tramo}
+                            <label className="form-check-label" htmlFor="todo-el-dia">
+                              <strong>Todo el día</strong>
                             </label>
                           </div>
-                        ))}
+                          {tramosHorarios.map((tramo) => (
+                            <div key={tramo} className="form-check">
+                              <input
+                                className="form-check-input"
+                                type="checkbox"
+                                id={`tramo-${tramo}`}
+                                name={tramo}
+                                value={tramo}
+                                checked={formData.tramosHorarios?.includes(tramo) || false}
+                                onChange={handleTramoHorarioChange}
+                              />
+                              <label className="form-check-label" htmlFor={`tramo-${tramo}`}>
+                                {tramo}
+                              </label>
+                            </div>
+                          ))}
+                        </div>
+                        <small className="form-text text-muted">Seleccione los tramos horarios en los que se realizará la guardia</small>
                       </div>
-                      <small className="form-text text-muted">Seleccione los tramos horarios en los que se realizará la guardia</small>
+                    </div>
+                  )}
+                
+                  <div className="col-md-6">
+                    <div className="form-group">
+                      <label htmlFor="tipoGuardia" className="form-label fw-bold">
+                        Tipo de Guardia
+                      </label>
+                      <select
+                        className="form-select"
+                        id="tipoGuardia"
+                        name="tipoGuardia"
+                        value={formData.tipoGuardia}
+                        onChange={handleChange}
+                        required
+                      >
+                        {tiposGuardia.map((tipo) => (
+                          <option key={tipo} value={tipo}>
+                            {tipo}
+                          </option>
+                        ))}
+                      </select>
+                      <small className="form-text text-muted">Seleccione el tipo de guardia</small>
                     </div>
                   </div>
-                )}
+                  <div className="col-md-6">
+                    <div className="form-group">
+                      <label htmlFor="lugarId" className="form-label fw-bold">
+                        Lugar
+                      </label>
+                      <select
+                        className="form-select"
+                        id="lugarId"
+                        name="lugarId"
+                        value={formData.lugarId}
+                        onChange={handleChange}
+                        required
+                      >
+                        <option value="">Selecciona un lugar</option>
+                        {lugares.map((lugar) => (
+                          <option key={lugar.id} value={lugar.id}>
+                            {lugar.codigo} - {lugar.descripcion}
+                          </option>
+                        ))}
+                      </select>
+                      <small className="form-text text-muted">Ubicación donde se realizará la guardia</small>
+                    </div>
+                  </div>
+                </div>
+    
+                <div className="form-group mt-4">
+                  <label htmlFor="tarea" className="form-label fw-bold">
+                    Tarea
+                  </label>
+                  <textarea
+                    className="form-control"
+                    id="tarea"
+                    name="tarea"
+                    rows={3}
+                    value={formData.tarea}
+                    onChange={handleChange}
+                    placeholder="Descripción de la tarea a realizar durante la guardia"
+                  ></textarea>
+                  <small className="form-text text-muted">Tarea que debe realizar el profesor durante la guardia</small>
+                </div>
+    
+                <div className="form-group mt-4">
+                  <label htmlFor="observaciones" className="form-label fw-bold">
+                    Observaciones
+                  </label>
+                  <textarea
+                    className="form-control"
+                    id="observaciones"
+                    name="observaciones"
+                    rows={3}
+                    value={formData.observaciones}
+                    onChange={handleChange}
+                    placeholder="Observaciones adicionales sobre la guardia"
+                  ></textarea>
+                  <small className="form-text text-muted">Información adicional importante para esta guardia</small>
+                </div>
+    
+                {error && <div className="alert alert-danger mt-3">{error}</div>}
+    
+                <div className="d-flex justify-content-end mt-4 pt-3 border-top">
+                  <button type="button" className="btn btn-outline-secondary me-3" onClick={() => {
+                    resetForm()
+                    setShowForm(false)
+                    setIsRangeMode(false)
+                  }}>
+                    <i className="bi bi-x-circle me-2"></i>
+                    Cancelar
+                  </button>
+                  <button type="submit" className="btn btn-primary">
+                    <i className={`bi ${editingId ? "bi-check-circle" : "bi-plus-circle"} me-2`}></i>
+                    {editingId ? "Actualizar" : "Crear Guardia"}
+                  </button>
+                </div>
               </div>
             )}
-
-            <div className="row g-4 mt-2">
-              <div className="col-md-6">
-                <div className="form-group">
-                  <label htmlFor="tipoGuardia" className="form-label fw-bold">
-                    Tipo de Guardia
-                  </label>
-                  <select
-                    className="form-select"
-                    id="tipoGuardia"
-                    name="tipoGuardia"
-                    value={formData.tipoGuardia}
-                    onChange={handleChange}
-                    required
-                  >
-                    {tiposGuardia.map((tipo) => (
-                      <option key={tipo} value={tipo}>
-                        {tipo}
-                      </option>
-                    ))}
-                  </select>
-                  <small className="form-text text-muted">Seleccione el tipo de guardia</small>
-                </div>
-              </div>
-              <div className="col-md-6">
-                <div className="form-group">
-                  <label htmlFor="lugarId" className="form-label fw-bold">
-                    Lugar
-                  </label>
-                  <select
-                    className="form-select"
-                    id="lugarId"
-                    name="lugarId"
-                    value={formData.lugarId}
-                    onChange={handleChange}
-                    required
-                  >
-                    <option value="">Selecciona un lugar</option>
-                    {lugares.map((lugar) => (
-                      <option key={lugar.id} value={lugar.id}>
-                        {lugar.codigo} - {lugar.descripcion}
-                      </option>
-                    ))}
-                  </select>
-                  <small className="form-text text-muted">Ubicación donde se realizará la guardia</small>
-                </div>
-              </div>
-            </div>
-
-            <div className="form-group mt-4">
-              <label htmlFor="tarea" className="form-label fw-bold">
-                Tarea
-              </label>
-              <textarea
-                className="form-control"
-                id="tarea"
-                name="tarea"
-                rows={3}
-                value={formData.tarea}
-                onChange={handleChange}
-                placeholder="Descripción de la tarea a realizar durante la guardia"
-              ></textarea>
-              <small className="form-text text-muted">Tarea que debe realizar el profesor durante la guardia</small>
-            </div>
-
-            <div className="form-group mt-4">
-              <label htmlFor="observaciones" className="form-label fw-bold">
-                Observaciones
-              </label>
-              <textarea
-                className="form-control"
-                id="observaciones"
-                name="observaciones"
-                rows={3}
-                value={formData.observaciones}
-                onChange={handleChange}
-                placeholder="Observaciones adicionales sobre la guardia"
-              ></textarea>
-              <small className="form-text text-muted">Información adicional importante para esta guardia</small>
-            </div>
-
-            {error && <div className="alert alert-danger mt-3">{error}</div>}
-
-            <div className="d-flex justify-content-end mt-4 pt-3 border-top">
-              <button type="button" className="btn btn-outline-secondary me-3" onClick={() => {
-                resetForm()
-                setShowForm(false)
-                setIsRangeMode(false)
-              }}>
-                <i className="bi bi-x-circle me-2"></i>
-                Cancelar
-              </button>
-              <button type="submit" className="btn btn-primary">
-                <i className={`bi ${editingId ? "bi-check-circle" : "bi-plus-circle"} me-2`}></i>
-                {editingId ? "Actualizar" : isRangeMode ? "Crear Guardias" : "Crear Guardia"}
-              </button>
-            </div>
           </form>
         </DataCard>
       )}
@@ -953,6 +1146,15 @@ export default function GuardiasPage() {
                             >
                               <i className="bi bi-eye"></i>
                             </button>
+                            {guardia.estado === "Anulada" && (
+                              <button
+                                className="btn btn-sm btn-outline-danger"
+                                onClick={() => handleDelete(guardia.id)}
+                                title="Eliminar guardia permanentemente"
+                              >
+                                <i className="bi bi-trash"></i>
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
