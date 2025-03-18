@@ -2,8 +2,11 @@
 
 import { createContext, useState, useContext, useEffect, type ReactNode } from "react"
 import { getAllAusencias, getAusenciaById, getAusenciasByProfesor as fetchAusenciasByProfesor, getAusenciasByEstado, getAusenciasPendientes as fetchAusenciasPendientes, createAusencia as createAusenciaService, updateAusencia as updateAusenciaService, deleteAusencia as deleteAusenciaService, acceptAusencia as acceptAusenciaService, rejectAusencia as rejectAusenciaService, type Ausencia as AusenciaDB } from "@/lib/ausenciasService"
+import { useAuth } from "./AuthContext"
+import { DB_CONFIG } from "@/lib/db-config"
+import { useGuardias } from "./GuardiasContext"
+import { updateGuardia as updateGuardiaService } from "@/lib/guardiasService"
 import { Ausencia, AusenciaDB as AusenciaDBType, mapAusenciaFromDB, mapAusenciaToDB } from "@/src/types"
-import { DB_CONFIG } from '@/lib/db-config'
 
 // Definición del tipo del contexto
 export interface AusenciasContextType {
@@ -56,6 +59,9 @@ interface AusenciasProviderProps {
 export const AusenciasProvider: React.FC<AusenciasProviderProps> = ({ children }) => {
   const [ausencias, setAusencias] = useState<Ausencia[]>([])
   const [loading, setLoading] = useState(true)
+  const { user } = useAuth()
+  // Importar funciones necesarias de GuardiasContext
+  const { getGuardiaByAusenciaId, refreshGuardias } = useGuardias()
 
   // Cargar datos iniciales
   useEffect(() => {
@@ -174,16 +180,52 @@ export const AusenciasProvider: React.FC<AusenciasProviderProps> = ({ children }
   // Función para anular una ausencia
   const anularAusencia = async (ausenciaId: number, motivo: string): Promise<boolean> => {
     try {
-      // Primero rechazamos la ausencia
-      await rejectAusencia(ausenciaId, motivo)
+      // Verificar si tiene guardia asociada
+      const guardia = getGuardiaByAusenciaId?.(ausenciaId);
       
-      // Luego la eliminamos
-      await deleteAusencia(ausenciaId)
+      if (guardia) {
+        console.log(`Ausencia ${ausenciaId} tiene guardia asociada ${guardia.id}. Verificando si se puede anular...`);
+        
+        // Si la guardia está firmada, no se puede anular
+        if (guardia.estado === DB_CONFIG.ESTADOS_GUARDIA.FIRMADA || guardia.firmada) {
+          alert("No se puede anular la ausencia porque tiene una guardia firmada asociada");
+          return false;
+        }
+        
+        console.log(`Anulando guardia ${guardia.id} asociada a la ausencia ${ausenciaId}...`);
+        
+        // Anular la guardia asociada
+        await updateGuardiaService(guardia.id, {
+          estado: DB_CONFIG.ESTADOS_GUARDIA.ANULADA,
+          observaciones: `ANULADA: ${motivo}`,
+          ausencia_id: undefined // Desasociar la guardia de la ausencia explícitamente
+        });
+        
+        console.log(`Guardia anulada correctamente. Rechazando ausencia...`);
+      } else {
+        console.log(`Ausencia ${ausenciaId} no tiene guardia asociada. Procediendo a rechazarla...`);
+      }
       
-      return true
+      // Rechazar la ausencia (cambiar estado a Rechazada)
+      await rejectAusenciaService(ausenciaId, motivo);
+      
+      // Actualizar el estado local de las ausencias
+      setAusencias(ausencias.map(a => 
+        a.id === ausenciaId 
+          ? { ...a, estado: DB_CONFIG.ESTADOS_AUSENCIA.RECHAZADA } 
+          : a
+      ));
+      
+      // Refrescar las guardias para que se actualice la UI
+      if (refreshGuardias) {
+        await refreshGuardias();
+      }
+      
+      console.log(`Ausencia ${ausenciaId} anulada correctamente`);
+      return true;
     } catch (error) {
-      console.error(`Error al anular ausencia con ID ${ausenciaId}:`, error)
-      return false
+      console.error(`Error al anular ausencia con ID ${ausenciaId}:`, error);
+      return false;
     }
   }
 

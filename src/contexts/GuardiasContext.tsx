@@ -329,14 +329,36 @@ export const GuardiasProvider: React.FC<GuardiasProviderProps> = ({ children }) 
         return false;
       }
 
-      // Guardar el ID de la ausencia para el mensaje de log
+      // Guardar el ID de la ausencia para actualizar su estado
       const ausenciaId = guardia.ausenciaId;
 
+      // Verificar que la guardia no esté firmada
+      if (guardia.estado === DB_CONFIG.ESTADOS_GUARDIA.FIRMADA || guardia.firmada) {
+        console.error("No se puede desasociar una guardia que ya ha sido firmada");
+        return false;
+      }
+
+      console.log(`Desasociando guardia ${guardiaId} de ausencia ${ausenciaId}...`);
+      
       // Usar directamente updateGuardia que llamará a updateGuardiaService
       // y se encargará de establecer ausencia_id a NULL correctamente
-      await updateGuardia(guardiaId, {
-        ausenciaId: undefined  // updateGuardia maneja esto correctamente convirtiéndolo a NULL en la BD
+      await updateGuardiaService(guardiaId, {
+        ausencia_id: undefined  // updateGuardia maneja esto correctamente convirtiéndolo a NULL en la BD
       });
+      
+      console.log(`Guardia desasociada. Actualizando estado de ausencia ${ausenciaId} a Pendiente...`);
+
+      // Actualizar el estado de la ausencia a Pendiente
+      await updateAusenciaService(ausenciaId, { 
+        estado: DB_CONFIG.ESTADOS_AUSENCIA.PENDIENTE 
+      });
+      
+      console.log(`Estado de ausencia actualizado. Refrescando contextos...`);
+
+      // Refrescar las ausencias para actualizar su estado en la UI
+      if (refreshAusencias) {
+        await refreshAusencias();
+      }
 
       // Actualizar también el estado local para reflejar el cambio inmediatamente
       setGuardias(guardias.map(g => {
@@ -348,6 +370,9 @@ export const GuardiasProvider: React.FC<GuardiasProviderProps> = ({ children }) 
         }
         return g;
       }));
+
+      // También refrescar las guardias después de desasociar
+      await refreshGuardias();
 
       console.log(`Guardia con ID ${guardiaId} desasociada correctamente de la ausencia con ID ${ausenciaId}`);
       return true;
