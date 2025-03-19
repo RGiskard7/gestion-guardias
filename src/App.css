@@ -107,14 +107,14 @@ body {
   border: none;
   border-radius: var(--radius-lg);
   overflow: hidden;
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-lg);
   background-color: var(--surface-color-light);
   position: relative;
 }
 
 .dashboard-card:hover {
   transform: translateY(-5px);
-  box-shadow: var(--shadow-lg);
+  box-shadow: var(--shadow-xl);
 }
 
 .dashboard-card .card-body {
@@ -157,7 +157,7 @@ body {
   border: none;
   border-radius: var(--radius-lg);
   overflow: hidden;
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-lg);
   transition: var(--transition-base);
   background-color: var(--surface-color-light);
   position: relative;
@@ -165,7 +165,7 @@ body {
 
 .stats-card:hover {
   transform: translateY(-5px);
-  box-shadow: var(--shadow-lg);
+  box-shadow: var(--shadow-xl);
 }
 
 .stats-card .card-body {
@@ -583,10 +583,11 @@ body {
   transition: all var(--transition-base);
   padding: 0.6rem 1rem;
   z-index: 1030;
+  box-shadow: var(--shadow-md);
 }
 
 .navbar-scrolled {
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-xl);
 }
 
 .navbar-brand {
@@ -748,7 +749,7 @@ body {
 /* Sidebar styles */
 .sidebar {
   position: fixed;
-  top: 56px;
+  top: 70px;
   left: 0;
   bottom: 0;
   width: 280px;

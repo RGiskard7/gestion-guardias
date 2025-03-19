@@ -104,9 +104,7 @@ export const DB_CONFIG = {
     ADMIN_ESTADISTICAS: '/admin/estadisticas' as "/admin/estadisticas",
     PROFESOR_AUSENCIAS: '/profesor/ausencias' as "/profesor/ausencias",
     PROFESOR_MIS_GUARDIAS: '/profesor/mis-guardias' as "/profesor/mis-guardias",
-    PROFESOR_GUARDIAS_PENDIENTES: '/profesor/guardias-pendientes' as "/profesor/guardias-pendientes",
     PROFESOR_HORARIO: '/profesor/horario' as "/profesor/horario",
-    PROFESOR_FIRMAR_GUARDIA: '/profesor/firmar-guardia' as "/profesor/firmar-guardia",
     LOGIN: '/login' as "/login"
   },
   
