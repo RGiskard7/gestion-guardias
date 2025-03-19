@@ -91,7 +91,7 @@ stateDiagram-v2
 
 ```mermaid
 stateDiagram-v2
-    [*] --> INACTIVO: Usuario creado
+    [*] --> INACTIVO: Usuario creado\no desactivado
     INACTIVO --> ACTIVO: Admin activa
     ACTIVO --> INACTIVO: Admin desactiva
     ACTIVO --> [*]: Admin elimina
@@ -104,6 +104,18 @@ stateDiagram-v2
         Normal --> Ausente: Registra ausencia
         Ausente --> Normal: Ausencia completada
     }
+    
+    state INACTIVO {
+        [*] --> SinHorarios: Sin horarios disponibles
+        [*] --> ConHorarios: Con horarios disponibles\npara heredar
+    }
+
+    note left of INACTIVO
+      Solo se puede crear un nuevo usuario
+      cuando hay al menos un usuario inactivo.
+      Si los usuarios inactivos tienen horarios,
+      se pueden copiar al nuevo usuario.
+    end note
 ```
 
 ## Notas sobre los Estados
@@ -121,8 +133,16 @@ stateDiagram-v2
 - **ANULADA**: Ausencia cancelada por el administrador.
 
 ### Usuarios
-- **INACTIVO**: Usuario creado pero no puede acceder al sistema.
+- **INACTIVO**: Usuario creado pero no puede acceder al sistema. Puede tener horarios que pueden ser heredados por nuevos usuarios.
 - **ACTIVO**: Usuario puede acceder y utilizar el sistema.
+- **SinHorarios**: Usuario inactivo sin horarios asignados.
+- **ConHorarios**: Usuario inactivo con horarios asignados que pueden ser heredados.
+
+## Horarios
+- Un nuevo usuario solo puede ser creado si hay usuarios inactivos en el sistema.
+- Si hay usuarios inactivos con horarios, el nuevo usuario debe heredar esos horarios.
+- Si hay usuarios inactivos sin horarios, el nuevo usuario se crea sin horarios.
+- Los horarios no pueden duplicarse para un mismo profesor en el mismo día y tramo horario.
 
 ## Relación entre Ausencias y Guardias
 

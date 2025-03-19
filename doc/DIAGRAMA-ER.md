@@ -9,7 +9,9 @@ erDiagram
     Usuarios {
         int id PK
         string nombre
+        string apellido
         string email
+        string password
         string rol
         boolean activo
     }
@@ -53,7 +55,7 @@ erDiagram
     Tareas_guardia {
         int id PK
         int guardia_id FK
-        text descripcion_tarea
+        text descripcion
     }
     
     Usuarios ||--o{ Horarios : "tiene asignados"
@@ -69,10 +71,12 @@ erDiagram
 ### Usuarios
 Representa a los profesores y administradores del sistema.
 - **id**: Identificador único del usuario
-- **nombre**: Nombre completo del usuario
+- **nombre**: Nombre del usuario
+- **apellido**: Apellido del usuario
 - **email**: Correo electrónico (usado para autenticación)
+- **password**: Hash de la contraseña del usuario
 - **rol**: Rol del usuario (admin/profesor)
-- **activo**: Estado del usuario en el sistema
+- **activo**: Estado del usuario en el sistema (activo/inactivo)
 
 ### Lugares
 Representa los espacios físicos donde se realizan las guardias.
@@ -114,7 +118,7 @@ Representa las guardias generadas a partir de ausencias o creadas manualmente.
 Representa las tareas específicas asociadas a una guardia.
 - **id**: Identificador único de la tarea
 - **guardia_id**: Referencia a la guardia
-- **descripcion_tarea**: Descripción detallada de la tarea a realizar durante la guardia
+- **descripcion**: Descripción detallada de la tarea a realizar durante la guardia
 
 ## Relaciones Principales
 
@@ -126,6 +130,11 @@ Representa las tareas específicas asociadas a una guardia.
 6. Una **Guardia** puede tener múltiples **Tareas_guardia** asociadas.
 
 ## Notas sobre el Ciclo de Vida y Relaciones
+
+### Herencia de Horarios
+
+- En la implementación actual, el sistema gestiona la herencia de horarios a nivel de aplicación, sin almacenar esta relación en la base de datos.
+- La herencia de horarios ocurre cuando se desactiva un usuario y se crea uno nuevo, copiando los horarios.
 
 ### Relación entre Ausencias y Guardias
 

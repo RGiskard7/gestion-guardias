@@ -14,6 +14,18 @@ export default function UsersPage() {
 
   // Filtrar solo profesores (no admins)
   const profesores = usuarios.filter((u: Usuario) => u.rol === DB_CONFIG.ROLES.PROFESOR)
+  
+  // Obtener profesores inactivos
+  const profesoresInactivos = profesores.filter((u: Usuario) => !u.activo)
+  
+  // Verificar si profesores inactivos tienen horarios asignados
+  const profesoresInactivosConHorario = profesoresInactivos.filter((profesor) => {
+    return horarios.some((horario) => horario.profesorId === profesor.id)
+  })
+  
+  // Verificar si hay profesores inactivos sin horarios
+  const hayProfesoresInactivosSinHorario = profesoresInactivos.length > 0 && 
+                                          profesoresInactivosConHorario.length === 0
 
   // Estado para el formulario
   const [formData, setFormData] = useState<UsuarioConPassword>({
@@ -90,6 +102,7 @@ export default function UsersPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
+    setError(null)
 
     try {
       if (editingId) {
@@ -120,15 +133,34 @@ export default function UsersPage() {
           formData.password = "changeme"
         }
         
+        // Verificar restricciones para la creación de usuarios
+        if (profesoresInactivos.length === 0) {
+          setError("No se pueden crear nuevos usuarios porque no hay ningún profesor inactivo")
+          setIsSubmitting(false)
+          return
+        }
+        
+        // Si hay profesores inactivos con horarios, debe seleccionar uno para heredar
+        if (profesoresInactivosConHorario.length > 0 && !inheritFromId) {
+          setError("Debe seleccionar un profesor inactivo del cual heredar los horarios")
+          setIsSubmitting(false)
+          return
+        }
+        
         // Si hay un usuario del que heredar horarios, usar la función correspondiente
         if (inheritFromId) {
           // Añadir usuario con horarios heredados
           await addUsuarioConHorarios(formData, inheritFromId)
           alert("Usuario creado correctamente con horarios heredados")
-        } else {
-          // Añadir usuario normal
+        } else if (hayProfesoresInactivosSinHorario) {
+          // Añadir usuario normal si no hay horarios que heredar
           await addUsuario(formData)
-          alert("Usuario creado correctamente")
+          alert("Usuario creado correctamente sin horarios (no había horarios para heredar)")
+        } else {
+          // Este caso no debería ocurrir con las validaciones anteriores
+          setError("Error en la validación de horarios heredados")
+          setIsSubmitting(false)
+          return
         }
       }
       resetForm()
@@ -275,9 +307,25 @@ export default function UsersPage() {
                 <button
                   className="btn btn-primary"
                   onClick={() => {
+                    // Si el formulario ya está visible, simplemente cerrarlo
+                    if (showForm) {
+                      resetForm()
+                      setShowForm(false)
+                      return
+                    }
+                    
+                    // Validar si se puede crear un nuevo usuario
+                    if (profesoresInactivos.length === 0) {
+                      alert("No hay profesores inactivos. Para crear un nuevo profesor, debes desactivar uno existente.")
+                      return
+                    }
+                    
                     resetForm()
-                    setShowForm(!showForm)
+                    setShowForm(true)
                   }}
+                  title={profesoresInactivos.length === 0 ? 
+                    "Para crear un nuevo profesor, primero debes desactivar uno existente" : 
+                    showForm ? "Cancelar" : "Crear nuevo profesor"}
                 >
                   <i className={`bi ${showForm ? "bi-x-circle" : "bi-plus-circle"} me-2`}></i>
                   {showForm ? "Cancelar" : "Nuevo Profesor"}
@@ -393,34 +441,51 @@ export default function UsersPage() {
                 </div>
               </div>
 
-              {!editingId && (
-                <div className="col-md-6">
+              {!editingId && profesoresInactivosConHorario.length > 0 && (
+                <div className="col-md-12 mt-3">
                   <div className="form-group">
-                    <label htmlFor="inheritFrom" className="form-label fw-bold">
-                      Heredar horarios de
+                    <label htmlFor="inheritFromId" className="form-label fw-bold">
+                      Profesor del que heredar horarios <span className="text-danger">*</span>
                     </label>
                     <select
                       className="form-select"
-                      id="inheritFrom"
-                      onChange={(e) => setInheritFromId(e.target.value ? Number.parseInt(e.target.value) : null)}
+                      id="inheritFromId"
                       value={inheritFromId || ""}
+                      onChange={(e) => setInheritFromId(e.target.value ? Number.parseInt(e.target.value) : null)}
+                      required
                     >
-                      <option value="">No heredar horarios</option>
-                      {profesores.map((profesor: Usuario) => (
+                      <option value="">Selecciona un profesor</option>
+                      {profesoresInactivosConHorario.map((profesor) => (
                         <option key={profesor.id} value={profesor.id}>
-                          {profesor.nombre} {profesor.apellido || ""}
+                          {profesor.nombre} {profesor.apellido} (inactivo)
                         </option>
                       ))}
                     </select>
                     <small className="form-text text-muted">
-                      Si este profesor sustituye a otro, puede heredar sus horarios de guardia
+                      El nuevo profesor heredará los horarios de guardias del profesor seleccionado
                     </small>
                   </div>
                 </div>
               )}
-            </div>
 
-            {error && <div className="alert alert-danger mt-3">{error}</div>}
+              {!editingId && hayProfesoresInactivosSinHorario && (
+                <div className="col-md-12 mt-3">
+                  <div className="alert alert-info">
+                    <i className="bi bi-info-circle me-2"></i>
+                    Los profesores inactivos no tienen horarios asignados. El nuevo profesor se creará con un horario vacío.
+                  </div>
+                </div>
+              )}
+
+              {error && (
+                <div className="col-12">
+                  <div className="alert alert-danger">
+                    <i className="bi bi-exclamation-triangle me-2"></i>
+                    {error}
+                  </div>
+                </div>
+              )}
+            </div>
 
             <div className="d-flex justify-content-end mt-4 pt-3 border-top">
               <button 

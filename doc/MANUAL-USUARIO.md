@@ -11,7 +11,7 @@
     - [Dashboard del Profesor](#dashboard-del-profesor)
     - [Mi Horario](#mi-horario)
     - [Mis Ausencias](#mis-ausencias)
-    - [Guardias Pendientes](#guardias-pendientes)
+    - [Mis Guardias](#mis-guardias)
     - [Firmar Guardia](#firmar-guardia)
   - [Funcionalidades para Administradores](#funcionalidades-para-administradores)
     - [Dashboard del Administrador](#dashboard-del-administrador)
@@ -50,7 +50,7 @@ Para utilizar el Sistema de Gestión de Guardias, necesitará:
 
 - Un dispositivo con conexión a Internet (ordenador, tablet o smartphone)
 - Un navegador web actualizado (recomendamos Chrome, Firefox, Safari o Edge en sus últimas versiones)
-- Credenciales de acceso proporcionadas por el administrador del sistema
+- Credenciales de acceso proporcionadas por el administrador del sistema (correo electrónico y contraseña)
 
 El sistema es completamente responsive, por lo que se adapta a diferentes tamaños de pantalla y puede utilizarse tanto en dispositivos de escritorio como en dispositivos móviles.
 
@@ -65,7 +65,7 @@ Para acceder al Sistema de Gestión de Guardias:
 ![Imagen de la pantalla de inicio de sesión](ruta/a/imagen-login.png)
 *Imagen 2: Pantalla de inicio de sesión donde debe introducir sus credenciales.*
 
-Si ha olvidado su contraseña, póngase en contacto con el administrador del sistema para restablecerla.
+Si ha olvidado su contraseña, póngase en contacto con el administrador del sistema para restablecerla, ya que el sistema no cuenta actualmente con la funcionalidad de recuperación automática de contraseñas.
 
 ## Interfaz General
 
@@ -104,10 +104,10 @@ La sección "Mi Horario" permite a los profesores visualizar su horario semanal,
 Para utilizar esta funcionalidad:
 
 1. Acceda a la sección "Mi Horario" desde el menú lateral.
-2. Verá una vista semanal de su horario con dos modos de visualización:
-   - **Disponibilidad**: Muestra los tramos horarios en los que está disponible para realizar guardias.
-   - **Guardias Asignadas**: Muestra las guardias que tiene asignadas para la semana actual.
-3. Utilice los botones de navegación para cambiar de semana.
+2. Verá una vista semanal de su horario que muestra los tramos horarios en los que está disponible para realizar guardias.
+3. También puede ver las guardias que tiene asignadas para la semana actual.
+4. La visualización en formato calendario permite una mejor comprensión de su disponibilidad semanal.
+5. Utilice los botones de navegación para cambiar de semana.
 
 ![Imagen de la sección Mi Horario](ruta/a/imagen-mi-horario.png)
 *Imagen 5: Sección "Mi Horario" mostrando la vista semanal con disponibilidad y guardias asignadas.*
@@ -120,9 +120,8 @@ La sección "Mis Ausencias" permite a los profesores registrar y gestionar sus a
 2. Haga clic en el botón "Nueva Ausencia".
 3. Complete el formulario con la siguiente información:
    - **Fecha**: Seleccione la fecha de la ausencia.
-   - **Tramo Horario**: Seleccione el tramo horario o "Todo el día" para ausentarse durante toda la jornada.
+   - **Tramo Horario**: Seleccione el tramo horario específico.
    - **Observaciones**: Añada cualquier información relevante sobre la ausencia.
-   - **Tarea para los alumnos**: Describa la tarea que deben realizar los alumnos durante su ausencia.
 4. Haga clic en "Guardar" para registrar la ausencia.
 
 También puede ver el historial de sus ausencias, incluyendo su estado (Pendiente, Aceptada o Rechazada).
@@ -130,40 +129,41 @@ También puede ver el historial de sus ausencias, incluyendo su estado (Pendient
 ![Imagen de la sección Mis Ausencias](ruta/a/imagen-mis-ausencias.png)
 *Imagen 6: Sección "Mis Ausencias" mostrando el formulario para registrar una nueva ausencia y el historial de ausencias.*
 
-### Guardias Pendientes
+### Mis Guardias
 
-La sección "Guardias Pendientes" muestra las guardias disponibles para ser cubiertas. Los profesores pueden asignarse a sí mismos una guardia si cumplen con los requisitos necesarios:
+La sección "Mis Guardias" ofrece una interfaz unificada con sistema de pestañas para la gestión integral de guardias:
 
-1. Acceda a la sección "Guardias Pendientes" desde el menú lateral.
-2. Verá una lista de guardias pendientes para el día actual, incluyendo:
-   - Profesor ausente
-   - Tramo horario
-   - Lugar
-   - Tipo de guardia
-3. Para asignarse una guardia, haga clic en el botón "Asignarme" junto a la guardia correspondiente.
+1. Acceda a la sección "Mis Guardias" desde el menú lateral.
+2. Verá tres pestañas principales:
+   - **Pendientes**: Muestra las guardias disponibles para ser cubiertas que son compatibles con su horario.
+   - **Generadas**: Muestra las guardias creadas a partir de sus ausencias.
+   - **Por firmar**: Muestra las guardias que tiene asignadas y debe cubrir/firmar.
+3. En la pestaña "Pendientes", puede asignarse a una guardia haciendo clic en el botón "Asignarme".
+4. En la pestaña "Por firmar", puede firmar una guardia realizada haciendo clic en el botón "Firmar".
 
-El sistema verificará automáticamente si cumple con los requisitos para realizar la guardia:
+El sistema verificará automáticamente si cumple con los requisitos para realizar una guardia:
 - Debe tener disponibilidad en ese tramo horario
 - No debe tener otra guardia asignada en el mismo tramo
 - No debe exceder el límite de guardias semanales (6 guardias por semana)
 
-![Imagen de la sección Guardias Pendientes](ruta/a/imagen-guardias-pendientes.png)
-*Imagen 7: Sección "Guardias Pendientes" mostrando la lista de guardias disponibles para ser cubiertas.*
+![Imagen de la sección Mis Guardias](ruta/a/imagen-mis-guardias.png)
+*Imagen 7: Sección "Mis Guardias" mostrando las diferentes pestañas para la gestión de guardias.*
 
 ### Firmar Guardia
 
-La sección "Firmar Guardia" permite a los profesores firmar las guardias que han realizado:
+Para firmar una guardia que ha realizado:
 
-1. Acceda a la sección "Firmar Guardia" desde el menú lateral.
-2. Verá una lista de guardias asignadas pendientes de firma.
-3. Para firmar una guardia, haga clic en el botón "Firmar" junto a la guardia correspondiente.
+1. Acceda a la sección "Mis Guardias" desde el menú lateral.
+2. Vaya a la pestaña "Por firmar".
+3. Haga clic en el botón "Firmar" junto a la guardia correspondiente.
 4. Complete el formulario con las observaciones sobre la guardia realizada.
-5. Haga clic en "Confirmar" para firmar la guardia.
+5. Si realizó tareas específicas durante la guardia, puede añadirlas en el formulario.
+6. Haga clic en "Confirmar" para firmar la guardia.
 
 Una vez firmada, la guardia pasará al estado "Firmada" y se registrará la fecha y hora de la firma.
 
 ![Imagen de la sección Firmar Guardia](ruta/a/imagen-firmar-guardia.png)
-*Imagen 8: Sección "Firmar Guardia" mostrando la lista de guardias pendientes de firma y el formulario para firmar una guardia.*
+*Imagen 8: Formulario para firmar una guardia con campos para observaciones y tareas realizadas.*
 
 ## Funcionalidades para Administradores
 
@@ -186,12 +186,15 @@ La sección "Usuarios" permite a los administradores gestionar los usuarios del 
 1. Acceda a la sección "Usuarios" desde el menú lateral.
 2. Verá una lista de todos los usuarios registrados en el sistema.
 3. Para añadir un nuevo usuario, haga clic en el botón "Nuevo Usuario" y complete el formulario con la siguiente información:
-   - **Nombre**: Nombre completo del usuario.
+   - **Nombre**: Nombre del usuario.
+   - **Apellido**: Apellido del usuario.
    - **Email**: Dirección de correo electrónico (se utilizará como nombre de usuario).
+   - **Contraseña**: Contraseña inicial del usuario.
    - **Rol**: Seleccione "Administrador" o "Profesor".
    - **Activo**: Indique si el usuario está activo en el sistema.
-4. Para editar un usuario existente, haga clic en el botón "Editar" junto al usuario correspondiente.
-5. Para desactivar un usuario, haga clic en el botón "Desactivar" junto al usuario correspondiente.
+4. Si existen usuarios inactivos con horarios, el sistema permite copiar esos horarios al nuevo usuario.
+5. Para editar un usuario existente, haga clic en el botón "Editar" junto al usuario correspondiente.
+6. Para desactivar un usuario, haga clic en el botón "Desactivar" junto al usuario correspondiente.
 
 ![Imagen de la sección Usuarios](ruta/a/imagen-usuarios.png)
 *Imagen 10: Sección "Usuarios" mostrando la lista de usuarios y el formulario para añadir/editar un usuario.*
@@ -202,10 +205,12 @@ La sección "Horarios" permite a los administradores gestionar los horarios de d
 
 1. Acceda a la sección "Horarios" desde el menú lateral.
 2. Seleccione un profesor de la lista desplegable para ver su horario actual.
-3. Para añadir un nuevo tramo horario, haga clic en el botón "Nuevo Tramo" y complete el formulario con la siguiente información:
+3. El sistema permite visualizar los horarios tanto en formato lista como en formato calendario semanal.
+4. Para añadir un nuevo tramo horario, haga clic en el botón "Nuevo Tramo" y complete el formulario con la siguiente información:
    - **Día de la semana**: Seleccione el día (Lunes a Viernes).
    - **Tramo Horario**: Seleccione el tramo horario (1ª hora, 2ª hora, etc.).
-4. Para eliminar un tramo horario, haga clic en el botón "Eliminar" junto al tramo correspondiente.
+5. El sistema valida automáticamente que no existan horarios duplicados para un mismo profesor, día y tramo horario.
+6. Para eliminar un tramo horario, haga clic en el botón "Eliminar" junto al tramo correspondiente.
 
 ![Imagen de la sección Horarios](ruta/a/imagen-horarios.png)
 *Imagen 11: Sección "Horarios" mostrando el horario de un profesor y el formulario para añadir un nuevo tramo horario.*
@@ -241,6 +246,7 @@ La sección "Guardias" permite a los administradores gestionar todas las guardia
    - **Observaciones**: Añada cualquier información relevante sobre la guardia.
 4. Para editar una guardia existente, haga clic en el botón "Editar" junto a la guardia correspondiente.
 5. Para anular una guardia, haga clic en el botón "Anular" junto a la guardia correspondiente.
+6. Si una guardia está asociada a una ausencia, al anularla, la ausencia volverá a estado "Pendiente".
 
 ![Imagen de la sección Guardias](ruta/a/imagen-guardias.png)
 *Imagen 13: Sección "Guardias" mostrando la lista de guardias y el formulario para añadir/editar una guardia.*
@@ -256,7 +262,6 @@ La sección "Ausencias" permite a los administradores gestionar todas las ausenc
    - **Fecha**: Seleccione la fecha de la ausencia.
    - **Tramo Horario**: Seleccione el tramo horario.
    - **Estado**: Seleccione el estado de la ausencia (Pendiente, Aceptada, Rechazada).
-   - **Tarea para los alumnos**: Describa la tarea que deben realizar los alumnos durante la ausencia.
    - **Observaciones**: Añada cualquier información relevante sobre la ausencia.
 4. Para editar una ausencia existente, haga clic en el botón "Editar" junto a la ausencia correspondiente.
 5. Para aceptar una ausencia pendiente, haga clic en el botón "Aceptar" y complete el formulario para crear la guardia asociada.
@@ -291,7 +296,7 @@ La "Sala de Guardias" es una pantalla diseñada para ser mostrada en un monitor 
    - **Guardias Asignadas**: Muestra las guardias que ya tienen un profesor asignado.
 3. La información se actualiza automáticamente cada minuto.
 
-Esta pantalla está diseñada para ser visualizada a distancia, por lo que utiliza colores y tamaños de fuente que facilitan su lectura.
+Esta pantalla está diseñada para ser visualizada a distancia, por lo que utiliza colores y tamaños de fuente que facilitan su lectura. Es compatible con el modo oscuro para reducir la fatiga visual en entornos con poca luz.
 
 ![Imagen de la Sala de Guardias](ruta/a/imagen-sala-guardias.png)
 *Imagen 16: Pantalla "Sala de Guardias" mostrando las guardias pendientes y asignadas para el día actual.*
@@ -302,7 +307,8 @@ El sistema incluye un modo oscuro que reduce la fatiga visual y el consumo de ba
 
 1. Para activar o desactivar el modo oscuro, haga clic en el botón de cambio de tema en la barra de navegación superior.
 2. El sistema recordará su preferencia para futuras sesiones.
-3. El modo oscuro se aplicará a todas las pantallas del sistema.
+3. El modo oscuro se aplicará a todas las pantallas del sistema, incluidas las tablas y elementos de formulario.
+4. El sistema detecta automáticamente la preferencia de tema configurada en su dispositivo y aplica el modo correspondiente por defecto.
 
 ![Imagen del sistema en modo oscuro](ruta/a/imagen-modo-oscuro.png)
 *Imagen 17: Sistema de Gestión de Guardias en modo oscuro.*
@@ -322,7 +328,7 @@ El sistema limita a 6 el número de guardias que un profesor puede realizar por 
 Los profesores no pueden cancelar ausencias una vez registradas. Si necesita cancelar una ausencia, póngase en contacto con un administrador del sistema.
 
 ### ¿Cómo puedo ver las tareas asignadas para una guardia?
-Al ver los detalles de una guardia, podrá ver las tareas asignadas en el campo "Tareas". También puede ver esta información en la sección "Guardias Pendientes" o "Firmar Guardia".
+Al ver los detalles de una guardia, podrá ver las tareas asociadas en la sección correspondiente. Esta información está disponible tanto en la vista de detalles de la guardia como en la pantalla para firmar guardias.
 
 ## Solución de Problemas
 
