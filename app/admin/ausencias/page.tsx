@@ -957,7 +957,7 @@ export default function AdminAusenciasPage() {
           className="mb-4"
         >
           <form onSubmit={handleAcceptFormSubmit}>
-            <div className="card-body bg-light rounded p-4 mb-4">
+            <div className="card-body info-block rounded p-4 mb-4">
               <div className="d-flex align-items-start">
                 <i className="bi bi-info-circle-fill text-info fs-4 me-3 mt-1"></i>
                 <div>
@@ -1059,8 +1059,8 @@ export default function AdminAusenciasPage() {
         className="mb-4"
       >
         {currentAusencias.length === 0 ? (
-          <div className="alert alert-info d-flex align-items-center">
-            <i className="bi bi-info-circle-fill fs-4 me-3"></i>
+          <div className="alert alert-info info-alert d-flex align-items-center">
+            <i className="bi bi-info-circle-fill text-info fs-4 me-3"></i>
             <div>No hay ausencias que coincidan con los filtros seleccionados.</div>
           </div>
         ) : (
@@ -1393,8 +1393,8 @@ export default function AdminAusenciasPage() {
                         </div>
                       </div>
                     ) : (
-                      <div className="alert alert-info">
-                        <i className="bi bi-info-circle me-2"></i>
+                      <div className="alert alert-info info-alert">
+                        <i className="bi bi-info-circle-fill text-info me-2"></i>
                         No hay guardia asociada a esta ausencia
                       </div>
                     )
