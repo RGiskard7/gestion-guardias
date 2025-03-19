@@ -1503,3 +1503,56 @@ a.text-light:hover {
   border-left: 4px solid #38bdf8;
 }
 
+/* Avatar circular pequeño para listas */
+.avatar-circle.avatar-sm {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 0.8rem;
+}
+
+/* Contenedor de profesores disponibles */
+.profesores-disponibles {
+  transition: all 0.2s ease;
+  max-height: 150px;
+  overflow-y: auto;
+  margin-top: 0.5rem;
+}
+
+.profesores-disponibles::-webkit-scrollbar {
+  width: 6px;
+}
+
+.profesores-disponibles::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 10px;
+}
+
+.profesores-disponibles::-webkit-scrollbar-thumb {
+  background: #ccc;
+  border-radius: 10px;
+}
+
+.profesores-disponibles::-webkit-scrollbar-thumb:hover {
+  background: #aaa;
+}
+
+/* Soporta modo oscuro */
+[data-bs-theme="dark"] .profesores-disponibles::-webkit-scrollbar-track {
+  background: #2c3344;
+}
+
+[data-bs-theme="dark"] .profesores-disponibles::-webkit-scrollbar-thumb {
+  background: #495057;
+}
+
+[data-bs-theme="dark"] .profesores-disponibles::-webkit-scrollbar-thumb:hover {
+  background: #6c757d;
+}
+
+/* Estilos para los estados de las guardias */
+
