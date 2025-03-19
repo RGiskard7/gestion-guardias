@@ -5,7 +5,7 @@ import { useGuardias } from "@/src/contexts/GuardiasContext"
 import { useUsuarios } from "@/src/contexts/UsuariosContext"
 import { useLugares } from "@/src/contexts/LugaresContext"
 import { useHorarios } from "@/src/contexts/HorariosContext"
-import { Guardia, Usuario, Lugar, Horario } from "@/src/types"
+import { Guardia, Usuario, Lugar, Horario, TareaGuardia } from "@/src/types"
 import { Pagination } from "@/components/ui/pagination"
 import DataCard from "@/components/common/DataCard"
 import { DB_CONFIG } from "@/lib/db-config"
@@ -16,12 +16,15 @@ export default function GuardiasPage() {
     addGuardia, 
     updateGuardia, 
     deleteGuardia, 
-    addTareaGuardia, 
+    addTareaGuardia,
+    updateTareaGuardia,
+    deleteTareaGuardia,
     anularGuardia,
     canProfesorAsignarGuardia,
     getProfesorAusenteIdByGuardia,
     refreshGuardias,
-    desasociarGuardiaDeAusencia
+    desasociarGuardiaDeAusencia,
+    getTareasByGuardia
   } = useGuardias()
   
   const { usuarios } = useUsuarios()
@@ -30,6 +33,9 @@ export default function GuardiasPage() {
 
   // Estado para controlar la carga de datos
   const [isRefreshing, setIsRefreshing] = useState(false)
+
+  // Estado para mensajes de feedback
+  const [mensaje, setMensaje] = useState<{tipo: 'success' | 'error' | 'warning' | 'info', texto: string} | null>(null)
 
   // Actualizar datos al cargar la página
   useEffect(() => {
@@ -68,16 +74,17 @@ export default function GuardiasPage() {
   // Obtener solo profesores (no admins)
   const profesores = usuarios.filter((u: Usuario) => u.rol === DB_CONFIG.ROLES.PROFESOR && u.activo)
 
-  // Estado para el formulario
+  // Estado para formulario
   const [formData, setFormData] = useState({
-    fecha: "",
+    fecha: new Date().toISOString().split("T")[0],
     tramoHorario: "",
     tramosHorarios: [] as string[],
-    tipoGuardia: DB_CONFIG.TIPOS_GUARDIA[0], // Usar el primer tipo por defecto
+    tipoGuardia: DB_CONFIG.TIPOS_GUARDIA.GUARDIA,
     lugarId: "",
-    tarea: "",
     observaciones: "",
-    profesorCubridorId: null as number | null
+    estado: DB_CONFIG.ESTADOS_GUARDIA.PENDIENTE,
+    profesorAusenteId: "",
+    profesorCubridorId: ""
   })
   
   const [error, setError] = useState<string | null>(null)
@@ -105,6 +112,15 @@ export default function GuardiasPage() {
   // Estado para el modal de detalles
   const [selectedGuardia, setSelectedGuardia] = useState<Guardia | null>(null)
   const [showModal, setShowModal] = useState(false)
+
+  // Estado para modal de tareas
+  const [showTareaModal, setShowTareaModal] = useState(false)
+  const [nuevaTarea, setNuevaTarea] = useState("")
+  
+  // Estado para edición de tareas
+  const [showTareaEditModal, setShowTareaEditModal] = useState(false)
+  const [tareaEditing, setTareaEditing] = useState<TareaGuardia | null>(null)
+  const [editedTareaText, setEditedTareaText] = useState("")
 
   // Filtrar guardias según los criterios
   const filteredGuardias = guardias
@@ -311,7 +327,7 @@ export default function GuardiasPage() {
     }
     
     // Extraer datos necesarios del formulario
-    const { tarea, tramosHorarios, ...guardiaData } = formData
+    const { tramosHorarios, ...guardiaData } = formData
     
     try {
       if (hasAssociatedAusencia && desasociarAusencia) {
@@ -673,14 +689,15 @@ export default function GuardiasPage() {
   // Resetear formulario y estado
   const resetForm = () => {
     setFormData({
-      fecha: "",
+      fecha: new Date().toISOString().split("T")[0],
       tramoHorario: "",
       tramosHorarios: [],
-      tipoGuardia: DB_CONFIG.TIPOS_GUARDIA[0], // Usar el primer tipo por defecto
+      tipoGuardia: DB_CONFIG.TIPOS_GUARDIA.GUARDIA,
       lugarId: "",
-      tarea: "",
       observaciones: "",
-      profesorCubridorId: null
+      estado: DB_CONFIG.ESTADOS_GUARDIA.PENDIENTE,
+      profesorAusenteId: "",
+      profesorCubridorId: ""
     })
     setRangoFechas({
       fechaInicio: new Date().toISOString().split("T")[0],
@@ -709,7 +726,8 @@ export default function GuardiasPage() {
       observaciones: guardia.observaciones,
       lugarId: String(guardia.lugarId),
       profesorCubridorId: guardia.profesorCubridorId,
-      tarea: ""
+      estado: guardia.estado,
+      profesorAusenteId: ""
     })
     setEditingId(guardia.id)
     setShowForm(true)
@@ -746,6 +764,100 @@ export default function GuardiasPage() {
     }
     
     return true
+  }
+
+  // Manejador para añadir tarea
+  const handleAddTarea = (guardia: Guardia) => {
+    setSelectedGuardia(guardia)
+    setNuevaTarea("")
+    setShowTareaModal(true)
+  }
+  
+  // Manejador para editar tarea
+  const handleEditTarea = (tarea: TareaGuardia) => {
+    setTareaEditing(tarea)
+    setEditedTareaText(tarea.descripcionTarea)
+    setShowTareaEditModal(true)
+  }
+  
+  // Manejador para eliminar tarea
+  const handleDeleteTarea = async (tareaId: number) => {
+    if (window.confirm("¿Está seguro de que desea eliminar esta tarea?")) {
+      try {
+        await deleteTareaGuardia(tareaId)
+        setMensaje({
+          tipo: "success",
+          texto: "Tarea eliminada correctamente"
+        })
+      } catch (error) {
+        console.error("Error al eliminar la tarea:", error)
+        setMensaje({
+          tipo: "error",
+          texto: "Error al eliminar la tarea"
+        })
+      }
+    }
+  }
+  
+  // Guardar tarea nueva
+  const handleSaveTarea = async () => {
+    if (!selectedGuardia || !nuevaTarea.trim()) return
+    
+    try {
+      await addTareaGuardia({
+        guardiaId: selectedGuardia.id,
+        descripcionTarea: nuevaTarea.trim()
+      })
+      
+      setMensaje({
+        tipo: "success",
+        texto: "Tarea añadida correctamente"
+      })
+      
+      setShowTareaModal(false)
+      setNuevaTarea("")
+    } catch (error) {
+      console.error("Error al guardar la tarea:", error)
+      setMensaje({
+        tipo: "error",
+        texto: "Error al guardar la tarea"
+      })
+    }
+  }
+  
+  // Guardar edición de tarea
+  const handleSaveEditTarea = async () => {
+    if (!tareaEditing || !editedTareaText.trim()) return
+    
+    try {
+      await updateTareaGuardia(tareaEditing.id, {
+        ...tareaEditing,
+        descripcionTarea: editedTareaText.trim()
+      })
+      
+      setMensaje({
+        tipo: "success",
+        texto: "Tarea actualizada correctamente"
+      })
+      
+      setShowTareaEditModal(false)
+      setTareaEditing(null)
+    } catch (error) {
+      console.error("Error al actualizar la tarea:", error)
+      setMensaje({
+        tipo: "error",
+        texto: "Error al actualizar la tarea"
+      })
+    }
+  }
+  
+  // Cerrar modales
+  const handleCloseModals = () => {
+    setShowTareaModal(false)
+    setShowTareaEditModal(false)
+    setShowModal(false)
+    setTareaEditing(null)
+    setSelectedGuardia(null)
   }
 
   return (
@@ -786,6 +898,24 @@ export default function GuardiasPage() {
           )}
         </button>
       </div>
+
+      {/* Mostrar mensajes de feedback */}
+      {mensaje && (
+        <div className={`alert alert-${mensaje.tipo} alert-dismissible fade show mb-4`} role="alert">
+          <i className={`bi ${
+            mensaje.tipo === 'success' ? 'bi-check-circle' : 
+            mensaje.tipo === 'error' ? 'bi-exclamation-triangle' :
+            mensaje.tipo === 'warning' ? 'bi-exclamation-triangle' : 'bi-info-circle'
+          } me-2`}></i>
+          {mensaje.texto}
+          <button 
+            type="button" 
+            className="btn-close" 
+            onClick={() => setMensaje(null)}
+            aria-label="Cerrar"
+          ></button>
+        </div>
+      )}
 
       <DataCard 
         title="Filtros y Acciones" 
@@ -973,25 +1103,6 @@ export default function GuardiasPage() {
                   </div>
                 </div>
                 
-                {/* Tarea y observaciones */}
-                <div className="col-12 mt-3">
-                  <div className="form-group">
-                    <label htmlFor="tarea" className="form-label fw-bold">
-                      Tarea
-                    </label>
-                    <textarea
-                      className="form-control"
-                      id="tarea"
-                      name="tarea"
-                      rows={2}
-                      value={formData.tarea}
-                      onChange={handleChange}
-                      placeholder="Descripción de la tarea a realizar durante las guardias (opcional)"
-                    ></textarea>
-                    <small className="form-text text-muted">Tarea que debe realizar el profesor durante la guardia</small>
-                  </div>
-                </div>
-                
                 <div className="col-12 mt-3">
                   <div className="form-group">
                     <label htmlFor="observaciones" className="form-label fw-bold">
@@ -1022,8 +1133,8 @@ export default function GuardiasPage() {
                     Cancelar
                   </button>
                   <button type="submit" className="btn btn-primary">
-                    <i className="bi bi-plus-circle me-2"></i>
-                    Crear Guardias
+                    <i className={`bi ${editingId ? "bi-check-circle" : "bi-plus-circle"} me-2`}></i>
+                    {editingId ? "Actualizar" : "Crear Guardia"}
                   </button>
                 </div>
               </div>
@@ -1171,22 +1282,6 @@ export default function GuardiasPage() {
                 </div>
     
                 <div className="form-group mt-4">
-                  <label htmlFor="tarea" className="form-label fw-bold">
-                    Tarea
-                  </label>
-                  <textarea
-                    className="form-control"
-                    id="tarea"
-                    name="tarea"
-                    rows={3}
-                    value={formData.tarea}
-                    onChange={handleChange}
-                    placeholder="Descripción de la tarea a realizar durante la guardia"
-                  ></textarea>
-                  <small className="form-text text-muted">Tarea que debe realizar el profesor durante la guardia</small>
-                </div>
-    
-                <div className="form-group mt-4">
                   <label htmlFor="observaciones" className="form-label fw-bold">
                     Observaciones
                   </label>
@@ -1201,6 +1296,63 @@ export default function GuardiasPage() {
                   ></textarea>
                   <small className="form-text text-muted">Información adicional importante para esta guardia</small>
                 </div>
+
+                {/* Sección de tareas (solo para edición) */}
+                {editingId && (
+                  <div className="mt-4">
+                    <h5 className="fw-bold border-bottom pb-2 mb-3 d-flex justify-content-between align-items-center">
+                      <span>
+                        <i className="bi bi-list-check me-1"></i>
+                        Tareas de la guardia
+                      </span>
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-outline-success"
+                        onClick={() => handleAddTarea(guardias.find(g => g.id === editingId) as Guardia)}
+                        title="Añadir nueva tarea"
+                      >
+                        <i className="bi bi-plus-circle me-1"></i>
+                        Añadir tarea
+                      </button>
+                    </h5>
+                    
+                    {getTareasByGuardia(editingId).length === 0 ? (
+                      <div className="alert alert-light">
+                        <i className="bi bi-info-circle me-2"></i>
+                        No hay tareas asignadas para esta guardia
+                      </div>
+                    ) : (
+                      <div className="list-group mb-4">
+                        {getTareasByGuardia(editingId).map((tarea) => (
+                          <div key={tarea.id} className="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                            <span>
+                              <i className="bi bi-check2-square me-2"></i>
+                              {tarea.descripcionTarea}
+                            </span>
+                            <div className="btn-group btn-group-sm">
+                              <button
+                                type="button"
+                                className="btn btn-outline-primary"
+                                onClick={() => handleEditTarea(tarea)}
+                                title="Editar tarea"
+                              >
+                                <i className="bi bi-pencil-square"></i>
+                              </button>
+                              <button
+                                type="button"
+                                className="btn btn-outline-danger"
+                                onClick={() => handleDeleteTarea(tarea.id)}
+                                title="Eliminar tarea"
+                              >
+                                <i className="bi bi-trash"></i>
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {editingId && hasAssociatedAusencia && (
                   <div className="mt-4">
@@ -1364,7 +1516,7 @@ export default function GuardiasPage() {
                             </button>
                             {guardia.estado !== DB_CONFIG.ESTADOS_GUARDIA.FIRMADA && guardia.estado !== DB_CONFIG.ESTADOS_GUARDIA.ANULADA && (
                               <button
-                                className="btn btn-sm btn-outline-danger"
+                                className="btn btn-sm btn-outline-warning"
                                 onClick={() => handleAnular(guardia.id)}
                                 title="Anular guardia"
                               >
@@ -1511,40 +1663,6 @@ export default function GuardiasPage() {
                   </div>
                 </div>
                 
-                <div className="row mb-4">
-                  {selectedGuardia.profesorCubridorId && (
-                    <div className="col-md-6">
-                      <h6 className="fw-bold">
-                        <i className="bi bi-person-fill me-1"></i>
-                        Profesor Cubridor
-                      </h6>
-                      {(() => {
-                        const profesor = profesores.find(p => p.id === selectedGuardia.profesorCubridorId)
-                        return profesor ? (
-                          <p className="mb-0">
-                            <i className="bi bi-person-badge me-1"></i>
-                            {profesor.nombre}
-                          </p>
-                        ) : (
-                          <p className="mb-0">ID: {selectedGuardia.profesorCubridorId}</p>
-                        )
-                      })()}
-                    </div>
-                  )}
-                  
-                  <div className={selectedGuardia.profesorCubridorId ? "col-md-6" : "col-12"}>
-                    <h6 className="fw-bold">
-                      <i className="bi bi-card-text me-1"></i>
-                      Observaciones
-                    </h6>
-                    {selectedGuardia.observaciones ? (
-                      <p className="mb-0">{selectedGuardia.observaciones}</p>
-                    ) : (
-                      <p className="text-muted mb-0">Sin observaciones</p>
-                    )}
-                  </div>
-                </div>
-                
                 <div className="mb-3">
                   <h6 className="fw-bold border-bottom pb-2 mb-3">
                     <i className="bi bi-person-dash me-1"></i>
@@ -1585,6 +1703,29 @@ export default function GuardiasPage() {
                     )
                   })()}
                 </div>
+
+                <div className="mb-3">
+                  <h6 className="fw-bold border-bottom pb-2 mb-3">
+                    <i className="bi bi-list-check me-1"></i>
+                    Tareas asignadas
+                  </h6>
+                  
+                  {getTareasByGuardia(selectedGuardia.id).length === 0 ? (
+                    <div className="alert alert-light">
+                      <i className="bi bi-info-circle me-2"></i>
+                      No hay tareas asignadas para esta guardia
+                    </div>
+                  ) : (
+                    <div className="list-group">
+                      {getTareasByGuardia(selectedGuardia.id).map((tarea) => (
+                        <div key={tarea.id} className="list-group-item">
+                          <i className="bi bi-check2-square me-2"></i>
+                          {tarea.descripcionTarea}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
               <div className="modal-footer">
                 <button 
@@ -1593,6 +1734,124 @@ export default function GuardiasPage() {
                   onClick={handleCloseModal}>
                   <i className="bi bi-x-circle me-2"></i>
                   Cerrar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal para añadir tarea */}
+      {showTareaModal && selectedGuardia && (
+        <div className="modal fade show" 
+              style={{ display: 'block', backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <div className="modal-dialog">
+            <div className="modal-content">
+              <div className="modal-header bg-primary text-white">
+                <h5 className="modal-title">
+                  <i className="bi bi-plus-circle me-2"></i>
+                  Añadir Tarea a la Guardia
+                </h5>
+                <button 
+                  type="button" 
+                  className="btn-close btn-close-white" 
+                  onClick={handleCloseModals}
+                  aria-label="Cerrar"
+                ></button>
+              </div>
+              <div className="modal-body">
+                <p>
+                  <strong>Guardia:</strong> {new Date(selectedGuardia.fecha).toLocaleDateString('es-ES')} - {selectedGuardia.tramoHorario}
+                </p>
+                <div className="mb-3">
+                  <label htmlFor="nuevaTarea" className="form-label">Descripción de la tarea</label>
+                  <textarea
+                    id="nuevaTarea"
+                    className="form-control"
+                    value={nuevaTarea}
+                    onChange={(e) => setNuevaTarea(e.target.value)}
+                    rows={3}
+                    placeholder="Escribe aquí la tarea a realizar..."
+                  ></textarea>
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button 
+                  type="button" 
+                  className="btn btn-secondary" 
+                  onClick={handleCloseModals}
+                >
+                  Cancelar
+                </button>
+                <button 
+                  type="button" 
+                  className="btn btn-primary"
+                  onClick={handleSaveTarea}
+                  disabled={!nuevaTarea.trim()}
+                >
+                  <i className="bi bi-save me-1"></i>
+                  Guardar Tarea
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal para editar tarea */}
+      {showTareaEditModal && tareaEditing && (
+        <div className="modal fade show" 
+              style={{ display: 'block', backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <div className="modal-dialog">
+            <div className="modal-content">
+              <div className="modal-header bg-primary text-white">
+                <h5 className="modal-title">
+                  <i className="bi bi-pencil-square me-2"></i>
+                  Editar Tarea
+                </h5>
+                <button 
+                  type="button" 
+                  className="btn-close btn-close-white" 
+                  onClick={() => {
+                    setShowTareaEditModal(false)
+                    setTareaEditing(null)
+                  }}
+                  aria-label="Cerrar"
+                ></button>
+              </div>
+              <div className="modal-body">
+                <div className="mb-3">
+                  <label htmlFor="editTarea" className="form-label">Descripción de la tarea</label>
+                  <textarea
+                    id="editTarea"
+                    className="form-control"
+                    value={editedTareaText}
+                    onChange={(e) => setEditedTareaText(e.target.value)}
+                    rows={3}
+                    placeholder="Escribe aquí la descripción de la tarea..."
+                  ></textarea>
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button 
+                  type="button" 
+                  className="btn btn-secondary" 
+                  onClick={() => {
+                    setShowTareaEditModal(false)
+                    setTareaEditing(null)
+                  }}
+                >
+                  <i className="bi bi-x-circle me-1"></i>
+                  Cancelar
+                </button>
+                <button 
+                  type="button" 
+                  className="btn btn-primary"
+                  onClick={handleSaveEditTarea}
+                  disabled={!editedTareaText.trim()}
+                >
+                  <i className="bi bi-save me-1"></i>
+                  Guardar Cambios
                 </button>
               </div>
             </div>
