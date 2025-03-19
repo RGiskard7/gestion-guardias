@@ -11,9 +11,10 @@
 8. [Autenticación y Autorización](#autenticación-y-autorización)
 9. [Gestión del Estado](#gestión-del-estado)
 10. [Interfaz de Usuario](#interfaz-de-usuario)
-11. [Testing](#testing)
-12. [Despliegue](#despliegue)
-13. [Bibliografía](#bibliografía)
+11. [Ciclos de Vida y Flujos Clave](#ciclos-de-vida-y-flujos-clave)
+12. [Testing](#testing)
+13. [Despliegue](#despliegue)
+14. [Bibliografía](#bibliografía)
 
 ## Introducción
 
@@ -616,35 +617,392 @@ public class GuardiasService {
 
 ## Interfaz de Usuario
 
-### Componentes React
+### Componentes Principales
 
-Los componentes React son similares a los fragmentos de vista en JSP:
+La interfaz de usuario se construye mediante componentes React que encapsulan la lógica de presentación. Los principales componentes del sistema son:
+
+#### Componentes Comunes
+- `Sidebar.tsx`: Menú lateral para navegación principal.
+- `Navbar.tsx`: Barra superior con acciones globales y perfil.
+- `DataCard.tsx`: Contenedor con estilo para secciones de datos.
+- `Pagination.tsx`: Control de paginación reutilizable.
+
+#### Componentes de Negocio
+- `HorarioSemanal.tsx`: Visualización del horario semanal.
+- `GuardiaCard.tsx`: Tarjeta que muestra información de una guardia.
+- `AusenciaForm.tsx`: Formulario para registro/edición de ausencias.
+
+### Sistema de Pestañas de "Mis Guardias"
+
+La página "Mis Guardias" implementa un sistema de pestañas para unificar la gestión de diferentes tipos de guardias:
 
 ```typescript
-// GuardiaCard.tsx
-export const GuardiaCard: React.FC<GuardiaProps> = ({ guardia }) => {
-    return (
-        <Card>
-            <Card.Body>
-                <Card.Title>{guardia.profesor}</Card.Title>
-                <Card.Text>{guardia.fecha}</Card.Text>
-            </Card.Body>
-        </Card>
-    );
+// app/profesor/mis-guardias/page.tsx
+export default function MisGuardiasPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const tab = searchParams.get('tab') || 'pendientes';
+
+  // Lógica para cambiar de pestaña
+  const handleTabChange = (tabName: string) => {
+    const params = new URLSearchParams(searchParams);
+    params.set('tab', tabName);
+    router.push(`?${params.toString()}`);
+  };
+
+  return (
+    <div className="container py-4">
+      <h1>Mis Guardias</h1>
+      
+      {/* Sistema de pestañas */}
+      <ul className="nav nav-tabs mb-4">
+        <li className="nav-item">
+          <button 
+            className={`nav-link ${tab === 'pendientes' ? 'active' : ''}`}
+            onClick={() => handleTabChange('pendientes')}
+          >
+            Guardias Pendientes
+          </button>
+        </li>
+        <li className="nav-item">
+          <button 
+            className={`nav-link ${tab === 'generadas' ? 'active' : ''}`}
+            onClick={() => handleTabChange('generadas')}
+          >
+            Guardias Generadas
+          </button>
+        </li>
+        <li className="nav-item">
+          <button 
+            className={`nav-link ${tab === 'por-firmar' ? 'active' : ''}`}
+            onClick={() => handleTabChange('por-firmar')}
+          >
+            Guardias por Firmar
+          </button>
+        </li>
+      </ul>
+      
+      {/* Contenido de la pestaña activa */}
+      {tab === 'pendientes' && <GuardiasPendientes />}
+      {tab === 'generadas' && <GuardiasGeneradas />}
+      {tab === 'por-firmar' && <GuardiasPorFirmar />}
+    </div>
+  );
+}
+```
+
+Este sistema de pestañas implementa varias características importantes:
+
+1. **Persistencia de estado mediante URL**: El parámetro `tab` en la URL permite que el estado de la pestaña activa persista entre recargas.
+2. **Navegación sin recargas**: Utiliza el router de Next.js para cambiar entre pestañas sin recargar la página.
+3. **Componentes específicos por pestaña**: Cada pestaña carga un componente especializado para ese tipo de guardias.
+
+### Verificación de Disponibilidad de Profesores
+
+Para la asignación de guardias, se implementa una función que verifica si un profesor tiene disponibilidad basada en su horario y otras guardias asignadas:
+
+```typescript
+// app/admin/guardias/page.tsx
+const profesorTieneDisponibilidad = (profesorId: number, fecha: string, tramoHorario: string): boolean => {
+  // Si estamos editando una guardia, el profesor cubridor actual siempre debe estar disponible
+  if (editingId) {
+    const guardiaActual = guardias.find(g => g.id === editingId);
+    if (guardiaActual && guardiaActual.profesorCubridorId === profesorId) {
+      return true; // El profesor actual siempre está disponible para la guardia que edita
+    }
+  }
+  
+  // Obtener el día de la semana (1-7, donde 1 es lunes y 7 es domingo)
+  const fechaObj = new Date(fecha);
+  const diaSemanaNumerico = fechaObj.getDay() || 7; // Si es domingo (0), convertirlo a 7
+  
+  // Solo considerar días laborables (lunes a viernes)
+  if (diaSemanaNumerico > 5) {
+    return false; // No hay disponibilidad en fin de semana
+  }
+  
+  // Obtener el nombre del día a partir del número
+  const nombreDiaSemana = DB_CONFIG.DIAS_SEMANA[diaSemanaNumerico - 1];
+  
+  // Verificar si el profesor tiene horario para ese día y tramo
+  const tieneHorario = horarios.some(h => 
+    h.profesorId === profesorId && 
+    h.diaSemana === nombreDiaSemana && 
+    h.tramoHorario === tramoHorario
+  );
+  
+  // Si no tiene horario para este día y tramo, no está disponible
+  if (!tieneHorario) {
+    return false;
+  }
+  
+  // Verificar si ya tiene una guardia asignada para esta fecha específica y tramo
+  const tieneProgramada = guardias.some(g => 
+    g.profesorCubridorId === profesorId && 
+    g.fecha === fecha && 
+    g.tramoHorario === tramoHorario &&
+    g.id !== editingId && // Ignorar la guardia que estamos editando
+    (g.estado === DB_CONFIG.ESTADOS_GUARDIA.ASIGNADA || g.estado === DB_CONFIG.ESTADOS_GUARDIA.FIRMADA)
+  );
+  
+  // Está disponible si no tiene otra guardia ya asignada
+  return !tieneProgramada;
 };
 ```
 
-Equivalente en JSP:
+## Ciclos de Vida y Flujos Clave
 
-```jsp
-<!-- guardia.jsp -->
-<div class="card">
-    <div class="card-body">
-        <h5 class="card-title">${guardia.profesor}</h5>
-        <p class="card-text">${guardia.fecha}</p>
-    </div>
-</div>
+### Ciclo de Vida de las Guardias
+
+El sistema implementa un ciclo de vida bien definido para las guardias:
+
+1. **Creación**: Una guardia puede crearse por dos vías:
+   - **Automática**: Generada a partir de una ausencia aceptada
+   - **Manual**: Creada directamente por un administrador
+
+2. **Estados**: Una guardia puede pasar por los siguientes estados:
+   - **PENDIENTE**: La guardia está disponible para ser cubierta
+   - **ASIGNADA**: Un profesor se ha asignado para cubrir la guardia
+   - **FIRMADA**: La guardia ha sido realizada y firmada por el profesor
+   - **ANULADA**: La guardia ha sido cancelada
+
+3. **Transiciones**:
+   - PENDIENTE → ASIGNADA: Cuando un profesor se asigna a la guardia
+   - ASIGNADA → FIRMADA: Cuando el profesor firma la guardia tras realizarla
+   - PENDIENTE → ANULADA: Cuando un administrador anula la guardia
+   - ASIGNADA → ANULADA: Cuando un administrador anula la guardia
+   - ASIGNADA → PENDIENTE: Cuando se quita el profesor cubridor
+
+4. **Validaciones**:
+   - Solo se muestran guardias pendientes a profesores con horario compatible
+   - Una guardia firmada no puede ser anulada
+   - Solo las guardias anuladas pueden ser eliminadas permanentemente
+
+### Ciclo de Vida de las Ausencias
+
+Las ausencias siguen este ciclo de vida:
+
+1. **Creación**: Por el profesor que se ausentará o por el administrador
+
+2. **Estados**:
+   - **PENDIENTE**: La ausencia está esperando aprobación
+   - **ACEPTADA**: La ausencia ha sido aprobada y tiene una guardia asociada
+   - **RECHAZADA**: La ausencia ha sido rechazada
+   - **ANULADA**: La ausencia ha sido anulada por un administrador
+
+3. **Transiciones**:
+   - PENDIENTE → ACEPTADA: Cuando un administrador aprueba la ausencia (genera guardia)
+   - PENDIENTE → RECHAZADA: Cuando un administrador rechaza la ausencia
+   - ACEPTADA → PENDIENTE: Cuando se anula la guardia asociada
+   - PENDIENTE → ANULADA: Cuando un administrador anula la ausencia
+
+### Relación entre Guardias y Ausencias
+
+La relación entre guardias y ausencias es una parte fundamental en el sistema, implementada mediante un flujo bien definido:
+
+#### 1. Creación y Edición Inicial
+
+- **Ausencia creada por profesor**: El profesor inicia el proceso creando una ausencia con todos los detalles necesarios, quedando en estado **PENDIENTE**.
+- **Edición en estado inicial**: Mientras la ausencia está en estado PENDIENTE, el profesor puede modificar libremente todos sus campos o incluso anularla.
+
+```typescript
+// Ejemplo de creación de ausencia por un profesor
+const createAusencia = async (ausenciaData: Omit<Ausencia, "id">) => {
+  const { data, error } = await supabase
+    .from('ausencias')
+    .insert({
+      ...ausenciaData,
+      estado: DB_CONFIG.ESTADOS_AUSENCIA.PENDIENTE,
+      fecha_creacion: new Date().toISOString(),
+      profesor_id: currentUser.id
+    });
+  
+  if (error) throw error;
+  return data?.[0]?.id;
+};
 ```
+
+#### 2. Decisión del Administrador
+
+- **Visualización**: El administrador visualiza todas las ausencias pendientes en su panel.
+- **Aceptación**: Al aceptar una ausencia, se inicia un proceso automático:
+  - La ausencia cambia a estado **ACEPTADA**
+  - Se crea una guardia en estado **PENDIENTE** vinculada a la ausencia mediante el campo `ausencia_id`
+  - El administrador puede configurar detalles adicionales de la guardia (tipo, lugar, observaciones)
+- **Rechazo**: Si el administrador rechaza la ausencia, su estado cambia a **RECHAZADA** y finaliza el proceso.
+
+```typescript
+// Proceso de aceptación de ausencia por el administrador
+const acceptAusencia = async (ausenciaId: number, guardiaDetails: GuardiaDetails) => {
+  // 1. Actualizar estado de la ausencia
+  await ausenciasService.updateAusencia(ausenciaId, {
+    estado: DB_CONFIG.ESTADOS_AUSENCIA.ACEPTADA
+  });
+  
+  // 2. Obtener datos de la ausencia para la guardia
+  const ausencia = await ausenciasService.getAusenciaById(ausenciaId);
+  
+  // 3. Crear guardia asociada
+  await guardiasService.createGuardia({
+    fecha: ausencia.fecha,
+    tramo_horario: ausencia.tramo_horario,
+    tipo_guardia: guardiaDetails.tipo_guardia,
+    lugar_id: guardiaDetails.lugar_id,
+    estado: DB_CONFIG.ESTADOS_GUARDIA.PENDIENTE,
+    observaciones: guardiaDetails.observaciones || '',
+    ausencia_id: ausenciaId // Vinculación con la ausencia
+  });
+};
+```
+
+#### 3. Restricciones de Modificación en Estado Asociado
+
+- **Campos inmutables**: Una vez que la ausencia está en estado **ACEPTADA** y vinculada a una guardia:
+  - No se puede modificar la **fecha** ni el **tramo horario** en ninguna de las dos entidades
+  - No se puede cambiar el **profesor** asociado a la ausencia
+  - Otros campos (observaciones, tipo, lugar) sí pueden modificarse
+
+```typescript
+// Validación de campos inmutables al editar una ausencia con guardia asociada
+const validateAusenciaEdit = (ausencia: Ausencia, newData: Partial<Ausencia>): boolean => {
+  // Si la ausencia está aceptada (tiene guardia asociada)
+  if (ausencia.estado === DB_CONFIG.ESTADOS_AUSENCIA.ACEPTADA) {
+    // No permitir cambios en fecha, tramo o profesor
+    if (
+      (newData.fecha && newData.fecha !== ausencia.fecha) ||
+      (newData.tramo_horario && newData.tramo_horario !== ausencia.tramo_horario) ||
+      (newData.profesor_id && newData.profesor_id !== ausencia.profesor_id)
+    ) {
+      return false; // Cambios no permitidos
+    }
+  }
+  return true; // Cambios permitidos
+};
+```
+
+#### 4. Desasociación para Modificación Completa
+
+- **Proceso de desasociación**: Si es necesario modificar completamente la información:
+  - La guardia no debe estar en estado **FIRMADA**
+  - El administrador puede desasociar la guardia estableciendo `ausencia_id = null`
+  - Al desasociar, la ausencia vuelve a estado **PENDIENTE**
+  - Ambas entidades pueden modificarse libremente
+
+```typescript
+// Desasociación de guardia y ausencia para modificación completa
+const desasociarGuardiaDeAusencia = async (guardiaId: number): Promise<boolean> => {
+  try {
+    // Obtener la guardia actual
+    const guardia = guardias.find(g => g.id === guardiaId);
+    if (!guardia) {
+      console.error("Guardia no encontrada");
+      return false;
+    }
+    
+    // Verificar que no esté firmada
+    if (guardia.estado === DB_CONFIG.ESTADOS_GUARDIA.FIRMADA) {
+      console.error("No se puede desasociar una guardia firmada");
+      return false;
+    }
+    
+    // Obtener la ausencia asociada
+    const ausenciaId = guardia.ausencia_id;
+    if (!ausenciaId) {
+      console.info("La guardia no tiene ausencia asociada");
+      return true; // No hay ausencia que desasociar
+    }
+    
+    // Actualizar la guardia para eliminar la asociación
+    await guardiasService.updateGuardia(guardiaId, {
+      ...guardia,
+      ausencia_id: null
+    });
+    
+    // Actualizar la ausencia a estado PENDIENTE
+    const ausencia = ausencias.find(a => a.id === ausenciaId);
+    if (ausencia) {
+      await ausenciasService.updateAusencia(ausenciaId, {
+        ...ausencia,
+        estado: DB_CONFIG.ESTADOS_AUSENCIA.PENDIENTE,
+        observaciones: `${ausencia.observaciones} | Guardia desasociada manualmente`
+      });
+    }
+    
+    return true;
+  } catch (error) {
+    console.error("Error al desasociar guardia de ausencia:", error);
+    return false;
+  }
+};
+```
+
+#### 5. Proceso de Anulación
+
+- **Anulación de entidad vinculada**: Tanto el profesor que creó la ausencia como el administrador pueden anular una ausencia si:
+  - La guardia asociada no está en estado **FIRMADA**
+- **Efecto cascada**:
+  - Al anular la ausencia, la guardia asociada cambia automáticamente a estado **ANULADA**
+  - Se registra el motivo de anulación en las observaciones de ambas entidades
+
+```typescript
+// Anulación de ausencia con efecto cascada sobre la guardia asociada
+const anularAusencia = async (ausenciaId: number, motivo: string): Promise<boolean> => {
+  try {
+    // Obtener la ausencia
+    const ausencia = ausencias.find(a => a.id === ausenciaId);
+    if (!ausencia) {
+      console.error("Ausencia no encontrada");
+      return false;
+    }
+    
+    // Buscar guardias asociadas a esta ausencia
+    const guardiasAsociadas = guardias.filter(g => g.ausencia_id === ausenciaId);
+    
+    // Verificar que ninguna guardia asociada esté firmada
+    if (guardiasAsociadas.some(g => g.estado === DB_CONFIG.ESTADOS_GUARDIA.FIRMADA)) {
+      console.error("No se puede anular la ausencia porque tiene guardias firmadas");
+      return false;
+    }
+    
+    // Anular cada guardia asociada
+    for (const guardia of guardiasAsociadas) {
+      await guardiasService.updateGuardia(guardia.id, {
+        ...guardia,
+        estado: DB_CONFIG.ESTADOS_GUARDIA.ANULADA,
+        observaciones: `${guardia.observaciones || ''} | ANULADA: ${motivo}`
+      });
+    }
+    
+    // Anular la ausencia
+    await ausenciasService.updateAusencia(ausenciaId, {
+      ...ausencia,
+      estado: DB_CONFIG.ESTADOS_AUSENCIA.ANULADA,
+      observaciones: `${ausencia.observaciones || ''} | ANULADA: ${motivo}`
+    });
+    
+    return true;
+  } catch (error) {
+    console.error("Error al anular ausencia y guardias asociadas:", error);
+    return false;
+  }
+};
+```
+
+#### 6. Resumen del Flujo Completo
+
+El flujo completo entre ausencias y guardias puede representarse conceptualmente así:
+
+```
+Profesor crea ausencia → Ausencia PENDIENTE → Admin acepta → Ausencia ACEPTADA + Guardia PENDIENTE (vinculadas)
+    → Profesor se asigna a guardia → Guardia ASIGNADA → Profesor firma → Guardia FIRMADA (irreversible)
+    
+Alternativas:
+- Admin rechaza ausencia → Ausencia RECHAZADA (fin del proceso)
+- Admin/Profesor anula ausencia → Ausencia ANULADA + Guardia ANULADA (si no está firmada)
+- Admin desasocia guardia → Ausencia vuelve a PENDIENTE + Guardia independiente
+```
+
+Este diseño garantiza la integridad referencial y la trazabilidad entre ausencias y guardias, manteniendo un registro histórico completo mediante el uso de observaciones y preservando la relación entre ambas entidades a lo largo de todo su ciclo de vida.
 
 ## Testing
 
