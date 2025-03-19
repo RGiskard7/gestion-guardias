@@ -73,13 +73,8 @@ const Sidebar: React.FC<SidebarProps> = ({ role }) => {
               </Link>
             </li>
             <li className="nav-item">
-              <Link className="nav-link text-white" href="/profesor/guardias-pendientes">
-                <i className="bi bi-list-check me-2"></i>Guardias Pendientes
-              </Link>
-            </li>
-            <li className="nav-item">
-              <Link className="nav-link text-white" href="/profesor/firmar-guardia">
-                <i className="bi bi-check-circle me-2"></i>Firmar Guardia
+              <Link className="nav-link text-white" href="/profesor/mis-guardias">
+                <i className="bi bi-clipboard-check me-2"></i>Mis Guardias
               </Link>
             </li>
           </>

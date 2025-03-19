@@ -627,7 +627,7 @@ export default function GuardiasPage() {
   // Crear guardias individuales para cada tramo
   const crearGuardiasIndividuales = async () => {
     try {
-      for (const tramoHorario of formData.tramosHorarios) {
+    for (const tramoHorario of formData.tramosHorarios) {
         // Preparar datos de la guardia
         const guardiaData = prepararDatosGuardia(
           formData.fecha,
@@ -723,7 +723,7 @@ export default function GuardiasPage() {
       alert(`Se han creado ${guardiasCreadas} guardias correctamente. Se omitieron ${guardiasDuplicadas} guardias por ya existir en el sistema.`)
     } else if (guardiasCreadas === 0 && guardiasDuplicadas > 0) {
       alert("No se crearon guardias porque todas las combinaciones ya existen en el sistema.")
-    } else {
+        } else {
       alert("No se pudieron crear guardias para el rango seleccionado.")
     }
   }

@@ -17,17 +17,6 @@ export default function SalaGuardiasPage() {
   const [viewMode, setViewMode] = useState<"day" | "week">("day")
   const [filterEstado, setFilterEstado] = useState<string>("")
 
-  // Log para depuración - Muestra todas las guardias recuperadas
-  console.log("TODAS LAS GUARDIAS RECUPERADAS:", guardias.map(g => ({
-    id: g.id,
-    fecha: g.fecha,
-    tramoHorario: g.tramoHorario,
-    estado: g.estado,
-    tipoGuardia: g.tipoGuardia,
-    lugarId: g.lugarId,
-    profesorCubridorId: g.profesorCubridorId
-  })));
-
   // Estados disponibles para el filtro
   const estadosGuardia = [
     DB_CONFIG.ESTADOS_GUARDIA.PENDIENTE, 

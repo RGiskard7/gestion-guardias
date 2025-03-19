@@ -94,10 +94,10 @@ export default function ProfesorDashboardPage() {
 
         <div className="col-lg-4 col-md-6 mb-4">
           <ActionCard
-            title="Guardias Pendientes"
-            description="Revisa las guardias que tienes asignadas."
+            title="Mis Guardias"
+            description="Revisa y gestiona todas tus guardias."
             icon="clipboard-check"
-            linkHref={DB_CONFIG.RUTAS.PROFESOR_GUARDIAS_PENDIENTES}
+            linkHref={DB_CONFIG.RUTAS.PROFESOR_MIS_GUARDIAS}
             linkText="Ver Guardias"
             color="info"
           />
@@ -170,7 +170,7 @@ export default function ProfesorDashboardPage() {
                 {guardiasPendientesFirma.slice(0, DB_CONFIG.LIMITES.LISTA_PREVIEW).map((guardia) => (
                   <Link
                     key={guardia.id}
-                    href={DB_CONFIG.RUTAS.PROFESOR_FIRMAR_GUARDIA}
+                    href={`${DB_CONFIG.RUTAS.PROFESOR_MIS_GUARDIAS}?tab=por-firmar`}
                     className="list-group-item list-group-item-action"
                   >
                     <div className="d-flex w-100 justify-content-between">
@@ -184,7 +184,7 @@ export default function ProfesorDashboardPage() {
                   </Link>
                 ))}
                 {guardiasPendientesFirma.length > DB_CONFIG.LIMITES.LISTA_PREVIEW && (
-                  <Link href={DB_CONFIG.RUTAS.PROFESOR_FIRMAR_GUARDIA} className="list-group-item list-group-item-action text-center">
+                  <Link href={`${DB_CONFIG.RUTAS.PROFESOR_MIS_GUARDIAS}?tab=por-firmar`} className="list-group-item list-group-item-action text-center">
                     <i className="bi bi-arrow-right-circle me-2"></i>
                     Ver todas ({guardiasPendientesFirma.length})
                   </Link>
