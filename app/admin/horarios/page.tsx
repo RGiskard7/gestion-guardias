@@ -19,10 +19,11 @@ export default function HorariosPage() {
   const profesores = usuarios.filter((u: Usuario) => u.rol === DB_CONFIG.ROLES.PROFESOR && u.activo)
 
   // Estado para el formulario
-  const [formData, setFormData] = useState<Omit<Horario, "id">>({
+  const [formData, setFormData] = useState<Omit<Horario, "id"> & { tramosHorarios?: string[] }>({
     profesorId: 0,
     diaSemana: "",
     tramoHorario: "",
+    tramosHorarios: [],
   })
 
   const [editingId, setEditingId] = useState<number | null>(null)
@@ -34,6 +35,9 @@ export default function HorariosPage() {
   const [selectedProfesor, setSelectedProfesor] = useState<number | null>(null)
   const [filterDia, setFilterDia] = useState<string>("")
   const [filterTramo, setFilterTramo] = useState<string>("")
+
+  // Estado para la visualización
+  const [viewMode, setViewMode] = useState<string>("lista")
 
   // Estado para la paginación
   const [currentPage, setCurrentPage] = useState(1)
@@ -88,18 +92,105 @@ export default function HorariosPage() {
       ...prev,
       [name]: name === "profesorId" ? Number.parseInt(value) : value,
     }))
+
+    // Si se cambia el día, resetear los tramos seleccionados
+    if (name === "diaSemana") {
+      setFormData((prev) => ({
+        ...prev,
+        tramosHorarios: [],
+      }))
+    }
+  }
+
+  // Manejar cambios en los checkboxes de tramos horarios
+  const handleTramoHorarioChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { value, checked } = e.target
+    
+    // Actualizar los tramos seleccionados
+    setFormData((prev) => {
+      const tramosActuales = prev.tramosHorarios || []
+      
+      if (checked) {
+        // Añadir el tramo si no está ya en la lista
+        return {
+          ...prev,
+          tramosHorarios: [...tramosActuales, value]
+        }
+      } else {
+        // Quitar el tramo de la lista
+        return {
+          ...prev,
+          tramosHorarios: tramosActuales.filter(tramo => tramo !== value)
+        }
+      }
+    })
+  }
+
+  // Verificar si ya existe un horario para un profesor, día y tramo
+  const horarioExistente = (profesorId: number, diaSemana: string, tramoHorario: string, horarioId?: number) => {
+    return horarios.some(h => 
+      h.profesorId === profesorId && 
+      h.diaSemana === diaSemana && 
+      h.tramoHorario === tramoHorario && 
+      (horarioId === undefined || h.id !== horarioId)
+    )
   }
 
   // Manejar envío del formulario
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    setError(null)
+
+    // Validación básica
+    if (!formData.profesorId || !formData.diaSemana) {
+      setError("Por favor, completa todos los campos requeridos.")
+      return
+    }
 
     if (editingId) {
+      // Caso de edición: validar que no exista duplicado
+      if (horarioExistente(formData.profesorId, formData.diaSemana, formData.tramoHorario, editingId)) {
+        setError(`Ya existe un horario asignado para este profesor el ${formData.diaSemana} en el tramo ${formData.tramoHorario}.`)
+        return
+      }
+      
       // Actualizar horario existente
-      updateHorario(editingId, formData)
+      updateHorario(editingId, {
+        profesorId: formData.profesorId,
+        diaSemana: formData.diaSemana,
+        tramoHorario: formData.tramoHorario
+      })
     } else {
-      // Añadir nuevo horario
-      addHorario(formData)
+      // Caso de creación: usar tramosHorarios
+      if (!formData.tramosHorarios || formData.tramosHorarios.length === 0) {
+        setError("Por favor, selecciona al menos un tramo horario.")
+        return
+      }
+
+      // Comprobar duplicados y añadir cada tramo como un horario separado
+      const tramosACrear = formData.tramosHorarios
+      let creacionExitosa = true
+      
+      for (const tramo of tramosACrear) {
+        if (horarioExistente(formData.profesorId, formData.diaSemana, tramo)) {
+          setError(`Ya existe un horario asignado para este profesor el ${formData.diaSemana} en el tramo ${tramo}.`)
+          creacionExitosa = false
+          break
+        }
+      }
+      
+      if (creacionExitosa) {
+        // Crear un horario para cada tramo seleccionado
+        for (const tramo of tramosACrear) {
+          addHorario({
+            profesorId: formData.profesorId,
+            diaSemana: formData.diaSemana,
+            tramoHorario: tramo
+          })
+        }
+      } else {
+        return // No seguir si hay error
+      }
     }
 
     // Resetear formulario
@@ -114,6 +205,7 @@ export default function HorariosPage() {
       profesorId: 0,
       diaSemana: "",
       tramoHorario: "",
+      tramosHorarios: [],
     })
     setEditingId(null)
     setError(null)
@@ -157,45 +249,27 @@ export default function HorariosPage() {
     }
   }
 
-  return (
-    <div className="container py-4">
-      <style jsx>{`
-        .spin {
-          animation: spin 1s linear infinite;
-        }
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-        .cursor-pointer {
-          cursor: pointer;
-        }
-        .user-select-none {
-          user-select: none;
-        }
-      `}</style>
+  // Organizar horarios por profesor para la vista semanal
+  const horariosPorProfesor = profesores.reduce((acc: Record<number, Record<string, string[]>>, profesor: Usuario) => {
+    acc[profesor.id] = diasSemana.reduce((diasAcc: Record<string, string[]>, dia) => {
+      diasAcc[dia] = []
+      return diasAcc
+    }, {})
+    return acc
+  }, {})
 
-      <div className="d-flex justify-content-between align-items-center mb-4">
-        <h1 className="mb-0">Gestión de Horarios</h1>
-        <button 
-          className="btn btn-outline-primary" 
-          onClick={handleRefresh}
-          disabled={isRefreshing}
-        >
-          {isRefreshing ? (
-            <>
-              <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-              Actualizando...
-            </>
-          ) : (
-            <>
-              <i className="bi bi-arrow-clockwise me-2"></i>
-              Actualizar
-            </>
-          )}
-        </button>
-      </div>
-      
+  // Rellenar la matriz con los horarios
+  horarios.forEach((horario) => {
+    if (horariosPorProfesor[horario.profesorId] && 
+        horariosPorProfesor[horario.profesorId][horario.diaSemana]) {
+      horariosPorProfesor[horario.profesorId][horario.diaSemana].push(horario.tramoHorario)
+    }
+  })
+
+  return (
+    <div className="container-fluid">
+      <h1 className="h3 mb-4">Gestión de Horarios de Guardia</h1>
+
       <DataCard
         title="Filtros y Acciones"
         icon="filter"
@@ -285,9 +359,15 @@ export default function HorariosPage() {
           icon={editingId ? "pencil-square" : "calendar-plus"}
           className="mb-4"
         >
+          {error && (
+            <div className="alert alert-danger" role="alert">
+              <i className="bi bi-exclamation-triangle-fill me-2"></i>
+              {error}
+            </div>
+          )}
           <form onSubmit={handleSubmit}>
             <div className="row g-4">
-              <div className="col-md-4">
+              <div className="col-md-6">
                 <div className="form-group">
                   <label htmlFor="profesorId" className="form-label fw-bold">
                     Profesor
@@ -311,7 +391,7 @@ export default function HorariosPage() {
                 </div>
               </div>
 
-              <div className="col-md-4">
+              <div className="col-md-6">
                 <div className="form-group">
                   <label htmlFor="diaSemana" className="form-label fw-bold">
                     Día de la Semana
@@ -335,32 +415,59 @@ export default function HorariosPage() {
                 </div>
               </div>
 
-              <div className="col-md-4">
+              <div className="col-12">
                 <div className="form-group">
-                  <label htmlFor="tramoHorario" className="form-label fw-bold">
-                    Tramo Horario
+                  <label className="form-label fw-bold">
+                    {editingId ? "Tramo Horario" : "Tramos Horarios"}
                   </label>
-                  <select
-                    className="form-select"
-                    id="tramoHorario"
-                    name="tramoHorario"
-                    value={formData.tramoHorario}
-                    onChange={handleChange}
-                    required
-                  >
-                    <option value="">Selecciona un tramo</option>
-                    {tramosHorarios.map((tramo) => (
-                      <option key={tramo} value={tramo}>
-                        {tramo}
-                      </option>
-                    ))}
-                  </select>
-                  <small className="form-text text-muted">Periodo de tiempo para la guardia</small>
+                  
+                  {editingId ? (
+                    // Modo edición: solo permitir seleccionar un tramo horario
+                    <select
+                      className="form-select"
+                      id="tramoHorario"
+                      name="tramoHorario"
+                      value={formData.tramoHorario}
+                      onChange={handleChange}
+                      required
+                      aria-label="Seleccionar tramo horario"
+                    >
+                      <option value="">Selecciona un tramo</option>
+                      {tramosHorarios.map((tramo) => (
+                        <option key={tramo} value={tramo}>
+                          {tramo}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    // Modo creación: permitir seleccionar múltiples tramos horarios
+                    <div className="d-flex flex-wrap gap-3">
+                      {tramosHorarios.map((tramo) => (
+                        <div key={tramo} className="form-check">
+                          <input
+                            className="form-check-input"
+                            type="checkbox"
+                            id={`tramo-${tramo}`}
+                            name={tramo}
+                            value={tramo}
+                            checked={formData.tramosHorarios?.includes(tramo) || false}
+                            onChange={handleTramoHorarioChange}
+                          />
+                          <label className="form-check-label" htmlFor={`tramo-${tramo}`}>
+                            {tramo}
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <small className="form-text text-muted">
+                    {editingId 
+                      ? "Seleccione el tramo horario de la guardia" 
+                      : "Seleccione los tramos horarios en los que estará disponible"}
+                  </small>
                 </div>
               </div>
             </div>
-
-            {error && <div className="alert alert-danger mt-3">{error}</div>}
 
             <div className="d-flex justify-content-end mt-4 pt-3 border-top">
               <button type="button" className="btn btn-outline-secondary me-3" onClick={() => {
@@ -380,73 +487,152 @@ export default function HorariosPage() {
       )}
 
       <DataCard
-        title="Listado de Horarios de Guardia"
+        title="Visualización de Horarios de Guardia"
         icon="calendar-week"
         className="mb-4"
       >
-        {filteredHorarios.length === 0 ? (
-          <div className="alert alert-info d-flex align-items-center">
-            <i className="bi bi-info-circle-fill fs-4 me-3"></i>
-            <div>No hay horarios que coincidan con los filtros seleccionados.</div>
+        <div className="mb-4">
+          {/* Pestañas de vista en estilo Bootstrap */}
+          <div className="d-flex flex-wrap gap-2 mb-4">
+            <button 
+              className={`btn ${viewMode === "lista" ? 'btn-primary' : 'btn-outline-primary'}`}
+              onClick={() => setViewMode("lista")}
+            >
+              <i className="bi bi-list-ul me-2"></i>
+              Lista de Horarios
+            </button>
+            <button 
+              className={`btn ${viewMode === "semanal" ? 'btn-primary' : 'btn-outline-primary'}`}
+              onClick={() => setViewMode("semanal")}
+            >
+              <i className="bi bi-calendar-week me-2"></i>
+              Vista Semanal
+            </button>
           </div>
-        ) : (
-          <>
+            
+          {viewMode === "lista" && (
             <div className="table-responsive">
-              <table className="table table-striped table-hover align-middle">
+              <table className="table table-hover">
                 <thead className="table-light">
                   <tr>
-                    <th scope="col">Profesor</th>
-                    <th scope="col">Día</th>
-                    <th scope="col">Tramo Horario</th>
-                    <th scope="col" className="text-center">Acciones</th>
+                    <th>Profesor</th>
+                    <th>Día</th>
+                    <th>Tramo Horario</th>
+                    <th>Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {getCurrentPageItems().map((horario: Horario) => (
-                    <tr key={horario.id}>
-                      <td className="fw-medium">{getProfesorName(horario.profesorId)}</td>
-                      <td>{horario.diaSemana}</td>
-                      <td>
-                        <span className="badge bg-secondary rounded-pill px-3 py-2">
-                          {horario.tramoHorario}
-                        </span>
-                      </td>
-                      <td>
-                        <div className="d-flex justify-content-center gap-2">
-                          <button
-                            className="btn btn-sm btn-outline-primary"
-                            onClick={() => handleEdit(horario)}
-                            title="Editar horario"
-                          >
-                            <i className="bi bi-pencil"></i>
-                          </button>
-                          <button
-                            className="btn btn-sm btn-outline-danger"
-                            onClick={() => handleDelete(horario.id)}
-                            title="Eliminar horario"
-                          >
-                            <i className="bi bi-trash"></i>
-                          </button>
-                        </div>
+                  {getCurrentPageItems().length > 0 ? (
+                    getCurrentPageItems().map((horario: Horario) => (
+                      <tr key={horario.id}>
+                        <td>{getProfesorName(horario.profesorId)}</td>
+                        <td>{horario.diaSemana}</td>
+                        <td>{horario.tramoHorario}</td>
+                        <td>
+                          <div className="btn-group">
+                            <button
+                              className="btn btn-sm btn-outline-secondary"
+                              onClick={() => handleEdit(horario)}
+                              aria-label="Editar"
+                            >
+                              <i className="bi bi-pencil"></i>
+                            </button>
+                            <button
+                              className="btn btn-sm btn-outline-danger"
+                              onClick={() => handleDelete(horario.id)}
+                              aria-label="Eliminar"
+                            >
+                              <i className="bi bi-trash"></i>
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={4} className="text-center py-4">
+                        <i className="bi bi-info-circle me-2"></i>No hay horarios que coincidan con los filtros aplicados.
                       </td>
                     </tr>
-                  ))}
+                  )}
                 </tbody>
               </table>
-            </div>
 
-            <div className="d-flex justify-content-between align-items-center mt-4 pt-3 border-top">
-              <div className="text-muted small">
-                Mostrando <span className="fw-bold">{(currentPage - 1) * itemsPerPage + 1}-{Math.min(currentPage * itemsPerPage, filteredHorarios.length)}</span> de <span className="fw-bold">{filteredHorarios.length}</span> horarios
-              </div>
-              <Pagination
-                currentPage={currentPage}
-                totalPages={totalPages}
-                onPageChange={handlePageChange}
-              />
+              {totalPages > 1 && (
+                <div className="d-flex justify-content-center mt-4">
+                  <Pagination
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    onPageChange={handlePageChange}
+                  />
+                </div>
+              )}
             </div>
-          </>
-        )}
+          )}
+            
+          {viewMode === "semanal" && (
+            <>
+              {selectedProfesor ? (
+                <>
+                  <h4 className="mb-3">{getProfesorName(selectedProfesor)}</h4>
+                  <div className="table-responsive">
+                    <table className="table table-bordered table-hover">
+                      <thead className="table-light">
+                        <tr>
+                          <th style={{ width: "16%" }}>Tramo / Día</th>
+                          {diasSemana.map(dia => (
+                            <th key={dia} style={{ width: "16%" }} className="text-center">{dia}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {tramosHorarios.map(tramo => (
+                          <tr key={tramo}>
+                            <th className="table-light">{tramo}</th>
+                            {diasSemana.map(dia => {
+                              const hasHorario = horariosPorProfesor[selectedProfesor] && 
+                                               horariosPorProfesor[selectedProfesor][dia] && 
+                                               horariosPorProfesor[selectedProfesor][dia].includes(tramo)
+                              
+                              return (
+                                <td key={`${dia}-${tramo}`} className="p-3 text-center">
+                                  {hasHorario ? (
+                                    <div className="card border bg-primary bg-opacity-10 border-primary shadow-sm sala-guardias-card">
+                                      <div className="card-body p-2">
+                                        <div className="d-flex justify-content-center align-items-center">
+                                          <span className="badge bg-primary">
+                                            <i className="bi bi-clock me-1"></i>{DB_CONFIG.ETIQUETAS.GUARDIAS.DISPONIBLE}
+                                          </span>
+                                        </div>
+                                        <small className="d-block mt-2 text-center">
+                                          <i className="bi bi-calendar-date me-1"></i>
+                                          {dia} - {tramo}
+                                        </small>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <div className="text-center text-muted">
+                                      <i className="bi bi-dash-circle"></i>
+                                    </div>
+                                  )}
+                                </td>
+                              )
+                            })}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              ) : (
+                <div className="alert alert-info">
+                  <i className="bi bi-info-circle me-2"></i>
+                  Selecciona un profesor en el filtro superior para ver su horario semanal.
+                </div>
+              )}
+            </>
+          )}
+        </div>
       </DataCard>
     </div>
   )

@@ -148,12 +148,19 @@ flowchart TD
     A[Administrador] -->|Accede a| B[Usuarios]
     B -->|Visualiza| C[Lista de usuarios]
     C -->|Acción| D{Selecciona operación}
-    D -->|Nuevo usuario| E[Formulario nuevo usuario]
+    D -->|Nuevo usuario| E{Verificar requisitos}
     D -->|Editar usuario| F[Formulario editar usuario]
-    D -->|Desactivar usuario| G[Confirmación]
-    E -->|Completa y envía| H[Usuario creado]
+    D -->|Activar/Desactivar usuario| G[Confirmación]
+    
+    E -->|No hay usuarios inactivos| E1[Error: Debe desactivar\nun usuario primero]
+    E -->|Hay usuarios inactivos| E2{Revisar horarios}
+    E2 -->|Con horarios| E3[Seleccionar usuario\npara heredar horarios]
+    E2 -->|Sin horarios| E4[Formulario nuevo usuario\nsin heredar]
+    
+    E3 -->|Selecciona y completa| H1[Usuario creado con\nhorarios heredados]
+    E4 -->|Completa y envía| H2[Usuario creado sin horarios]
     F -->|Modifica y envía| I[Usuario actualizado]
-    G -->|Confirma| J[Usuario desactivado]
+    G -->|Confirma| J[Estado usuario modificado]
 ```
 
 ### Gestión de Horarios
@@ -163,11 +170,43 @@ flowchart TD
     A[Administrador] -->|Accede a| B[Horarios]
     B -->|Selecciona| C[Profesor]
     C -->|Visualiza| D[Horario actual]
-    D -->|Acción| E{Selecciona operación}
-    E -->|Nuevo tramo| F[Formulario nuevo tramo]
-    E -->|Eliminar tramo| G[Confirmación]
-    F -->|Completa y envía| H[Tramo añadido]
-    G -->|Confirma| I[Tramo eliminado]
+    D -->|Vista| E{Selecciona vista}
+    
+    E -->|Lista| E1[Vista de lista]
+    E -->|Semanal| E2[Vista de calendario]
+    
+    E1 -->|Acción| F1{Selecciona operación}
+    E2 -->|Acción| F2{Selecciona operación}
+    
+    F1 -->|Nuevo tramo| G1[Formulario con\nmúltiples tramos]
+    F1 -->|Eliminar tramo| G2[Confirmación]
+    
+    F2 -->|Eliminar tramo| G3[Botón de eliminar\nen calendario]
+    
+    G1 -->|Selecciona día| G1a[Selecciona día\nde la semana]
+    G1a -->|Selecciona tramos| G1b[Selecciona múltiples\ntramos horarios]
+    G1b -->|Valida| G1c{Verificar duplicados}
+    G1c -->|Hay duplicados| G1d[Error: Tramo ya existe]
+    G1c -->|No hay duplicados| G1e[Tramos añadidos]
+    
+    G2 -->|Confirma| H1[Tramo eliminado]
+    G3 -->|Confirma| H2[Tramo eliminado\ndesde calendario]
+```
+
+### Visualización de Horario Profesor
+
+```mermaid
+flowchart TD
+    A[Profesor] -->|Accede a| B[Mi Horario]
+    B -->|Visualiza| C[Vista Semanal]
+    C -->|Selecciona| D{Modo de visualización}
+    D -->|Disponibilidad| E[Muestra tramos disponibles]
+    D -->|Guardias Asignadas| F[Muestra guardias asignadas]
+    C -->|Navega| G[Semana anterior/siguiente]
+    G -->|Actualiza| C
+    C -->|Cambia tema| H{Tema}
+    H -->|Claro| I[Vista modo claro]
+    H -->|Oscuro| J[Vista modo oscuro con\ncolores adaptados]
 ```
 
 ### Gestión de Lugares

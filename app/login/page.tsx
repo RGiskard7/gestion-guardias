@@ -7,6 +7,7 @@ import { DB_CONFIG } from "@/lib/db-config"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
 
@@ -21,12 +22,17 @@ export default function LoginPage() {
       return
     }
 
+    if (!password) {
+      setError("Por favor, introduce tu contraseña")
+      return
+    }
+
     try {
       setError("")
       setLoading(true)
       console.log("Intentando login con:", email)
 
-      const success = await login(email)
+      const success = await login(email, password)
       console.log("Resultado login:", success)
 
       if (success) {
@@ -43,7 +49,7 @@ export default function LoginPage() {
           }
         }
       } else {
-        setError("Email no encontrado o usuario inactivo")
+        setError("Email o contraseña incorrectos")
       }
     } catch (err) {
       console.error("Error en login:", err)
@@ -83,11 +89,18 @@ export default function LoginPage() {
                   />
                 </div>
 
-                <div className="alert alert-info">
-                  <small>
-                    <i className="bi bi-info-circle me-2"></i>
-                    Por el momento, solo se requiere el email para iniciar sesión. No es necesario introducir contraseña.
-                  </small>
+                <div className="mb-3">
+                  <label htmlFor="password" className="form-label">
+                    Contraseña
+                  </label>
+                  <input
+                    type="password"
+                    className="form-control"
+                    id="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                  />
                 </div>
 
                 <div className="d-grid gap-2">
@@ -106,9 +119,9 @@ export default function LoginPage() {
             </div>
             <div className="card-footer text-center py-3">
               <div className="small">
-                <p className="mb-0">Emails de prueba:</p>
-                <p className="mb-0">Admin: admin@instituto.es</p>
-                <p className="mb-0">Profesor: profesor@instituto.es</p>
+                <p className="mb-0">Credenciales de prueba:</p>
+                <p className="mb-0">Admin: admin@instituto.es / 1234</p>
+                <p className="mb-0">Profesor: profesor@instituto.es / 1234</p>
               </div>
             </div>
           </div>

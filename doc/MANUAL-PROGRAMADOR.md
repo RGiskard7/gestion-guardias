@@ -562,31 +562,191 @@ public void anularGuardia(Long guardiaId) {
 
 ## Autenticación y Autorización
 
-### Middleware de Autenticación
+### Sistema de Autenticación
+
+El sistema implementa un mecanismo de autenticación basado en cookies y localStorage, utilizando bcrypt para el hash de contraseñas y Supabase como backend:
+
+```typescript
+// Definición del servicio de autenticación (authService.ts)
+export async function loginUser(email: string, password: string): Promise<boolean> {
+  try {
+    // Buscamos el usuario por su email
+    const { data, error } = await supabase
+      .from(getTableName('USUARIOS'))
+      .select('*')
+      .eq('email', email)
+      .single();
+    
+    if (error || !data || !data.activo) {
+      return false;
+    }
+    
+    // Verificamos la contraseña usando bcrypt
+    const passwordValid = await bcrypt.compare(password, data.password);
+    return passwordValid;
+  } catch (error) {
+    console.error('Error inesperado al verificar usuario:', error);
+    return false;
+  }
+}
+
+// Función para generar hash de contraseñas
+export async function hashPassword(password: string): Promise<string> {
+  const salt = await bcrypt.genSalt(10);
+  return bcrypt.hash(password, salt);
+}
+```
+
+La implementación utiliza el algoritmo bcrypt para el hash de contraseñas, que es una práctica moderna y segura que incluye:
+
+1. **Función de derivación de clave (KDF)**: Bcrypt utiliza el algoritmo Blowfish para crear un hash de contraseña que es resistente a ataques de fuerza bruta.
+2. **Salt aleatorio**: Cada contraseña incluye un salt único generado aleatoriamente, lo que evita que dos contraseñas idénticas generen el mismo hash.
+3. **Factor de trabajo configurable**: El sistema utiliza un factor de trabajo de 10, que proporciona un buen equilibrio entre seguridad y rendimiento.
+
+### Context API para Gestión de Sesiones
+
+La gestión del estado de autenticación se realiza mediante el Context API de React, siguiendo un patrón similar al Provider-Consumer:
+
+```typescript
+// AuthContext.tsx
+export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  const router = useRouter();
+
+  // Login function
+  const login = async (email: string, password: string): Promise<boolean> => {
+    const userValid = await loginUser(email, password);
+    
+    if (!userValid) return false;
+    
+    // Obtenemos datos completos del usuario
+    const { data } = await supabase
+      .from(getTableName('USUARIOS'))
+      .select('*')
+      .eq('email', email)
+      .single();
+    
+    // Almacenamos en localStorage y cookies para persistencia
+    const userData: User = {...};
+    setUser(userData);
+    localStorage.setItem("user", JSON.stringify(userData));
+    Cookies.set("user", JSON.stringify(userData), { expires: 7 });
+    
+    return true;
+  };
+
+  // Logout function
+  const logout = () => {
+    setUser(null);
+    localStorage.removeItem("user");
+    Cookies.remove("user");
+    router.push('/login');
+  };
+
+  return (
+    <AuthContext.Provider value={{ user, loading, login, logout, isAuthenticated: !!user }}>
+      {children}
+    </AuthContext.Provider>
+  );
+};
+```
+
+Este enfoque proporciona varias ventajas:
+
+1. **Estado global**: El estado de autenticación está disponible en toda la aplicación.
+2. **Persistencia doble**: Almacena la sesión tanto en localStorage como en cookies, lo que permite:
+   - Acceso desde JavaScript mediante localStorage
+   - Verificación en el servidor mediante cookies para protección de rutas
+
+### Middleware para Protección de Rutas
+
+La protección de rutas se implementa mediante un middleware de Next.js que verifica la autenticación del usuario antes de permitir el acceso a rutas protegidas:
 
 ```typescript
 // middleware.ts
-export default function middleware(req: NextRequest) {
-    const session = await getSession();
-    if (!session) {
-        return NextResponse.redirect('/login');
+export function middleware(request: NextRequest) {
+  const userCookie = request.cookies.get('user')?.value;
+  const isAuthPage = request.nextUrl.pathname === '/login';
+  const user = userCookie ? JSON.parse(userCookie) : null;
+
+  // Si no hay usuario y no estamos en login, redirigir a login
+  if (!user && !isAuthPage) {
+    return NextResponse.redirect(new URL('/login', request.url));
+  }
+
+  // Si el usuario está autenticado y trata de acceder a login
+  if (user && isAuthPage) {
+    const redirectUrl = user.rol === 'admin' ? '/admin' : '/profesor';
+    return NextResponse.redirect(new URL(redirectUrl, request.url));
+  }
+
+  // Control de acceso basado en roles
+  if (user) {
+    const isAdminRoute = request.nextUrl.pathname.startsWith('/admin');
+    const isProfesorRoute = request.nextUrl.pathname.startsWith('/profesor');
+
+    if (isAdminRoute && user.rol !== 'admin') {
+      return NextResponse.redirect(new URL('/profesor', request.url));
     }
+
+    if (isProfesorRoute && user.rol !== 'profesor') {
+      return NextResponse.redirect(new URL('/admin', request.url));
+    }
+  }
+
+  return NextResponse.next();
 }
 ```
 
-Equivalente en Java (Spring Security):
+El middleware implementa las siguientes funcionalidades:
+
+1. **Verificación de autenticación**: Comprueba si existe la cookie de usuario antes de permitir el acceso a rutas protegidas.
+2. **Redirección inteligente**: Redirige al usuario a la ruta correspondiente según su rol.
+3. **Control de acceso basado en roles**: Restringe el acceso a áreas administrativas para usuarios sin el rol adecuado.
+4. **Protección contra acceso no autorizado**: Evita que usuarios no autenticados accedan a rutas protegidas.
+
+Esta implementación es equivalente a la configuración de Spring Security en Java:
 
 ```java
 @Configuration
+@EnableWebSecurity
 public class SecurityConfig extends WebSecurityConfigurerAdapter {
     @Override
     protected void configure(HttpSecurity http) throws Exception {
-        http.authorizeRequests()
-            .antMatchers("/login").permitAll()
-            .anyRequest().authenticated();
+        http
+            .authorizeRequests()
+                .antMatchers("/login").permitAll()
+                .antMatchers("/admin/**").hasRole("ADMIN")
+                .antMatchers("/profesor/**").hasRole("PROFESOR")
+                .anyRequest().authenticated()
+            .and()
+            .formLogin()
+                .loginPage("/login")
+                .defaultSuccessUrl("/dashboard", true)
+            .and()
+            .logout()
+                .logoutSuccessUrl("/login")
+                .deleteCookies("JSESSIONID");
     }
 }
 ```
+
+### Flujo Completo de Autenticación
+
+El flujo completo de autenticación sigue estos pasos:
+
+1. **Inicio**: Usuario accede a una ruta protegida
+2. **Middleware**: Verifica la existencia de la cookie de usuario
+3. **Redirección**: Si no hay cookie, redirige al login
+4. **Login**: Usuario introduce credenciales
+5. **Verificación**: El sistema verifica las credenciales contra la base de datos
+6. **Hash**: Compara la contraseña introducida con el hash almacenado usando bcrypt
+7. **Sesión**: Si las credenciales son válidas, crea la sesión en cookies y localStorage
+8. **Redirección**: Redirige al usuario a la página correspondiente según su rol
+9. **Protección continua**: El middleware protege todas las rutas durante la navegación
+
+Este enfoque proporciona un sistema de autenticación robusto y seguro, siguiendo las mejores prácticas actuales de seguridad web.
 
 ## Gestión del Estado
 

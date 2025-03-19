@@ -66,6 +66,18 @@ export const DB_CONFIG = {
     '6ª Hora' as "6ª Hora"
   ] as string[], // Usar as para permitir la modificación dinámica
   
+  // Duración en horas de cada tramo horario
+  DURACION_TRAMOS: {
+    '1ª Hora': 1,
+    '2ª Hora': 1,
+    '3ª Hora': 1,
+    '4ª Hora': 1,
+    '5ª Hora': 1,
+    '6ª Hora': 1,
+    // Los recreos suelen tener una duración menor
+    'Recreo': 0.5
+  } as Record<string, number>,
+  
   // Días de la semana para horarios
   DIAS_SEMANA: [
     'Lunes' as "Lunes",
@@ -161,4 +173,13 @@ export const DB_CONFIG = {
 export function getTableName(tableName: keyof typeof DB_CONFIG.TABLES): string {
   // En este caso, no es necesario incluir el esquema porque estamos usando el esquema public
   return DB_CONFIG.TABLES[tableName];
+}
+
+/**
+ * Función para obtener la duración de un tramo horario
+ * @param tramoHorario Nombre del tramo horario
+ * @returns Duración en horas del tramo horario, o 1 si no está definido
+ */
+export function getDuracionTramo(tramoHorario: string): number {
+  return DB_CONFIG.DURACION_TRAMOS[tramoHorario] || 1;
 } 

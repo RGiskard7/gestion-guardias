@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { useUsuarios } from "@/src/contexts/UsuariosContext"
+import { useUsuarios, type UsuarioConPassword } from "@/src/contexts/UsuariosContext"
 import { useHorarios } from "@/src/contexts/HorariosContext"
 import { Usuario, Horario } from "@/src/types"
 import { Pagination } from "@/components/ui/pagination"
@@ -9,18 +9,32 @@ import DataCard from "@/components/common/DataCard"
 import { DB_CONFIG } from "@/lib/db-config"
 
 export default function UsersPage() {
-  const { usuarios, addUsuario, updateUsuario, deleteUsuario } = useUsuarios()
+  const { usuarios, addUsuario, addUsuarioConHorarios, updateUsuario, deleteUsuario } = useUsuarios()
   const { horarios, addHorario } = useHorarios()
 
   // Filtrar solo profesores (no admins)
   const profesores = usuarios.filter((u: Usuario) => u.rol === DB_CONFIG.ROLES.PROFESOR)
+  
+  // Obtener profesores inactivos
+  const profesoresInactivos = profesores.filter((u: Usuario) => !u.activo)
+  
+  // Verificar si profesores inactivos tienen horarios asignados
+  const profesoresInactivosConHorario = profesoresInactivos.filter((profesor) => {
+    return horarios.some((horario) => horario.profesorId === profesor.id)
+  })
+  
+  // Verificar si hay profesores inactivos sin horarios
+  const hayProfesoresInactivosSinHorario = profesoresInactivos.length > 0 && 
+                                          profesoresInactivosConHorario.length === 0
 
   // Estado para el formulario
-  const [formData, setFormData] = useState<Omit<Usuario, "id">>({
+  const [formData, setFormData] = useState<UsuarioConPassword>({
     nombre: "",
+    apellido: "",
     email: "",
     rol: DB_CONFIG.ROLES.PROFESOR,
     activo: true,
+    password: "", // Campo para la contraseña
   })
 
   const [editingId, setEditingId] = useState<number | null>(null)
@@ -40,9 +54,10 @@ export default function UsersPage() {
 
   // Filtrar profesores según criterios
   const filteredProfesores = profesores.filter((profesor: Usuario) => {
-    // Filtrar por nombre o email
+    // Filtrar por nombre, apellido o email
     if (filterNombre && 
         !profesor.nombre.toLowerCase().includes(filterNombre.toLowerCase()) &&
+        !profesor.apellido.toLowerCase().includes(filterNombre.toLowerCase()) &&
         !profesor.email.toLowerCase().includes(filterNombre.toLowerCase())) {
       return false
     }
@@ -87,6 +102,7 @@ export default function UsersPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
+    setError(null)
 
     try {
       if (editingId) {
@@ -94,9 +110,58 @@ export default function UsersPage() {
         await updateUsuario(editingId, formData)
         alert("Usuario actualizado correctamente")
       } else {
-        // Añadir nuevo usuario
-        await addUsuario(formData)
-        alert("Usuario creado correctamente")
+        // Validar datos básicos
+        if (!formData.nombre) {
+          setError("El nombre es obligatorio")
+          setIsSubmitting(false)
+          return
+        }
+        if (!formData.email) {
+          setError("El email es obligatorio")
+          setIsSubmitting(false)
+          return
+        }
+        
+        // Verificar si la contraseña está configurada cuando se crea un nuevo usuario
+        if (!formData.password) {
+          if (!confirm("No ha establecido una contraseña. ¿Desea usar la contraseña por defecto 'changeme'?")) {
+            setError("Por favor, establezca una contraseña")
+            setIsSubmitting(false)
+            return
+          }
+          // Usar contraseña por defecto
+          formData.password = "changeme"
+        }
+        
+        // Verificar restricciones para la creación de usuarios
+        if (profesoresInactivos.length === 0) {
+          setError("No se pueden crear nuevos usuarios porque no hay ningún profesor inactivo")
+          setIsSubmitting(false)
+          return
+        }
+        
+        // Si hay profesores inactivos con horarios, debe seleccionar uno para heredar
+        if (profesoresInactivosConHorario.length > 0 && !inheritFromId) {
+          setError("Debe seleccionar un profesor inactivo del cual heredar los horarios")
+          setIsSubmitting(false)
+          return
+        }
+        
+        // Si hay un usuario del que heredar horarios, usar la función correspondiente
+        if (inheritFromId) {
+          // Añadir usuario con horarios heredados
+          await addUsuarioConHorarios(formData, inheritFromId)
+          alert("Usuario creado correctamente con horarios heredados")
+        } else if (hayProfesoresInactivosSinHorario) {
+          // Añadir usuario normal si no hay horarios que heredar
+          await addUsuario(formData)
+          alert("Usuario creado correctamente sin horarios (no había horarios para heredar)")
+        } else {
+          // Este caso no debería ocurrir con las validaciones anteriores
+          setError("Error en la validación de horarios heredados")
+          setIsSubmitting(false)
+          return
+        }
       }
       resetForm()
       setShowForm(false)
@@ -112,9 +177,11 @@ export default function UsersPage() {
   const resetForm = () => {
     setFormData({
       nombre: "",
+      apellido: "",
       email: "",
       rol: DB_CONFIG.ROLES.PROFESOR,
       activo: true,
+      password: "",
     })
     setEditingId(null)
     setInheritFromId(null)
@@ -125,9 +192,11 @@ export default function UsersPage() {
   const handleEdit = (usuario: Usuario) => {
     setFormData({
       nombre: usuario.nombre,
+      apellido: usuario.apellido || "", // Incluir apellido
       email: usuario.email,
       rol: usuario.rol,
       activo: usuario.activo,
+      password: "", // Vacío por defecto, se actualizará solo si se introduce algo
     })
     setEditingId(usuario.id)
     setShowForm(true)
@@ -208,11 +277,11 @@ export default function UsersPage() {
                 type="text"
                 id="filterNombre"
                 className="form-control"
-                placeholder="Nombre o email"
+                placeholder="Nombre, apellido o email"
                 value={filterNombre}
                 onChange={(e) => setFilterNombre(e.target.value)}
               />
-              <small className="form-text text-muted">Buscar por nombre o email del profesor</small>
+              <small className="form-text text-muted">Buscar por nombre, apellido o email del profesor</small>
             </div>
           </div>
           <div className="col-md-4">
@@ -238,9 +307,25 @@ export default function UsersPage() {
                 <button
                   className="btn btn-primary"
                   onClick={() => {
+                    // Si el formulario ya está visible, simplemente cerrarlo
+                    if (showForm) {
+                      resetForm()
+                      setShowForm(false)
+                      return
+                    }
+                    
+                    // Validar si se puede crear un nuevo usuario
+                    if (profesoresInactivos.length === 0) {
+                      alert("No hay profesores inactivos. Para crear un nuevo profesor, debes desactivar uno existente.")
+                      return
+                    }
+                    
                     resetForm()
-                    setShowForm(!showForm)
+                    setShowForm(true)
                   }}
+                  title={profesoresInactivos.length === 0 ? 
+                    "Para crear un nuevo profesor, primero debes desactivar uno existente" : 
+                    showForm ? "Cancelar" : "Crear nuevo profesor"}
                 >
                   <i className={`bi ${showForm ? "bi-x-circle" : "bi-plus-circle"} me-2`}></i>
                   {showForm ? "Cancelar" : "Nuevo Profesor"}
@@ -273,7 +358,24 @@ export default function UsersPage() {
                     onChange={handleChange}
                     required
                   />
-                  <small className="form-text text-muted">Nombre completo del profesor</small>
+                  <small className="form-text text-muted">Nombre del profesor</small>
+                </div>
+              </div>
+
+              <div className="col-md-6">
+                <div className="form-group">
+                  <label htmlFor="apellido" className="form-label fw-bold">
+                    Apellidos
+                  </label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    id="apellido"
+                    name="apellido"
+                    value={formData.apellido}
+                    onChange={handleChange}
+                  />
+                  <small className="form-text text-muted">Apellidos del profesor</small>
                 </div>
               </div>
 
@@ -292,6 +394,29 @@ export default function UsersPage() {
                     required
                   />
                   <small className="form-text text-muted">Correo electrónico del profesor</small>
+                </div>
+              </div>
+
+              <div className="col-md-6">
+                <div className="form-group">
+                  <label htmlFor="password" className="form-label fw-bold">
+                    {editingId ? "Nueva Contraseña" : "Contraseña"}
+                  </label>
+                  <input
+                    type="password"
+                    className="form-control"
+                    id="password"
+                    name="password"
+                    value={formData.password}
+                    onChange={handleChange}
+                    placeholder={editingId ? "Dejar en blanco para no cambiar" : ""}
+                    required={!editingId}
+                  />
+                  <small className="form-text text-muted">
+                    {editingId 
+                      ? "Solo introduzca si desea cambiar la contraseña actual" 
+                      : "Contraseña para acceder al sistema"}
+                  </small>
                 </div>
               </div>
 
@@ -316,34 +441,51 @@ export default function UsersPage() {
                 </div>
               </div>
 
-              {!editingId && (
-                <div className="col-md-6">
+              {!editingId && profesoresInactivosConHorario.length > 0 && (
+                <div className="col-md-12 mt-3">
                   <div className="form-group">
-                    <label htmlFor="inheritFrom" className="form-label fw-bold">
-                      Heredar horarios de
+                    <label htmlFor="inheritFromId" className="form-label fw-bold">
+                      Profesor del que heredar horarios <span className="text-danger">*</span>
                     </label>
                     <select
                       className="form-select"
-                      id="inheritFrom"
-                      onChange={(e) => setInheritFromId(e.target.value ? Number.parseInt(e.target.value) : null)}
+                      id="inheritFromId"
                       value={inheritFromId || ""}
+                      onChange={(e) => setInheritFromId(e.target.value ? Number.parseInt(e.target.value) : null)}
+                      required
                     >
-                      <option value="">No heredar horarios</option>
-                      {profesores.map((profesor: Usuario) => (
+                      <option value="">Selecciona un profesor</option>
+                      {profesoresInactivosConHorario.map((profesor) => (
                         <option key={profesor.id} value={profesor.id}>
-                          {profesor.nombre}
+                          {profesor.nombre} {profesor.apellido} (inactivo)
                         </option>
                       ))}
                     </select>
                     <small className="form-text text-muted">
-                      Si este profesor sustituye a otro, puede heredar sus horarios de guardia
+                      El nuevo profesor heredará los horarios de guardias del profesor seleccionado
                     </small>
                   </div>
                 </div>
               )}
-            </div>
 
-            {error && <div className="alert alert-danger mt-3">{error}</div>}
+              {!editingId && hayProfesoresInactivosSinHorario && (
+                <div className="col-md-12 mt-3">
+                  <div className="alert alert-info">
+                    <i className="bi bi-info-circle me-2"></i>
+                    Los profesores inactivos no tienen horarios asignados. El nuevo profesor se creará con un horario vacío.
+                  </div>
+                </div>
+              )}
+
+              {error && (
+                <div className="col-12">
+                  <div className="alert alert-danger">
+                    <i className="bi bi-exclamation-triangle me-2"></i>
+                    {error}
+                  </div>
+                </div>
+              )}
+            </div>
 
             <div className="d-flex justify-content-end mt-4 pt-3 border-top">
               <button 
@@ -404,7 +546,9 @@ export default function UsersPage() {
                 <tbody>
                   {getCurrentPageItems().map((profesor: Usuario) => (
                     <tr key={profesor.id}>
-                      <td className="fw-medium">{profesor.nombre}</td>
+                      <td className="fw-medium">
+                        {profesor.nombre} {profesor.apellido || ""}
+                      </td>
                       <td>{profesor.email}</td>
                       <td>
                         {profesor.activo ? (

@@ -2,7 +2,9 @@
 CREATE TABLE IF NOT EXISTS Usuarios (
     id SERIAL PRIMARY KEY,
     nombre VARCHAR(100) NOT NULL,
+    apellido VARCHAR(100) NOT NULL,
     email VARCHAR(100) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL,  -- Almacena el hash de la contraseña
     rol VARCHAR(50) NOT NULL,
     activo BOOLEAN NOT NULL DEFAULT TRUE
 );

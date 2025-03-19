@@ -2,7 +2,44 @@
 
 Este documento registra todos los cambios, mejoras y correcciones realizadas en el proyecto de Sistema de Gestión de Guardias.
 
-## [2025-03-19] - Mejoras en la selección de profesores disponibles y en la navegación del sistema
+## [2025-03-19] (2) - Mejoras en autenticación, gestión de usuarios y visualización de horarios
+
+### Autor(es)
+- Equipo de Desarrollo
+
+### Cambios realizados
+- Optimización del sistema de autenticación y validación de sesiones
+- Implementación de restricción para creación de nuevos usuarios: solo permitido cuando hay profesores inactivos
+- Implementación de herencia obligatoria de horarios cuando se crea un nuevo usuario y hay profesores inactivos con horarios
+- Mejora en la visualización de horarios con soporte para modo oscuro y modo claro
+- Implementación de validación para evitar horarios duplicados en el mismo día y tramo para un profesor
+- Mejora en el formulario de creación de horarios para seleccionar múltiples tramos en un solo día
+- Adición de vista semanal para horarios de profesores con mejoras en la visualización y navegación
+- Implementación de botón de eliminación en la vista semanal de horarios
+- Corrección de problemas de visualización de las tablas de horarios en modo oscuro
+
+### Archivos modificados
+- `app/admin/horarios/page.tsx`: Mejoras en la validación y visualización de horarios, adición de vista semanal
+- `app/profesor/horario/page.tsx`: Mejoras en la visualización de horarios y soporte para modo oscuro
+- `app/admin/users/page.tsx`: Implementación de restricciones para creación de usuarios y herencia de horarios
+- `app/sala-guardias/page.tsx`: Mejoras en la visualización de la tabla y soporte para modo oscuro
+- `lib/authService.ts`: Optimización de procesos de autenticación y validación de sesiones
+
+### Problemas resueltos
+- Inconsistencias visuales en el modo oscuro para tablas de horarios
+- Duplicidad en horarios de guardias para un mismo profesor en el mismo día y tramo
+- Proceso tedioso para añadir múltiples tramos horarios a un profesor
+- Falta de restricciones en la creación de usuarios, lo que podía causar confusión en la asignación de horarios
+- Problemas de visualización en las tablas de horarios para diferentes tamaños de pantalla
+
+### Notas adicionales
+- La restricción de creación de usuarios mejora la organización y evita la proliferación de profesores sin horarios asignados
+- La herencia de horarios facilita la transición cuando se reemplaza un profesor inactivo con uno nuevo
+- La vista semanal de horarios proporciona una mejor visualización de la disponibilidad y asignaciones
+- El soporte mejorado para modo oscuro cumple con estándares de accesibilidad y mejora la experiencia de usuario
+- El proceso de validación de horarios duplicados previene errores de programación y conflictos en las guardias
+
+## [2025-03-19] (1) - Mejoras en la selección de profesores disponibles y en la navegación del sistema
 
 ### Autor(es)
 - Equipo de Desarrollo
