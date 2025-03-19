@@ -25,7 +25,7 @@ const Navbar: React.FC = () => {
 
   const handleLogout = () => {
     logout()
-    router.push("/login")
+    router.push(DB_CONFIG.RUTAS.LOGIN)
   }
 
   // Si no hay usuario autenticado, no renderizar nada
@@ -158,18 +158,11 @@ const Navbar: React.FC = () => {
                     Mis Ausencias
                   </Link>
                   <Link 
-                    href={DB_CONFIG.RUTAS.PROFESOR_GUARDIAS_PENDIENTES}
-                    className={`nav-link-mobile ${pathname === DB_CONFIG.RUTAS.PROFESOR_GUARDIAS_PENDIENTES ? 'active' : ''}`}
+                    href={DB_CONFIG.RUTAS.PROFESOR_MIS_GUARDIAS}
+                    className={`nav-link-mobile ${pathname === DB_CONFIG.RUTAS.PROFESOR_MIS_GUARDIAS ? 'active' : ''}`}
                   >
-                    <i className="bi bi-list-check me-2"></i>
-                    Guardias Pendientes
-                  </Link>
-                  <Link 
-                    href={DB_CONFIG.RUTAS.PROFESOR_FIRMAR_GUARDIA}
-                    className={`nav-link-mobile ${pathname === DB_CONFIG.RUTAS.PROFESOR_FIRMAR_GUARDIA ? 'active' : ''}`}
-                  >
-                    <i className="bi bi-check-circle me-2"></i>
-                    Firmar Guardia
+                    <i className="bi bi-clipboard-check me-2"></i>
+                    Mis Guardias
                   </Link>
                 </>
               )}
