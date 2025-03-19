@@ -1,153 +1,234 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import type React from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 import { useAuth } from "@/src/contexts/AuthContext"
 import { ThemeToggle } from "@/components/common/ThemeToggle"
+import { DB_CONFIG } from "@/lib/db-config"
 
 const Navbar: React.FC = () => {
   const { user, logout } = useAuth()
   const router = useRouter()
+  const pathname = usePathname()
+  const [isScrolled, setIsScrolled] = useState(false)
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 10)
+    }
+    window.addEventListener("scroll", handleScroll)
+    return () => window.removeEventListener("scroll", handleScroll)
+  }, [])
 
   const handleLogout = () => {
     logout()
     router.push("/login")
   }
 
+  // Si no hay usuario autenticado, no renderizar nada
   if (!user) return null
 
+  const isAdmin = user.rol === DB_CONFIG.ROLES.ADMIN
+  const dashboardLink = isAdmin ? DB_CONFIG.RUTAS.ADMIN : DB_CONFIG.RUTAS.PROFESOR
+
   return (
-    <nav className="navbar navbar-expand-md navbar-custom">
-      <div className="container-fluid">
-        <Link className="navbar-brand" href={user.rol === "admin" ? "/admin" : "/profesor"}>
-          Gestión de Guardias
+    <nav 
+      className={`navbar navbar-expand-lg fixed-top ${isScrolled ? 'navbar-scrolled' : ''}`}
+    >
+      <div className="container-fluid px-4">
+        <Link 
+          className="navbar-brand d-flex align-items-center" 
+          href={dashboardLink}
+        >
+          <i className="bi bi-clipboard-check me-2"></i>
+          <span className="font-weight-bold">Gestión de Guardias</span>
         </Link>
 
-        <button
-          className="navbar-toggler border-0"
-          type="button"
-          data-bs-toggle="collapse"
-          data-bs-target="#navbarNav"
-          aria-controls="navbarNav"
-          aria-expanded="false"
-          aria-label="Toggle navigation"
-        >
-          <span className="navbar-toggler-icon text-white"></span>
-        </button>
+        {isMobileMenuOpen ? (
+          <button
+            className="navbar-toggler"
+            type="button"
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            aria-controls="navbarNav"
+            aria-expanded="true"
+            aria-label="Toggle navigation"
+          >
+            <i className="bi bi-x"></i>
+          </button>
+        ) : (
+          <button
+            className="navbar-toggler collapsed"
+            type="button"
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            aria-controls="navbarNav"
+            aria-expanded="false"
+            aria-label="Toggle navigation"
+          >
+            <i className="bi bi-list"></i>
+          </button>
+        )}
 
-        <div className="collapse navbar-collapse" id="navbarNav">
-          {/* Menú móvil - Solo visible en pantallas pequeñas */}
-          <ul className="navbar-nav d-md-none">
-            {user.rol === "admin" ? (
-              <>
-                <li className="nav-item">
-                  <Link className="nav-link" href="/admin">
-                    <i className="bi bi-speedometer2 me-2"></i>Dashboard
+        <div className={`collapse navbar-collapse ${isMobileMenuOpen ? 'show' : ''}`} id="navbarNav">
+          {/* Botón de navegación móvil a Sala de Guardias - Visible solo en móvil */}
+          <div className="d-lg-none mt-3 mb-2">
+            <Link 
+              href={DB_CONFIG.RUTAS.SALA_GUARDIAS}
+              className={`nav-link-mobile ${pathname === DB_CONFIG.RUTAS.SALA_GUARDIAS ? 'active' : ''}`}
+            >
+              <i className="bi bi-display me-2"></i>
+              Sala de Guardias
+            </Link>
+          </div>
+
+          {/* Enlaces específicos de rol - Visible solo en móvil */}
+          <div className="d-lg-none">
+            <div className="mobile-nav-section">
+              <div className="mobile-nav-header">
+                <small>{isAdmin ? 'Administración' : 'Navegación'}</small>
+              </div>
+              {isAdmin ? (
+                <>
+                  <Link 
+                    href={DB_CONFIG.RUTAS.ADMIN}
+                    className={`nav-link-mobile ${pathname === DB_CONFIG.RUTAS.ADMIN ? 'active' : ''}`}
+                  >
+                    <i className="bi bi-speedometer2 me-2"></i>
+                    Dashboard
                   </Link>
-                </li>
-                <li className="nav-item">
-                  <Link className="nav-link" href="/admin/users">
-                    <i className="bi bi-people me-2"></i>Usuarios
+                  <Link 
+                    href={DB_CONFIG.RUTAS.ADMIN_USERS}
+                    className={`nav-link-mobile ${pathname.startsWith(DB_CONFIG.RUTAS.ADMIN_USERS) ? 'active' : ''}`}
+                  >
+                    <i className="bi bi-people me-2"></i>
+                    Usuarios
                   </Link>
-                </li>
-                <li className="nav-item">
-                  <Link className="nav-link" href="/admin/horarios">
-                    <i className="bi bi-calendar3 me-2"></i>Horarios
+                  <Link 
+                    href={DB_CONFIG.RUTAS.ADMIN_GUARDIAS}
+                    className={`nav-link-mobile ${pathname.startsWith(DB_CONFIG.RUTAS.ADMIN_GUARDIAS) ? 'active' : ''}`}
+                  >
+                    <i className="bi bi-clipboard-check me-2"></i>
+                    Guardias
                   </Link>
-                </li>
-                <li className="nav-item">
-                  <Link className="nav-link" href="/admin/lugares">
-                    <i className="bi bi-geo-alt me-2"></i>Lugares
+                  <Link 
+                    href={DB_CONFIG.RUTAS.ADMIN_AUSENCIAS}
+                    className={`nav-link-mobile ${pathname.startsWith(DB_CONFIG.RUTAS.ADMIN_AUSENCIAS) ? 'active' : ''}`}
+                  >
+                    <i className="bi bi-calendar-x me-2"></i>
+                    Ausencias
                   </Link>
-                </li>
-                <li className="nav-item">
-                  <Link className="nav-link" href="/admin/guardias">
-                    <i className="bi bi-clipboard-check me-2"></i>Guardias
+                  <Link 
+                    href={DB_CONFIG.RUTAS.ADMIN_HORARIOS}
+                    className={`nav-link-mobile ${pathname.startsWith(DB_CONFIG.RUTAS.ADMIN_HORARIOS) ? 'active' : ''}`}
+                  >
+                    <i className="bi bi-calendar3 me-2"></i>
+                    Horarios
                   </Link>
-                </li>
-                <li className="nav-item">
-                  <Link className="nav-link" href="/admin/ausencias">
-                    <i className="bi bi-calendar-x me-2"></i>Ausencias
+                  <Link 
+                    href={DB_CONFIG.RUTAS.ADMIN_LUGARES}
+                    className={`nav-link-mobile ${pathname.startsWith(DB_CONFIG.RUTAS.ADMIN_LUGARES) ? 'active' : ''}`}
+                  >
+                    <i className="bi bi-geo-alt me-2"></i>
+                    Lugares
                   </Link>
-                </li>
-                <li className="nav-item">
-                  <Link className="nav-link" href="/admin/estadisticas">
-                    <i className="bi bi-bar-chart me-2"></i>Estadísticas
+                </>
+              ) : (
+                <>
+                  <Link 
+                    href={DB_CONFIG.RUTAS.PROFESOR}
+                    className={`nav-link-mobile ${pathname === DB_CONFIG.RUTAS.PROFESOR ? 'active' : ''}`}
+                  >
+                    <i className="bi bi-speedometer2 me-2"></i>
+                    Dashboard
                   </Link>
-                </li>
-              </>
-            ) : (
-              <>
-                <li className="nav-item">
-                  <Link className="nav-link" href="/profesor">
-                    <i className="bi bi-speedometer2 me-2"></i>Dashboard
+                  <Link 
+                    href={DB_CONFIG.RUTAS.PROFESOR_HORARIO}
+                    className={`nav-link-mobile ${pathname === DB_CONFIG.RUTAS.PROFESOR_HORARIO ? 'active' : ''}`}
+                  >
+                    <i className="bi bi-calendar-week me-2"></i>
+                    Mi Horario
                   </Link>
-                </li>
-                <li className="nav-item">
-                  <Link className="nav-link" href="/profesor/horario">
-                    <i className="bi bi-calendar-week me-2"></i>Mi Horario
+                  <Link 
+                    href={DB_CONFIG.RUTAS.PROFESOR_AUSENCIAS}
+                    className={`nav-link-mobile ${pathname === DB_CONFIG.RUTAS.PROFESOR_AUSENCIAS ? 'active' : ''}`}
+                  >
+                    <i className="bi bi-calendar-x me-2"></i>
+                    Mis Ausencias
                   </Link>
-                </li>
-                <li className="nav-item">
-                  <Link className="nav-link" href="/profesor/ausencias">
-                    <i className="bi bi-calendar-x me-2"></i>Mis Ausencias
+                  <Link 
+                    href={DB_CONFIG.RUTAS.PROFESOR_GUARDIAS_PENDIENTES}
+                    className={`nav-link-mobile ${pathname === DB_CONFIG.RUTAS.PROFESOR_GUARDIAS_PENDIENTES ? 'active' : ''}`}
+                  >
+                    <i className="bi bi-list-check me-2"></i>
+                    Guardias Pendientes
                   </Link>
-                </li>
-                <li className="nav-item">
-                  <Link className="nav-link" href="/profesor/guardias-pendientes">
-                    <i className="bi bi-list-check me-2"></i>Guardias Pendientes
+                  <Link 
+                    href={DB_CONFIG.RUTAS.PROFESOR_FIRMAR_GUARDIA}
+                    className={`nav-link-mobile ${pathname === DB_CONFIG.RUTAS.PROFESOR_FIRMAR_GUARDIA ? 'active' : ''}`}
+                  >
+                    <i className="bi bi-check-circle me-2"></i>
+                    Firmar Guardia
                   </Link>
-                </li>
-                <li className="nav-item">
-                  <Link className="nav-link" href="/profesor/firmar-guardia">
-                    <i className="bi bi-check-circle me-2"></i>Firmar Guardia
-                  </Link>
-                </li>
-              </>
-            )}
-            <li className="nav-item">
-              <Link className="nav-link" href="/sala-guardias">
-                <i className="bi bi-display me-2"></i>Sala de Guardias
-              </Link>
-            </li>
-            <li className="nav-item">
-              <hr className="dropdown-divider bg-secondary my-2" />
-            </li>
-            <li className="nav-item">
-              <button className="nav-link text-danger w-100 text-start" onClick={handleLogout}>
-                <i className="bi bi-box-arrow-right me-2"></i>Cerrar sesión
+                </>
+              )}
+            </div>
+
+            <div className="mobile-nav-section">
+              <div className="mobile-nav-header">
+                <small>Usuario</small>
+              </div>
+              <button className="nav-link-mobile text-danger" onClick={handleLogout}>
+                <i className="bi bi-box-arrow-right me-2"></i>
+                Cerrar sesión
               </button>
-            </li>
-          </ul>
+            </div>
+          </div>
 
           {/* Menú de usuario - Visible en todas las pantallas */}
-          <ul className="navbar-nav ms-auto">
-            <li className="nav-item me-2 d-flex align-items-center">
+          <ul className="navbar-nav ms-auto align-items-center">
+            {/* Enlace a Sala de Guardias - Solo visible en desktop */}
+            <li className="nav-item d-none d-lg-flex me-3">
+              <Link 
+                href={DB_CONFIG.RUTAS.SALA_GUARDIAS}
+                className={`nav-link px-3 py-2 rounded-pill ${pathname === DB_CONFIG.RUTAS.SALA_GUARDIAS ? 'active' : ''}`}
+              >
+                <i className="bi bi-display me-1"></i>
+                Sala de Guardias
+              </Link>
+            </li>
+            <li className="nav-item me-3">
               <ThemeToggle />
             </li>
             <li className="nav-item dropdown">
               <a
-                className="nav-link dropdown-toggle"
+                className="nav-link dropdown-toggle d-flex align-items-center"
                 href="#"
                 id="navbarDropdown"
                 role="button"
                 data-bs-toggle="dropdown"
                 aria-expanded="false"
               >
-                {user.nombre}
+                <div className="avatar-circle me-2">
+                  {user.nombre.charAt(0).toUpperCase()}
+                </div>
+                <span className="d-none d-md-inline">{user.nombre}</span>
               </a>
-              <ul className="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdown">
+              <ul className="dropdown-menu dropdown-menu-end shadow-sm" aria-labelledby="navbarDropdown">
                 <li>
-                  <span className="dropdown-item-text text-muted">
-                    {user.rol === "admin" ? "Administrador" : "Profesor"}
-                  </span>
+                  <div className="dropdown-item-text py-2">
+                    <div className="fw-bold">{user.nombre}</div>
+                    <div className="small text-muted">{user.email}</div>
+                    <div className="badge mt-1 rounded-pill text-bg-light">
+                      {isAdmin ? "Administrador" : "Profesor"}
+                    </div>
+                  </div>
                 </li>
+                <li><hr className="dropdown-divider" /></li>
                 <li>
-                  <hr className="dropdown-divider" />
-                </li>
-                <li>
-                  <button className="dropdown-item" onClick={handleLogout}>
+                  <button className="dropdown-item d-flex align-items-center" onClick={handleLogout}>
+                    <i className="bi bi-box-arrow-right me-2"></i>
                     Cerrar sesión
                   </button>
                 </li>
