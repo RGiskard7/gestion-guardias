@@ -17,24 +17,23 @@ const StatusCard: React.FC<StatusCardProps> = ({
   subtitle,
   onClick
 }) => {
-  const cardClasses = `card text-white bg-${color} mb-3 shadow-sm ${onClick ? 'cursor-pointer' : ''}`
-  
   return (
     <div 
-      className={cardClasses} 
+      className={`stats-card ${color}`}
       onClick={onClick}
-      style={onClick ? { cursor: 'pointer' } : undefined}
+      style={{
+        cursor: onClick ? 'pointer' : undefined,
+        height: '100%',
+        minHeight: '160px'
+      }}
     >
       <div className="card-body">
-        <div className="d-flex justify-content-between align-items-center">
-          <div>
-            <h5 className="card-title">{title}</h5>
-            <p className="display-4">{value}</p>
-            {subtitle && <p className="card-text">{subtitle}</p>}
-          </div>
-          <div className="dashboard-icon">
-            <i className={`bi bi-${icon} fs-1`}></i>
-          </div>
+        <div className="icon-background"></div>
+        <h5 className="card-title">{title}</h5>
+        <p className="value">{value}</p>
+        {subtitle && <p className="subtitle">{subtitle}</p>}
+        <div className="position-absolute top-0 end-0 p-3">
+          <i className={`bi bi-${icon}`} style={{ fontSize: '1.5rem' }}></i>
         </div>
       </div>
     </div>
