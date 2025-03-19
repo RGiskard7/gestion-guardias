@@ -11,47 +11,47 @@ interface SidebarProps {
 
 const Sidebar: React.FC<SidebarProps> = ({ role }) => {
   return (
-    <div className="sidebar d-none d-md-flex flex-column flex-shrink-0 p-3 text-white bg-dark h-100">
+    <div className="sidebar d-none d-md-flex flex-column flex-shrink-0 p-3 h-100">
       <ul className="nav nav-pills flex-column mb-auto">
         {role === "admin" ? (
           <>
             <li className="nav-item">
-              <Link className="nav-link text-white" href={DB_CONFIG.RUTAS.ADMIN}>
+              <Link className="nav-link" href={DB_CONFIG.RUTAS.ADMIN}>
                 <i className="bi bi-speedometer2 me-2"></i>Dashboard
               </Link>
             </li>
             <li className="nav-item">
-              <Link className="nav-link text-white" href={DB_CONFIG.RUTAS.ADMIN_USERS}>
+              <Link className="nav-link" href={DB_CONFIG.RUTAS.ADMIN_USERS}>
                 <i className="bi bi-people me-2"></i>Usuarios
               </Link>
             </li>
             <li className="nav-item">
-              <Link className="nav-link text-white" href={DB_CONFIG.RUTAS.ADMIN_HORARIOS}>
+              <Link className="nav-link" href={DB_CONFIG.RUTAS.ADMIN_HORARIOS}>
                 <i className="bi bi-calendar3 me-2"></i>Horarios
               </Link>
             </li>
             <li className="nav-item">
-              <Link className="nav-link text-white" href={DB_CONFIG.RUTAS.ADMIN_LUGARES}>
+              <Link className="nav-link" href={DB_CONFIG.RUTAS.ADMIN_LUGARES}>
                 <i className="bi bi-geo-alt me-2"></i>Lugares
               </Link>
             </li>
             <li className="nav-item">
-              <Link className="nav-link text-white" href={DB_CONFIG.RUTAS.ADMIN_GUARDIAS}>
+              <Link className="nav-link" href={DB_CONFIG.RUTAS.ADMIN_GUARDIAS}>
                 <i className="bi bi-clipboard-check me-2"></i>Guardias
               </Link>
             </li>
             <li className="nav-item">
-              <Link className="nav-link text-white" href={DB_CONFIG.RUTAS.ADMIN_AUSENCIAS}>
+              <Link className="nav-link" href={DB_CONFIG.RUTAS.ADMIN_AUSENCIAS}>
                 <i className="bi bi-calendar-x me-2"></i>Ausencias
               </Link>
             </li>
             <li className="nav-item">
-              <Link className="nav-link text-white" href={DB_CONFIG.RUTAS.ADMIN_ESTADISTICAS}>
+              <Link className="nav-link" href={DB_CONFIG.RUTAS.ADMIN_ESTADISTICAS}>
                 <i className="bi bi-bar-chart me-2"></i>Estadísticas
               </Link>
             </li>
             <li className="nav-item">
-              <Link className="nav-link text-white" href="/admin/configuracion">
+              <Link className="nav-link" href="/admin/configuracion">
                 <i className="bi bi-gear me-2"></i>Configuración
               </Link>
             </li>
@@ -59,22 +59,22 @@ const Sidebar: React.FC<SidebarProps> = ({ role }) => {
         ) : (
           <>
             <li className="nav-item">
-              <Link className="nav-link text-white" href={DB_CONFIG.RUTAS.PROFESOR}>
+              <Link className="nav-link" href={DB_CONFIG.RUTAS.PROFESOR}>
                 <i className="bi bi-speedometer2 me-2"></i>Dashboard
               </Link>
             </li>
             <li className="nav-item">
-              <Link className="nav-link text-white" href={DB_CONFIG.RUTAS.PROFESOR_HORARIO}>
+              <Link className="nav-link" href={DB_CONFIG.RUTAS.PROFESOR_HORARIO}>
                 <i className="bi bi-calendar-week me-2"></i>Mi Horario
               </Link>
             </li>
             <li className="nav-item">
-              <Link className="nav-link text-white" href={DB_CONFIG.RUTAS.PROFESOR_AUSENCIAS}>
+              <Link className="nav-link" href={DB_CONFIG.RUTAS.PROFESOR_AUSENCIAS}>
                 <i className="bi bi-calendar-x me-2"></i>Mis Ausencias
               </Link>
             </li>
             <li className="nav-item">
-              <Link className="nav-link text-white" href={DB_CONFIG.RUTAS.PROFESOR_MIS_GUARDIAS}>
+              <Link className="nav-link" href={DB_CONFIG.RUTAS.PROFESOR_MIS_GUARDIAS}>
                 <i className="bi bi-clipboard-check me-2"></i>Mis Guardias
               </Link>
             </li>
