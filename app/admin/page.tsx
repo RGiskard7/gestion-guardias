@@ -43,8 +43,8 @@ export default function AdminDashboardPage() {
 
       <div className="mb-5">
         <h2 className="h5 mb-4">Resumen de hoy</h2>
-        <div className="row g-4">
-          <div className="col-xl-3 col-md-6">
+        <div className="row g-3">
+          <div className="col-xl-3 col-md-6 mb-3">
             <StatusCard 
               title="Profesores Activos" 
               value={profesoresActivos} 
@@ -53,7 +53,7 @@ export default function AdminDashboardPage() {
               subtitle="Total activos"
             />
           </div>
-          <div className="col-xl-3 col-md-6">
+          <div className="col-xl-3 col-md-6 mb-3">
             <StatusCard 
               title="Guardias Pendientes" 
               value={pendientesHoy} 
@@ -62,7 +62,7 @@ export default function AdminDashboardPage() {
               subtitle="Hoy"
             />
           </div>
-          <div className="col-xl-3 col-md-6">
+          <div className="col-xl-3 col-md-6 mb-3">
             <StatusCard 
               title="Guardias Asignadas" 
               value={asignadasHoy} 
@@ -71,7 +71,7 @@ export default function AdminDashboardPage() {
               subtitle="Sin firmar"
             />
           </div>
-          <div className="col-xl-3 col-md-6">
+          <div className="col-xl-3 col-md-6 mb-3">
             <StatusCard 
               title="Guardias Firmadas" 
               value={firmadasHoy} 
@@ -85,8 +85,8 @@ export default function AdminDashboardPage() {
 
       <div>
         <h2 className="h5 mb-4">Gestión del sistema</h2>
-        <div className="row g-4">
-          <div className="col-lg-4 col-md-6">
+        <div className="row g-3">
+          <div className="col-lg-4 col-md-6 mb-3">
             <ActionCard
               title="Gestión de Usuarios"
               description="Administra los usuarios del sistema, crea nuevos profesores y asigna roles."
@@ -95,7 +95,7 @@ export default function AdminDashboardPage() {
               linkText="Gestionar Usuarios"
             />
           </div>
-          <div className="col-lg-4 col-md-6">
+          <div className="col-lg-4 col-md-6 mb-3">
             <ActionCard
               title="Gestión de Guardias"
               description="Administra las guardias, asigna profesores y gestiona su estado."
@@ -105,7 +105,7 @@ export default function AdminDashboardPage() {
               color="info"
             />
           </div>
-          <div className="col-lg-4 col-md-6">
+          <div className="col-lg-4 col-md-6 mb-3">
             <ActionCard
               title="Gestión de Ausencias"
               description="Administra las ausencias de profesores y genera guardias automáticamente."
@@ -115,7 +115,7 @@ export default function AdminDashboardPage() {
               color="warning"
             />
           </div>
-          <div className="col-lg-4 col-md-6">
+          <div className="col-lg-4 col-md-6 mb-3">
             <ActionCard
               title="Gestión de Horarios"
               description="Administra los horarios de los profesores para la asignación de guardias."
@@ -125,7 +125,7 @@ export default function AdminDashboardPage() {
               color="success"
             />
           </div>
-          <div className="col-lg-4 col-md-6">
+          <div className="col-lg-4 col-md-6 mb-3">
             <ActionCard
               title="Gestión de Lugares"
               description="Administra los lugares donde se realizan las guardias."
@@ -135,7 +135,7 @@ export default function AdminDashboardPage() {
               color="secondary"
             />
           </div>
-          <div className="col-lg-4 col-md-6">
+          <div className="col-lg-4 col-md-6 mb-3">
             <ActionCard
               title="Sala de Guardias"
               description="Visualiza el estado actual de las guardias en tiempo real."
@@ -145,7 +145,7 @@ export default function AdminDashboardPage() {
               color="primary"
             />
           </div>
-          <div className="col-lg-4 col-md-6">
+          <div className="col-lg-4 col-md-6 mb-3">
             <ActionCard
               title="Estadísticas"
               description="Visualiza estadísticas sobre guardias, ausencias y profesores."

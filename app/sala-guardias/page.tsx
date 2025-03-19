@@ -4,6 +4,8 @@ import { useState, useEffect, useMemo } from "react"
 import { useGuardias } from "@/src/contexts/GuardiasContext"
 import { useUsuarios } from "@/src/contexts/UsuariosContext"
 import { useLugares } from "@/src/contexts/LugaresContext"
+import { useHorarios } from "@/src/contexts/HorariosContext"
+import { Guardia, Horario, Usuario } from "@/src/types"
 import GuardiaCard from "@/app/guardia/guardia-card"
 import { Pagination } from "@/components/ui/pagination"
 import Link from "next/link"
@@ -11,8 +13,9 @@ import { DB_CONFIG } from "@/lib/db-config"
 
 export default function SalaGuardiasPage() {
   const { guardias, getProfesorAusenteIdByGuardia } = useGuardias()
-  const { getUsuarioById } = useUsuarios()
+  const { getUsuarioById, usuarios } = useUsuarios()
   const { getLugarById } = useLugares()
+  const { horarios } = useHorarios()
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split("T")[0])
   const [viewMode, setViewMode] = useState<"day" | "week">("day")
   const [filterEstado, setFilterEstado] = useState<string>("")
@@ -227,6 +230,75 @@ export default function SalaGuardiasPage() {
     setCurrentPage(1);
   }, [selectedDate, viewMode]);
 
+  // Función para obtener el día de la semana a partir de una fecha
+  const getDayOfWeek = (dateString: string): string => {
+    const days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+    const date = new Date(dateString);
+    return days[date.getDay()];
+  };
+
+  // Función para determinar si un profesor está disponible para un día y tramo específico
+  const isProfesorDisponible = (profesorId: number, diaSemana: string, tramoHorario: string, horarios: Horario[], guardiasAsignadas: Guardia[]): boolean => {
+    // Verificar si tiene horario para ese día y tramo
+    const tieneHorario = horarios.some(h => 
+      h.profesorId === profesorId && 
+      h.diaSemana === diaSemana && 
+      h.tramoHorario === tramoHorario
+    );
+    
+    // Si no tiene horario, no está disponible
+    if (!tieneHorario) return false;
+    
+    // Verificar que no tiene otra guardia asignada en la misma fecha y tramo
+    const tieneGuardiaAsignada = guardiasAsignadas.some(g => 
+      g.profesorCubridorId === profesorId && 
+      g.tramoHorario === tramoHorario
+    );
+    
+    // Está disponible si tiene horario y no tiene guardia asignada
+    return !tieneGuardiaAsignada;
+  };
+
+  // Profesores disponibles por guardia
+  const getProfesoresDisponibles = (guardia: Guardia): Usuario[] => {
+    // Solo calcular para guardias pendientes
+    if (guardia.estado !== DB_CONFIG.ESTADOS_GUARDIA.PENDIENTE) return [];
+    
+    // Obtener día de la semana
+    const diaSemana = getDayOfWeek(guardia.fecha);
+    const tramoHorario = guardia.tramoHorario;
+    
+    // Filtrar guardias asignadas para la misma fecha y tramo
+    const guardiasAsignadasMismaFechaTramo = guardias.filter(g => 
+      g.fecha === guardia.fecha && 
+      g.tramoHorario === guardia.tramoHorario && 
+      g.profesorCubridorId !== null
+    );
+    
+    // Filtrar profesores activos que no sean el ausente
+    const profesoresActivos = usuarios.filter(u => 
+      u.rol === DB_CONFIG.ROLES.PROFESOR && 
+      u.activo && 
+      u.id !== getProfesorAusenteIdByGuardia(guardia.id)
+    );
+    
+    // Filtrar profesores disponibles
+    return profesoresActivos.filter(profesor => 
+      isProfesorDisponible(profesor.id, diaSemana, tramoHorario, horarios, guardiasAsignadasMismaFechaTramo)
+    );
+  };
+
+  // Implementar función de truncado
+  const truncateText = (text: string, maxLength: number = 50): string => {
+    if (!text) return '';
+    
+    // Si el texto es más corto que la longitud máxima, devolverlo sin cambios
+    if (text.length <= maxLength) return text;
+    
+    // Truncar el texto y añadir puntos suspensivos
+    return text.substring(0, maxLength) + '...';
+  }
+
   return (
     <div className="container-fluid">
       <h1 className="h3 mb-4">Sala de Guardias</h1>
@@ -361,6 +433,50 @@ export default function SalaGuardiasPage() {
                   {guardiasByTramo[tramo].map((guardia) => (
                     <div key={guardia.id} className="col-md-6 col-lg-4 mb-3">
                       <GuardiaCard guardia={guardia} />
+                      
+                      {/* Sección de profesores disponibles (solo para guardias pendientes) */}
+                      {guardia.estado === DB_CONFIG.ESTADOS_GUARDIA.PENDIENTE && (
+                        <div className="mt-2 p-2 border rounded shadow-sm"
+                          style={{ 
+                            backgroundColor: 'var(--surface-color)',
+                            borderColor: 'var(--border-color)' 
+                          }}
+                        >
+                          <div className="d-flex justify-content-between align-items-center mb-2">
+                            <h6 className="m-0">
+                              <i className="bi bi-people me-2"></i>
+                              Profesores disponibles:
+                            </h6>
+                            <span className={`badge bg-${getProfesoresDisponibles(guardia).length > 0 ? 'success' : 'warning'}`}>
+                              {getProfesoresDisponibles(guardia).length}
+                            </span>
+                          </div>
+                          
+                          {getProfesoresDisponibles(guardia).length > 0 ? (
+                            <div className="list-group list-group-flush profesores-disponibles">
+                              {getProfesoresDisponibles(guardia).map(profesor => (
+                                <div key={profesor.id} className="list-group-item px-0 py-2 border-0 border-bottom"
+                                  style={{ backgroundColor: 'transparent', borderColor: 'var(--border-light)' }}
+                                >
+                                  <div className="d-flex align-items-center">
+                                    <span className="avatar-circle avatar-sm me-2 bg-primary text-white">
+                                      {profesor.nombre.charAt(0).toUpperCase()}
+                                    </span>
+                                    <div>
+                                      <strong>{profesor.nombre} {profesor.apellido}</strong>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="text-center py-3 text-muted">
+                              <i className="bi bi-exclamation-circle text-warning me-2"></i>
+                              No hay profesores disponibles para cubrir esta guardia.
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -429,7 +545,7 @@ export default function SalaGuardiasPage() {
                                     <small className="d-block">
                                       <i className="bi bi-geo-alt me-1"></i>
                                       {guardia.lugarId ? 
-                                        `${getLugarById(guardia.lugarId)?.codigo} - ${getLugarById(guardia.lugarId)?.descripcion}` : 
+                                        `${getLugarById(guardia.lugarId)?.codigo} - ${truncateText(getLugarById(guardia.lugarId)?.descripcion || '', 30)}` : 
                                         DB_CONFIG.ETIQUETAS.LUGARES.SIN_LUGAR
                                       }
                                     </small>
@@ -454,6 +570,12 @@ export default function SalaGuardiasPage() {
                                         </>
                                       )}
                                     </small>
+                                    {guardia.observaciones && (
+                                      <small className="d-block text-muted" title={guardia.observaciones}>
+                                        <i className="bi bi-chat-left-text me-1"></i>
+                                        {truncateText(guardia.observaciones, 40)}
+                                      </small>
+                                    )}
                                   </div>
                                 </div>
                               ))}
@@ -522,7 +644,7 @@ export default function SalaGuardiasPage() {
                                     <small className="d-block">
                                       <i className="bi bi-geo-alt me-1"></i>
                                       {guardia.lugarId ? 
-                                        `${getLugarById(guardia.lugarId)?.codigo} - ${getLugarById(guardia.lugarId)?.descripcion}` : 
+                                        `${getLugarById(guardia.lugarId)?.codigo} - ${truncateText(getLugarById(guardia.lugarId)?.descripcion || '', 30)}` : 
                                         DB_CONFIG.ETIQUETAS.LUGARES.SIN_LUGAR
                                       }
                                     </small>
@@ -547,6 +669,12 @@ export default function SalaGuardiasPage() {
                                         </>
                                       )}
                                     </small>
+                                    {guardia.observaciones && (
+                                      <small className="d-block text-muted" title={guardia.observaciones}>
+                                        <i className="bi bi-chat-left-text me-1"></i>
+                                        {truncateText(guardia.observaciones, 40)}
+                                      </small>
+                                    )}
                                   </div>
                                 </div>
                               ))}

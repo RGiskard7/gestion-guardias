@@ -48,6 +48,17 @@ const GuardiaCard: React.FC<GuardiaCardProps> = ({
       day: "numeric",
     })
   }
+  
+  // Truncar texto largo para mostrar solo una parte
+  const truncateText = (text: string, maxLength: number = 50): string => {
+    if (!text) return '';
+    
+    // Si el texto es más corto que la longitud máxima, devolverlo sin cambios
+    if (text.length <= maxLength) return text;
+    
+    // Truncar el texto y añadir puntos suspensivos
+    return text.substring(0, maxLength) + '...';
+  }
 
   // Get badge class based on guardia status
   const getBadgeClass = (estado: string) => {
@@ -145,37 +156,44 @@ const GuardiaCard: React.FC<GuardiaCardProps> = ({
               {tareas.map((tarea) => (
                 <li 
                   key={tarea.id} 
-                  className={`list-group-item ${(onEditTarea || onDeleteTarea) ? 'd-flex justify-content-between align-items-center' : ''}`}
+                  className="list-group-item"
                 >
-                  <span>
-                    <i className="bi bi-check2-square me-2"></i>
-                    {tarea.descripcionTarea}
-                  </span>
-                  
-                  {(onEditTarea || onDeleteTarea) && (
-                    <div>
-                      {onEditTarea && (
-                        <button 
-                          className="btn btn-sm btn-outline-primary me-1" 
-                          onClick={() => onEditTarea(tarea)}
-                          title="Editar tarea"
-                          aria-label="Editar tarea"
-                        >
-                          <i className="bi bi-pencil"></i>
-                        </button>
-                      )}
-                      {onDeleteTarea && (
-                        <button 
-                          className="btn btn-sm btn-outline-danger" 
-                          onClick={() => onDeleteTarea(tarea)}
-                          title="Eliminar tarea"
-                          aria-label="Eliminar tarea"
-                        >
-                          <i className="bi bi-trash"></i>
-                        </button>
-                      )}
+                  <div className="d-flex flex-column flex-md-row justify-content-between gap-2">
+                    <div className="d-flex align-items-start text-break" style={{ minWidth: 0 }}>
+                      <i className="bi bi-check2-square me-2 flex-shrink-0 mt-1"></i>
+                      <span 
+                        title={tarea.descripcionTarea.length > 50 ? tarea.descripcionTarea : ''}
+                        className="text-wrap"
+                      >
+                        {truncateText(tarea.descripcionTarea, 50)}
+                      </span>
                     </div>
-                  )}
+                    
+                    {(onEditTarea || onDeleteTarea) && (
+                      <div className="d-flex flex-shrink-0 ms-auto mt-1 mt-md-0">
+                        {onEditTarea && (
+                          <button 
+                            className="btn btn-sm btn-outline-primary me-1" 
+                            onClick={() => onEditTarea(tarea)}
+                            title="Editar tarea"
+                            aria-label="Editar tarea"
+                          >
+                            <i className="bi bi-pencil"></i>
+                          </button>
+                        )}
+                        {onDeleteTarea && (
+                          <button 
+                            className="btn btn-sm btn-outline-danger" 
+                            onClick={() => onDeleteTarea(tarea)}
+                            title="Eliminar tarea"
+                            aria-label="Eliminar tarea"
+                          >
+                            <i className="bi bi-trash"></i>
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </li>
               ))}
             </ul>
@@ -185,7 +203,9 @@ const GuardiaCard: React.FC<GuardiaCardProps> = ({
         {guardia.observaciones && (
           <div className="mb-3">
             <h6><i className="bi bi-chat-left-text me-1"></i>Observaciones:</h6>
-            <p>{guardia.observaciones}</p>
+            <p title={guardia.observaciones.length > 100 ? guardia.observaciones : ''}>
+              {truncateText(guardia.observaciones, 100)}
+            </p>
           </div>
         )}
 
