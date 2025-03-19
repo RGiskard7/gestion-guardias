@@ -5,15 +5,25 @@ import { useGuardias } from "@/src/contexts/GuardiasContext"
 import { useLugares } from "@/src/contexts/LugaresContext"
 import { useUsuarios } from "@/src/contexts/UsuariosContext"
 import { Guardia, TareaGuardia, Lugar, Usuario } from "@/src/types"
+import { DB_CONFIG } from "@/lib/db-config"
 
 interface GuardiaCardProps {
   guardia: Guardia
   showActions?: boolean
   onAsignar?: (guardiaId: number) => void
   onFirmar?: (guardiaId: number) => void
+  onEditTarea?: (tarea: TareaGuardia) => void
+  onDeleteTarea?: (tarea: TareaGuardia) => void
 }
 
-const GuardiaCard: React.FC<GuardiaCardProps> = ({ guardia, showActions = false, onAsignar, onFirmar }) => {
+const GuardiaCard: React.FC<GuardiaCardProps> = ({ 
+  guardia, 
+  showActions = false, 
+  onAsignar, 
+  onFirmar, 
+  onEditTarea,
+  onDeleteTarea 
+}) => {
   const { getTareasByGuardia, getProfesorAusenteIdByGuardia } = useGuardias()
   const { getLugarById } = useLugares()
   const { getUsuarioById } = useUsuarios()
@@ -42,13 +52,13 @@ const GuardiaCard: React.FC<GuardiaCardProps> = ({ guardia, showActions = false,
   // Get badge class based on guardia status
   const getBadgeClass = (estado: string) => {
     switch (estado) {
-      case "Pendiente":
+      case DB_CONFIG.ESTADOS_GUARDIA.PENDIENTE:
         return "badge bg-warning text-dark"
-      case "Asignada":
+      case DB_CONFIG.ESTADOS_GUARDIA.ASIGNADA:
         return "badge bg-info"
-      case "Firmada":
+      case DB_CONFIG.ESTADOS_GUARDIA.FIRMADA:
         return "badge bg-success"
-      case "Anulada":
+      case DB_CONFIG.ESTADOS_GUARDIA.ANULADA:
         return "badge bg-danger"
       default:
         return "badge bg-secondary"
@@ -58,13 +68,13 @@ const GuardiaCard: React.FC<GuardiaCardProps> = ({ guardia, showActions = false,
   // Get background color based on guardia status
   const getBackgroundColor = (estado: string) => {
     switch (estado) {
-      case "Pendiente":
+      case DB_CONFIG.ESTADOS_GUARDIA.PENDIENTE:
         return "bg-warning bg-opacity-10 border-warning"
-      case "Asignada":
+      case DB_CONFIG.ESTADOS_GUARDIA.ASIGNADA:
         return "bg-info bg-opacity-10 border-info"
-      case "Firmada":
+      case DB_CONFIG.ESTADOS_GUARDIA.FIRMADA:
         return "bg-success bg-opacity-10 border-success"
-      case "Anulada":
+      case DB_CONFIG.ESTADOS_GUARDIA.ANULADA:
         return "bg-secondary bg-opacity-10 border-secondary"
       default:
         return "bg-light"
@@ -74,11 +84,11 @@ const GuardiaCard: React.FC<GuardiaCardProps> = ({ guardia, showActions = false,
   // Get icon based on guardia type
   const getTipoIcon = (tipo: string) => {
     switch (tipo) {
-      case "Aula":
+      case DB_CONFIG.TIPOS_GUARDIA[0]:  // Aula
         return <i className="bi bi-building me-1"></i>
-      case "Patio":
+      case DB_CONFIG.TIPOS_GUARDIA[1]:  // Patio
         return <i className="bi bi-tree me-1"></i>
-      case "Recreo":
+      case DB_CONFIG.TIPOS_GUARDIA[2]:  // Recreo
         return <i className="bi bi-people me-1"></i>
       default:
         return <i className="bi bi-question-circle me-1"></i>
@@ -133,9 +143,39 @@ const GuardiaCard: React.FC<GuardiaCardProps> = ({ guardia, showActions = false,
             <h6><i className="bi bi-list-check me-1"></i>Tareas:</h6>
             <ul className="list-group">
               {tareas.map((tarea) => (
-                <li key={tarea.id} className="list-group-item">
-                  <i className="bi bi-check2-square me-2"></i>
-                  {tarea.descripcionTarea}
+                <li 
+                  key={tarea.id} 
+                  className={`list-group-item ${(onEditTarea || onDeleteTarea) ? 'd-flex justify-content-between align-items-center' : ''}`}
+                >
+                  <span>
+                    <i className="bi bi-check2-square me-2"></i>
+                    {tarea.descripcionTarea}
+                  </span>
+                  
+                  {(onEditTarea || onDeleteTarea) && (
+                    <div>
+                      {onEditTarea && (
+                        <button 
+                          className="btn btn-sm btn-outline-primary me-1" 
+                          onClick={() => onEditTarea(tarea)}
+                          title="Editar tarea"
+                          aria-label="Editar tarea"
+                        >
+                          <i className="bi bi-pencil"></i>
+                        </button>
+                      )}
+                      {onDeleteTarea && (
+                        <button 
+                          className="btn btn-sm btn-outline-danger" 
+                          onClick={() => onDeleteTarea(tarea)}
+                          title="Eliminar tarea"
+                          aria-label="Eliminar tarea"
+                        >
+                          <i className="bi bi-trash"></i>
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </li>
               ))}
             </ul>
@@ -151,17 +191,17 @@ const GuardiaCard: React.FC<GuardiaCardProps> = ({ guardia, showActions = false,
 
         {showActions && (
           <div className="d-flex justify-content-end">
-            {guardia.estado === "Pendiente" && onAsignar && (
+            {guardia.estado === DB_CONFIG.ESTADOS_GUARDIA.PENDIENTE && onAsignar && (
               <button className="btn btn-primary me-2" onClick={() => onAsignar(guardia.id)}>
                 <i className="bi bi-person-check me-1"></i>
-                Asignarme esta guardia
+                Asignarme
               </button>
             )}
 
-            {guardia.estado === "Asignada" && onFirmar && (
+            {guardia.estado === DB_CONFIG.ESTADOS_GUARDIA.ASIGNADA && onFirmar && (
               <button className="btn btn-success" onClick={() => onFirmar(guardia.id)}>
                 <i className="bi bi-check-circle me-1"></i>
-                Firmar guardia
+                Firmar
               </button>
             )}
           </div>

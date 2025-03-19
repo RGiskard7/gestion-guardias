@@ -9,6 +9,7 @@ Este documento contiene los diagramas de flujo de las principales funcionalidade
   - [Flujos para Profesores](#flujos-para-profesores)
     - [Registro de Ausencia](#registro-de-ausencia)
     - [Visualización de Horario](#visualización-de-horario)
+    - [Gestión de Mis Guardias](#gestión-de-mis-guardias)
     - [Asignación a Guardia Pendiente](#asignación-a-guardia-pendiente)
     - [Firma de Guardia](#firma-de-guardia)
   - [Flujos para Administradores](#flujos-para-administradores)
@@ -54,14 +55,16 @@ flowchart TD
 flowchart TD
     A[Profesor] -->|Accede a| B[Mis Ausencias]
     B -->|Clic en| C[Nueva Ausencia]
-    C -->|Completa formulario| D{Validación}
-    D -->|Datos correctos| E[Enviar solicitud]
+    C -->|Completa formulario| D{Validaciones}
+    D -->|Fecha en pasado| E[Error: No se permiten fechas pasadas]
+    E -->|Corrige| C
     D -->|Datos incorrectos| C
-    E -->|Solicitud enviada| F[Ausencia registrada como Pendiente]
-    F -->|Espera aprobación| G{Decisión Admin}
-    G -->|Aceptada| H[Ausencia Aceptada]
-    G -->|Rechazada| I[Ausencia Rechazada]
-    H -->|Genera| J[Guardia Pendiente]
+    D -->|Datos correctos| F[Enviar solicitud]
+    F -->|Solicitud enviada| G[Ausencia registrada como Pendiente]
+    G -->|Espera aprobación| H{Decisión Admin}
+    H -->|Aceptada| I[Ausencia Aceptada]
+    H -->|Rechazada| J[Ausencia Rechazada]
+    I -->|Genera| K[Guardia Pendiente]
 ```
 
 ### Visualización de Horario
@@ -77,29 +80,63 @@ flowchart TD
     G -->|Actualiza| C
 ```
 
+### Gestión de Mis Guardias
+
+```mermaid
+flowchart TD
+    A[Profesor] -->|Accede a| B[Mis Guardias]
+    B -->|Selecciona| C{Pestañas}
+    
+    C -->|Pendientes| D[Guardias por asignar]
+    D -->|Filtra| D1[Ver guardias disponibles]
+    D1 -->|Selecciona| D2[Asignar guardia]
+    
+    C -->|Generadas| E[Ausencias del profesor]
+    E -->|Filtra| E1[Ver ausencias y guardias generadas]
+    E1 -->|Selecciona| E2[Ver detalles]
+    
+    C -->|Por firmar| F[Guardias asignadas]
+    F -->|Filtra| F1[Ver guardias por firmar]
+    F1 -->|Selecciona| F2[Firmar guardia]
+    
+    D2 -->|Confirma| G[Guardia asignada]
+    F2 -->|Completa| H[Formulario]
+    H -->|Añade| H1[Tareas realizadas]
+    H -->|Envía| I[Guardia firmada]
+```
+
 ### Asignación a Guardia Pendiente
 
 ```mermaid
 flowchart TD
-    A[Profesor] -->|Accede a| B[Guardias Pendientes]
-    B -->|Visualiza| C[Lista de guardias pendientes]
-    C -->|Selecciona guardia| D[Clic en Asignarme]
-    D -->|Sistema verifica| E{Requisitos}
-    E -->|Cumple requisitos| F[Guardia asignada]
-    E -->|No cumple requisitos| G[Mensaje de error]
-    F -->|Actualiza estado| H[Guardia en estado Asignada]
+    A[Profesor] -->|Accede a| B[Mis Guardias]
+    B -->|Selecciona pestaña| C[Pendientes]
+    C -->|Visualiza| D[Lista de guardias pendientes]
+    D -->|Selecciona guardia| E[Clic en Asignarme]
+    E -->|Sistema verifica| F{Disponibilidad}
+    F -->|Confirma disponibilidad| G[Guardia asignada]
+    F -->|No disponible| H[Mensaje de error]
+    G -->|Actualiza estado| I[Guardia en estado Asignada]
+    G -->|Notifica| J[Mensaje de confirmación]
 ```
 
 ### Firma de Guardia
 
 ```mermaid
 flowchart TD
-    A[Profesor] -->|Accede a| B[Firmar Guardia]
-    B -->|Visualiza| C[Lista de guardias asignadas]
-    C -->|Selecciona guardia| D[Clic en Firmar]
-    D -->|Completa| E[Formulario de observaciones]
-    E -->|Envía| F[Guardia firmada]
-    F -->|Actualiza estado| G[Guardia en estado Firmada]
+    A[Profesor] -->|Accede a| B[Mis Guardias]
+    B -->|Selecciona pestaña| C[Por firmar]
+    C -->|Visualiza| D[Lista de guardias asignadas]
+    D -->|Selecciona guardia| E[Clic en Firmar]
+    E -->|Abre| F[Formulario de firma]
+    F -->|Completa| G[Añade observaciones]
+    G -->|Opcional| H[Añade tareas realizadas]
+    H -->|Completa| I[Detalla tarea 1...n]
+    I -->|Envía| J[Formulario finalizado]
+    J -->|Sistema procesa| K[Guardia firmada]
+    K -->|Actualiza| L[Estado: Firmada]
+    K -->|Almacena| M[Observaciones]
+    K -->|Almacena| N[Tareas realizadas]
 ```
 
 ## Flujos para Administradores
@@ -159,9 +196,15 @@ flowchart TD
     E -->|Nueva guardia| F[Formulario nueva guardia]
     E -->|Editar guardia| G[Formulario editar guardia]
     E -->|Anular guardia| H[Confirmación]
-    F -->|Completa y envía| I[Guardia creada]
-    G -->|Modifica y envía| J[Guardia actualizada]
-    H -->|Confirma| K[Guardia anulada]
+    E -->|Eliminar guardia| I[Confirmación eliminar]
+    F -->|Completa y envía| J[Guardia creada]
+    G -->|Modifica y envía| K[Guardia actualizada]
+    H -->|Confirma| L[Guardia anulada]
+    I -->|Confirma| M[Guardia eliminada]
+    I -->|Rechaza| N[Operación cancelada]
+    I -->|Verifica| O{Estado = Anulada?}
+    O -->|No| P[Error: Solo se pueden eliminar guardias anuladas]
+    O -->|Sí| M
 ```
 
 ### Gestión de Ausencias
@@ -179,9 +222,13 @@ flowchart TD
     E -->|Anular ausencia| J[Confirmación]
     F -->|Completa y envía| K[Ausencia creada]
     G -->|Modifica y envía| L[Ausencia actualizada]
-    H -->|Completa y envía| M[Ausencia aceptada y guardia creada]
-    I -->|Indica motivo| N[Ausencia rechazada]
-    J -->|Confirma| O[Ausencia anulada]
+    H -->|Completa y envía| M[Ausencia aceptada]
+    H -->|Genera| N[Guardias automáticas]
+    I -->|Indica motivo| O[Ausencia rechazada]
+    J -->|Confirma| P[Ausencia anulada]
+    P -->|Verifica| Q{¿Tiene guardias?}
+    Q -->|Sí| R[Anula guardias asociadas]
+    Q -->|No| S[Finaliza proceso]
 ```
 
 ## Flujos de Procesos Automáticos
@@ -191,11 +238,15 @@ flowchart TD
 ```mermaid
 flowchart TD
     A[Administrador] -->|Acepta| B[Ausencia pendiente]
-    B -->|Completa formulario| C[Datos de guardia]
-    C -->|Sistema procesa| D[Crear guardia]
-    D -->|Actualiza| E[Estado ausencia a Aceptada]
-    D -->|Crea| F[Nueva guardia en estado Pendiente]
-    F -->|Disponible en| G[Lista de guardias pendientes]
+    B -->|Sistema verifica| C{Fecha válida}
+    C -->|Fecha en pasado| D[Error: No permitido]
+    C -->|Fecha válida| E[Completa formulario]
+    E -->|Sistema procesa| F[Crear guardia]
+    F -->|Actualiza| G[Estado ausencia a Aceptada]
+    F -->|Crea| H[Nueva guardia en estado Pendiente]
+    H -->|Asocia| I[Guardia vinculada a ausencia]
+    H -->|Disponible en| J[Lista de guardias pendientes]
+    D -->|Notifica| K[Mensaje de error]
 ```
 
 ### Anulación de Guardia
@@ -216,271 +267,118 @@ flowchart TD
     E -->|Muestra mensaje| M[No se puede anular guardia firmada]
 ```
 
-### Ciclo de Vida de una Ausencia
-
-```mermaid
-stateDiagram-v2
-    [*] --> Pendiente: Profesor registra ausencia
-    Pendiente --> Aceptada: Administrador acepta
-    Pendiente --> Rechazada: Administrador rechaza
-    Aceptada --> Pendiente: Guardia anulada
-    Pendiente --> [*]: Anulación / Eliminación
-    Rechazada --> [*]: Fin del ciclo
-    Aceptada --> [*]: Fin del ciclo (guardia firmada)
-    
-    note right of Pendiente
-      La anulación de ausencia implica:
-      1. Rechazar la ausencia (estado Rechazada)
-      2. Eliminarla de la base de datos
-    end note
-    
-    note right of Aceptada
-      Al aceptar una ausencia se crea
-      automáticamente una guardia asociada
-    end note
-```
-
-### Ciclo de Vida de una Guardia
-
-```mermaid
-stateDiagram-v2
-    [*] --> Pendiente: Creación inicial
-    Pendiente --> Asignada: Profesor se asigna
-    Asignada --> Firmada: Profesor firma
-    Pendiente --> Anulada: Usuario anula
-    Asignada --> Anulada: Usuario anula
-    Anulada --> [*]: Posible eliminación
-    Firmada --> [*]: Fin del ciclo
-```
-
-### Flujo de Creación y Gestión de Guardias
-
-```mermaid
-flowchart TD
-    A[Inicio] -->|Dos vías| B{Origen de la guardia}
-    B -->|Desde ausencia| C[Ausencia aceptada por administrador]
-    B -->|Manual| D[Creación directa por administrador]
-    C -->|Crea automáticamente| E[Guardia en estado Pendiente]
-    D -->|Crea| E
-    E -->|Disponible para| F[Asignación]
-    F -->|Profesor se asigna| G[Guardia en estado Asignada]
-    G -->|Profesor realiza guardia| H[Firma de guardia]
-    H -->|Guardia firmada| I[Guardia en estado Firmada]
-    E -->|Administrador anula| J[Anulación de guardia]
-    G -->|Administrador anula| J
-    J -->|Si tiene ausencia asociada| K[Ausencia vuelve a Pendiente]
-    J -->|Guarda motivo| L[Guardia en estado Anulada]
-    L -->|Posible| M[Eliminación permanente]
-```
-
 ## Flujos de Integración entre Entidades
 
 ### Relación entre Ausencias y Guardias
 
 ```mermaid
-erDiagram
-    AUSENCIA ||--o| GUARDIA : "genera"
-    PROFESOR ||--o{ AUSENCIA : "registra"
-    PROFESOR ||--o{ GUARDIA : "cubre"
-    LUGAR ||--o{ GUARDIA : "se realiza en"
+flowchart TD
+    A[Ausencia Registrada] -->|Esperando aprobación| B{Decisión Admin}
+    B -->|Rechazada| C[Fin del proceso]
+    B -->|Aceptada| D[Crear Guardia]
+    D -->|Guardia creada| E[Guardia en estado Pendiente]
+    E -->|Disponible para| F[Asignación]
+    F -->|Profesor se asigna| G[Guardia en estado Asignada]
+    G -->|Profesor realiza| H[Guardia completada]
+    H -->|Profesor firma| I[Guardia en estado Firmada]
     
-    AUSENCIA {
-        int id PK
-        int profesorId FK
-        date fecha
-        string tramoHorario
-        string estado
-        string observaciones
-    }
-    
-    GUARDIA {
-        int id PK
-        date fecha
-        string tramoHorario
-        string tipoGuardia
-        boolean firmada
-        string estado
-        string observaciones
-        int lugarId FK
-        int profesorCubridorId FK
-        int ausenciaId FK
-    }
-    
-    PROFESOR {
-        int id PK
-        string nombre
-        string email
-        string rol
-        boolean activo
-    }
-    
-    LUGAR {
-        int id PK
-        string codigo
-        string descripcion
-        string tipoLugar
-    }
+    E -->|Admin/Sistema anula| J[Guardia Anulada]
+    G -->|Admin/Sistema anula| J
+    J -->|Si tiene ausencia| K[Ausencia vuelve a Pendiente]
+    K -->|Disponible para| L[Nueva asignación]
+    L -->|Admin puede| M[Crear nueva guardia]
+    M -->|Nueva guardia creada| E
 ```
 
 ### Proceso Completo de Gestión de Ausencias y Guardias
 
 ```mermaid
-sequenceDiagram
-    participant Profesor
-    participant Admin
-    participant Sistema
-    participant Ausencias
-    participant Guardias
+flowchart TD
+    A[Profesor] -->|Registra| B[Ausencia]
+    B -->|Estado| C[Pendiente]
+    C -->|Admin procesa| D{Decisión}
+    D -->|Rechaza| E[Ausencia Rechazada]
+    D -->|Acepta| F[Ausencia Aceptada]
+    F -->|Sistema genera| G[Guardia]
+    G -->|Estado| H[Pendiente]
+    H -->|Profesor se asigna| I[Guardia Asignada]
+    I -->|Profesor firma| J[Guardia Firmada]
     
-    Profesor->>Sistema: Solicitar ausencia
-    Sistema->>Ausencias: Crear ausencia (estado: Pendiente)
-    Admin->>Sistema: Revisar ausencias pendientes
+    H -->|Admin anula| K[Guardia Anulada]
+    I -->|Admin anula| K
+    K -->|Actualiza| L[Ausencia vuelve a Pendiente]
+    L -->|Admin puede| M[Crear nueva guardia]
     
-    alt Ausencia Aceptada
-        Admin->>Sistema: Aceptar ausencia
-        Sistema->>Ausencias: Actualizar estado a Aceptada
-        Sistema->>Guardias: Crear guardia asociada
-        
-        alt Guardia Asignada
-            Profesor->>Sistema: Asignarse a guardia
-            Sistema->>Guardias: Actualizar estado a Asignada
-            Profesor->>Sistema: Firmar guardia
-            Sistema->>Guardias: Actualizar estado a Firmada
-        else Guardia Anulada
-            Admin->>Sistema: Anular guardia
-            Sistema->>Guardias: Actualizar estado a Anulada
-            Sistema->>Ausencias: Actualizar estado a Pendiente
-        end
-    else Ausencia Rechazada
-        Admin->>Sistema: Rechazar ausencia
-        Sistema->>Ausencias: Actualizar estado a Rechazada
-    end
+    G -->|Admin asigna directamente| N[Guardia Asignada con profesor]
+    N -->|Profesor firma| J
+    
+    H -->|Admin edita| O[Modificar guardia]
+    I -->|Admin edita| O
+    O -->|Puede| P[Cambiar profesor, lugar, observaciones]
+    O -->|Quitar profesor| Q[Guardia vuelve a Pendiente]
 ```
 
 ### Proceso de Creación de Guardias
 
 ```mermaid
 flowchart TD
-    A[Inicio] -->|Dos orígenes| B{Tipo de creación}
+    A{Origen} -->|Ausencia| B[Creación automática]
+    A -->|Manual| C[Creación por Admin]
     
-    B -->|Automática| C[Desde ausencia aceptada]
-    B -->|Manual| D[Creación directa]
+    B -->|Ausencia aceptada| D[Guardia vinculada a ausencia]
+    C -->|Admin completa formulario| E[Guardia independiente]
     
-    C -->|Sistema obtiene datos| E[Datos de la ausencia]
-    E -->|Fecha y tramo de la ausencia| F[Formulario pre-completado]
+    D -->|Genera| F[Guardia en estado Pendiente]
+    E -->|Genera| F
     
-    D -->|Administrador completa| G[Formulario de guardia]
+    F -->|Disponible en| G[Lista de guardias pendientes]
+    G -->|Visible para| H[Profesores con horario compatible]
+    H -->|Profesor se asigna| I[Guardia en estado Asignada]
+    I -->|Tras realizarse| J[Profesor firma]
+    J -->|Actualiza| K[Guardia en estado Firmada]
     
-    F -->|Administrador selecciona| H[Tipo de guardia y lugar]
-    G -->|Completar| H
-    
-    H -->|"tipoGuardia = Aula/Patio/Recreo"| I[Convertir a formato DB]
-    I -->|mapGuardiaToDB| J[Objeto API]
-    J -->|createGuardia| K[Guardia creada]
-    
-    K -->|addGuardia| L[Actualizacion UI]
-    L --> M[Fin]
+    F -->|Admin| L[Puede editar]
+    I -->|Admin| L
+    L -->|Modifica| M[Guardia actualizada]
+    L -->|Quita profesor| N[Guardia vuelve a Pendiente]
 ```
 
 ### Proceso de Firma de Guardias con Tareas
 
 ```mermaid
-sequenceDiagram
-    participant Profesor
-    participant UI
-    participant GuardiasContext
-    participant TareasGuardiaContext
-    participant GuardiasService
-    participant TareasService
-    participant DB
-    
-    Profesor->>UI: Accede a "Firmar Guardia"
-    UI->>GuardiasContext: getGuardiasAsignadas()
-    GuardiasContext->>UI: Lista de guardias asignadas
-    Profesor->>UI: Selecciona guardia
-    Profesor->>UI: Clic en "Firmar"
-    
-    UI->>Profesor: Muestra formulario de firma
-    alt Con tareas
-        Profesor->>UI: Añade descripción de tareas realizadas
-        UI->>TareasGuardiaContext: addTareaGuardia(guardiaId, descripcion)
-        TareasGuardiaContext->>TareasService: createTareaGuardia()
-        TareasService->>DB: INSERT INTO Tareas_guardia
-    end
-    
-    Profesor->>UI: Añade observaciones (opcional)
-    Profesor->>UI: Confirma firma
-    
-    UI->>GuardiasContext: firmarGuardia(guardiaId, observaciones)
-    GuardiasContext->>GuardiasService: updateGuardia(guardiaId, {firmada: true, estado: "Firmada"})
-    GuardiasService->>DB: UPDATE Guardias SET firmada = true, estado = 'Firmada'
-    
-    GuardiasContext->>UI: Actualización completada
-    UI->>Profesor: Confirmación de firma exitosa
-    
-    note over Profesor,DB
-      Una vez firmada, la guardia no puede ser anulada
-      ni modificada en sus campos principales
-    end note
+flowchart TD
+    A[Profesor] -->|Accede a| B[Mis Guardias]
+    B -->|Selecciona pestaña| C[Por firmar]
+    C -->|Selecciona| D[Guardia asignada]
+    D -->|Clic en| E[Firmar guardia]
+    E -->|Abre formulario| F[Formulario de firma]
+    F -->|Completa| G[Añade observaciones]
+    G -->|Opcional| H[Añade tareas realizadas]
+    H -->|Completa| I[Detalla tarea 1...n]
+    I -->|Envía| J[Formulario finalizado]
+    J -->|Sistema procesa| K[Guardia firmada]
+    K -->|Actualiza| L[Estado: Firmada]
+    K -->|Almacena| M[Observaciones]
+    K -->|Almacena| N[Tareas realizadas]
 ```
 
 ### Proceso de Anulación de Guardias
 
 ```mermaid
-sequenceDiagram
-    participant Usuario
-    participant UI
-    participant GuardiasContext
-    participant AusenciasContext
-    participant AusenciasService
-    participant GuardiasService
-    participant DB
-    
-    Usuario->>UI: Solicitar anulación de guardia
-    UI->>Usuario: Solicitar motivo de anulación
-    Usuario->>UI: Proporcionar motivo
-    UI->>GuardiasContext: anularGuardia(guardiaId, motivo)
-    
-    GuardiasContext->>GuardiasContext: Buscar guardia por ID
-    
-    alt Guardia Firmada
-        GuardiasContext->>UI: Rechazar anulación (No permitido)
-        UI->>Usuario: Mostrar mensaje de error
-    else Guardia Pendiente/Asignada
-        GuardiasContext->>GuardiasContext: Verificar si tiene ausencia asociada
-        
-        alt Con ausencia asociada
-            GuardiasContext->>AusenciasContext: Obtener ausencia
-            GuardiasContext->>AusenciasService: updateAusencia(ausenciaId, {
-              estado: "Pendiente", 
-              observaciones: `Original: ${observacionesOriginales}. Guardia anulada: ${motivo}`
-            })
-            AusenciasService->>DB: UPDATE Ausencias SET estado = 'Pendiente', observaciones = '...'
-            GuardiasContext->>GuardiasService: updateGuardia(guardiaId, {
-              estado: "Anulada", 
-              ausenciaId: undefined,
-              observaciones: `${observacionesOriginales} | ANULADA: ${motivo}`
-            })
-            GuardiasService->>DB: UPDATE Guardias SET estado = 'Anulada', ausencia_id = NULL, observaciones = '...'
-        else Sin ausencia asociada
-            GuardiasContext->>GuardiasService: updateGuardia(guardiaId, {
-              estado: "Anulada", 
-              observaciones: `${observacionesOriginales} | ANULADA: ${motivo}`
-            })
-            GuardiasService->>DB: UPDATE Guardias SET estado = 'Anulada', observaciones = '...'
-        end
-        
-        GuardiasContext->>GuardiasContext: refreshGuardias()
-        GuardiasContext->>AusenciasContext: refreshAusencias() (si hay ausencia asociada)
-        GuardiasContext->>UI: Actualización completada
-        UI->>Usuario: Mostrar confirmación de anulación
-    end
-    
-    note over GuardiasContext,DB
-      Las observaciones se actualizan preservando
-      el contenido original y añadiendo el motivo
-      de anulación para mantener un historial completo
-    end note
+flowchart TD
+    A[Iniciar anulación] -->|Administrador selecciona| B[Guardia a anular]
+    B -->|Sistema verifica| C{Estado actual}
+    C -->|Firmada| D[Error: No se puede anular]
+    C -->|Pendiente o Asignada| E[Anulación permitida]
+    E -->|Solicita| F[Motivo de anulación]
+    F -->|Introduce motivo| G[Confirmar anulación]
+    G -->|Sistema procesa| H[Guardia anulada]
+    H -->|Verifica| I{¿Tiene ausencia asociada?}
+    I -->|No| J[Proceso finalizado]
+    I -->|Sí| K[Actualiza ausencia]
+    K -->|Cambia estado| L[Ausencia en Pendiente]
+    L -->|Disponible para| M[Nueva asignación]
+    D -->|Notifica| N[Mensaje al administrador]
 ```
 
 ## Ciclos de Vida
@@ -489,23 +387,35 @@ sequenceDiagram
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Pendiente: Profesor registra ausencia
-    Pendiente --> Aceptada: Administrador acepta
-    Pendiente --> Rechazada: Administrador rechaza
-    Aceptada --> Pendiente: Guardia anulada
-    Pendiente --> [*]: Anulación / Eliminación
-    Rechazada --> [*]: Fin del ciclo
-    Aceptada --> [*]: Fin del ciclo (guardia firmada)
+    [*] --> PENDIENTE: Profesor registra ausencia
+    PENDIENTE --> ACEPTADA: Administrador acepta
+    PENDIENTE --> RECHAZADA: Administrador rechaza
+    ACEPTADA --> PENDIENTE: Guardia anulada
+    PENDIENTE --> ANULADA: Administrador anula
+    RECHAZADA --> [*]: Fin del ciclo
+    ANULADA --> [*]: Fin del ciclo
+    ACEPTADA --> [*]: Fin del ciclo (servicio completado)
     
-    note right of Pendiente
-      La anulación de ausencia implica:
-      1. Rechazar la ausencia (estado Rechazada)
-      2. Eliminarla de la base de datos
+    state PENDIENTE {
+        [*] --> SinGuardiaAsociada: Esperando aprobación
+        [*] --> GuardiaAnulada: Guardia previa anulada
+    }
+    
+    state ACEPTADA {
+        [*] --> ConGuardiaPendiente: Guardia creada
+        ConGuardiaPendiente --> ConGuardiaAsignada: Profesor asignado
+        ConGuardiaAsignada --> ConGuardiaFirmada: Guardia firmada
+    }
+    
+    note right of PENDIENTE
+      Una ausencia vuelve a Pendiente si:
+      1. La guardia asociada es anulada
+      2. El administrador desasocia la guardia
     end note
     
-    note right of Aceptada
-      Al aceptar una ausencia se crea
-      automáticamente una guardia asociada
+    note right of ACEPTADA
+      Una ausencia Aceptada siempre tiene
+      al menos una guardia asociada
     end note
 ```
 
@@ -513,11 +423,44 @@ stateDiagram-v2
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Pendiente: Creación inicial
-    Pendiente --> Asignada: Profesor se asigna
-    Asignada --> Firmada: Profesor firma
-    Pendiente --> Anulada: Usuario anula
-    Asignada --> Anulada: Usuario anula
-    Anulada --> [*]: Posible eliminación
-    Firmada --> [*]: Fin del ciclo
+    [*] --> PENDIENTE: Creación manual o\npor ausencia
+    PENDIENTE --> ASIGNADA: Profesor cubridor\nse asigna o es asignado
+    ASIGNADA --> FIRMADA: Profesor cubridor\nfirma la guardia
+    PENDIENTE --> ANULADA: Administrador anula
+    ASIGNADA --> ANULADA: Administrador anula
+    ASIGNADA --> PENDIENTE: Se quita el\nprofesor cubridor
+    ANULADA --> [*]: Fin del ciclo\no eliminación
+    FIRMADA --> [*]: Fin del ciclo
+    
+    state PENDIENTE {
+        [*] --> Disponible: Visible en sistema
+        Disponible --> PorAsignar: Esperando profesor
+    }
+    
+    state ASIGNADA {
+        [*] --> Asignada: Con profesor cubridor
+        Asignada --> PorFirmar: Esperando firma
+    }
+    
+    state FIRMADA {
+        [*] --> FirmadaSinTareas: Sin tareas registradas
+        [*] --> FirmadaConTareas: Con tareas registradas
+    }
+    
+    note right of PENDIENTE
+      Una guardia puede:
+      1. Estar asociada a una ausencia
+      2. Ser creada manualmente por administrador
+    end note
+    
+    note right of ANULADA
+      Al anular una guardia con ausencia
+      asociada, la ausencia vuelve a
+      estado Pendiente
+    end note
+    
+    note right of FIRMADA
+      Una guardia firmada puede incluir
+      tareas realizadas durante la guardia
+    end note
 ``` 

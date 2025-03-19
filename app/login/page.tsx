@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/src/contexts/AuthContext"
+import { DB_CONFIG } from "@/lib/db-config"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
@@ -35,10 +36,10 @@ export default function LoginPage() {
         if (userString) {
           const user = JSON.parse(userString)
           // Redirect based on user role
-          if (user.rol === "admin") {
-            await router.replace("/admin")
+          if (user.rol === DB_CONFIG.ROLES.ADMIN) {
+            await router.replace(DB_CONFIG.RUTAS.ADMIN)
           } else {
-            await router.replace("/profesor")
+            await router.replace(DB_CONFIG.RUTAS.PROFESOR)
           }
         }
       } else {

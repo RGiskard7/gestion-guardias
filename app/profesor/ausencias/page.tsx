@@ -8,6 +8,7 @@ import { useGuardias } from "@/src/contexts/GuardiasContext"
 import { useUsuarios } from "@/src/contexts/UsuariosContext"
 import { Ausencia } from "@/src/types"
 import { Pagination } from "@/components/ui/pagination"
+import { DB_CONFIG } from "@/lib/db-config"
 
 export default function AusenciasPage() {
   const { user } = useAuth()
@@ -21,6 +22,8 @@ export default function AusenciasPage() {
   // Estados para filtros y ordenamiento
   const [filterFecha, setFilterFecha] = useState<string>("")
   const [filterEstado, setFilterEstado] = useState<string>("")
+  const [filterId, setFilterId] = useState<string>("")
+  const [sortField, setSortField] = useState<'id' | 'fecha' | 'tramoHorario'>('fecha')
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc')
 
   // State for the form
@@ -37,14 +40,23 @@ export default function AusenciasPage() {
   const [editingId, setEditingId] = useState<number | null>(null)
 
   // Tramos horarios
-  const tramosHorariosOptions = ["1ª hora", "2ª hora", "3ª hora", "4ª hora", "5ª hora", "6ª hora"]
+  const tramosHorariosOptions = DB_CONFIG.TRAMOS_HORARIOS
 
   // Estados de ausencia
-  const estadosAusencia = ["Pendiente", "Aceptada", "Rechazada"]
+  const estadosAusencia = [
+    DB_CONFIG.ESTADOS_AUSENCIA.PENDIENTE,
+    DB_CONFIG.ESTADOS_AUSENCIA.ACEPTADA,
+    DB_CONFIG.ESTADOS_AUSENCIA.RECHAZADA
+  ]
 
   // Get mis ausencias con filtros y ordenamiento
   const misAusenciasFiltradas = getAusenciasByProfesor(user.id)
     .filter(ausencia => {
+      // Filtrar por ID
+      if (filterId && ausencia.id.toString() !== filterId) {
+        return false
+      }
+      
       // Filtrar por fecha
       if (filterFecha && ausencia.fecha !== filterFecha) {
         return false
@@ -58,19 +70,49 @@ export default function AusenciasPage() {
       return true
     })
     .sort((a, b) => {
-      // Ordenar por fecha según la dirección seleccionada
-      const dateComparison = sortDirection === 'desc' 
-        ? new Date(b.fecha).getTime() - new Date(a.fecha).getTime()
-        : new Date(a.fecha).getTime() - new Date(b.fecha).getTime()
-
-      // Si las fechas son iguales, ordenar por estado (Pendiente primero)
-      if (dateComparison === 0) {
-        if (a.estado === "Pendiente") return -1
-        if (b.estado === "Pendiente") return 1
-        return 0
+      if (sortField === 'id') {
+        // Ordenar por ID
+        return sortDirection === 'asc' ? a.id - b.id : b.id - a.id
+      } else if (sortField === 'fecha') {
+        // Ordenar por fecha
+        const dateA = new Date(a.fecha).getTime()
+        const dateB = new Date(b.fecha).getTime()
+        
+        if (dateA === dateB) {
+          // Si las fechas son iguales, ordenar por tramo
+          const getTramoNumber = (tramo: string) => {
+            const match = tramo.match(/(\d+)/)
+            return match ? Number.parseInt(match[1]) : 0
+          }
+          
+          const tramoA = getTramoNumber(a.tramoHorario)
+          const tramoB = getTramoNumber(b.tramoHorario)
+          return sortDirection === 'asc' ? tramoA - tramoB : tramoB - tramoA
+        }
+        
+        return sortDirection === 'asc' ? dateA - dateB : dateB - dateA
+      } else if (sortField === 'tramoHorario') {
+        // Ordenar por tramo horario
+        const getTramoNumber = (tramo: string) => {
+          const match = tramo.match(/(\d+)/)
+          return match ? Number.parseInt(match[1]) : 0
+        }
+        
+        const tramoA = getTramoNumber(a.tramoHorario)
+        const tramoB = getTramoNumber(b.tramoHorario)
+        
+        if (tramoA === tramoB) {
+          // Si los tramos son iguales, ordenar por fecha
+          const dateA = new Date(a.fecha).getTime()
+          const dateB = new Date(b.fecha).getTime()
+          return sortDirection === 'asc' ? dateA - dateB : dateB - dateA
+        }
+        
+        return sortDirection === 'asc' ? tramoA - tramoB : tramoB - tramoA
       }
-
-      return dateComparison
+      
+      // Por defecto (no debería llegar aquí)
+      return 0
     })
 
   // Imprimir la cantidad de ausencias encontradas
@@ -97,7 +139,7 @@ export default function AusenciasPage() {
   // Función para cargar ausencia al formulario
   const handleEditAusencia = (ausencia: Ausencia) => {
     // Solo se pueden editar ausencias pendientes
-    if (ausencia.estado !== "Pendiente") {
+    if (ausencia.estado !== DB_CONFIG.ESTADOS_AUSENCIA.PENDIENTE) {
       alert("Solo puedes editar ausencias pendientes")
       return
     }
@@ -188,7 +230,7 @@ export default function AusenciasPage() {
         ausencia => 
           ausencia.fecha === formData.fecha && 
           ausencia.tramoHorario === tramo &&
-          ausencia.estado !== "Rechazada" &&
+          ausencia.estado !== DB_CONFIG.ESTADOS_AUSENCIA.RECHAZADA &&
           ausencia.id !== editingId // No validar contra la misma ausencia
       )
       
@@ -248,7 +290,7 @@ export default function AusenciasPage() {
           const newAusencia: Omit<Ausencia, "id"> = {
             fecha: formData.fecha,
             tramoHorario,
-            estado: "Pendiente",
+            estado: DB_CONFIG.ESTADOS_AUSENCIA.PENDIENTE,
             observaciones: formData.observaciones,
             profesorId: user.id,
           }
@@ -295,7 +337,7 @@ export default function AusenciasPage() {
 
     try {
       // Solo se pueden cancelar ausencias pendientes
-      if (ausencia.estado !== "Pendiente") {
+      if (ausencia.estado !== DB_CONFIG.ESTADOS_AUSENCIA.PENDIENTE) {
         alert("Solo puedes cancelar ausencias pendientes")
         return
       }
@@ -312,11 +354,11 @@ export default function AusenciasPage() {
   // Obtener el color de fondo según el estado de la ausencia
   const getBackgroundColor = (estado: string) => {
     switch (estado) {
-      case "Pendiente":
+      case DB_CONFIG.ESTADOS_AUSENCIA.PENDIENTE:
         return "bg-warning bg-opacity-10 border-warning";
-      case "Aceptada":
+      case DB_CONFIG.ESTADOS_AUSENCIA.ACEPTADA:
         return "bg-success bg-opacity-10 border-success";
-      case "Rechazada":
+      case DB_CONFIG.ESTADOS_AUSENCIA.RECHAZADA:
         return "bg-danger bg-opacity-10 border-danger";
       default:
         return "bg-primary bg-opacity-10 border-primary";
@@ -326,11 +368,11 @@ export default function AusenciasPage() {
   // Obtener el color del badge según el estado de la ausencia
   const getBadgeColor = (estado: string) => {
     switch (estado) {
-      case "Pendiente":
+      case DB_CONFIG.ESTADOS_AUSENCIA.PENDIENTE:
         return "bg-warning text-dark";
-      case "Aceptada":
+      case DB_CONFIG.ESTADOS_AUSENCIA.ACEPTADA:
         return "bg-success";
-      case "Rechazada":
+      case DB_CONFIG.ESTADOS_AUSENCIA.RECHAZADA:
         return "bg-danger";
       default:
         return "bg-primary";
@@ -353,6 +395,18 @@ export default function AusenciasPage() {
     setShowModal(false)
   }
 
+  // Función para cambiar el orden
+  const handleSort = (field: 'id' | 'fecha' | 'tramoHorario') => {
+    if (sortField === field) {
+      // Si ya estamos ordenando por este campo, cambiamos la dirección
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
+    } else {
+      // Si cambiamos de campo, establecemos el nuevo campo y dirección por defecto (descendente)
+      setSortField(field)
+      setSortDirection('desc')
+    }
+  }
+
   return (
     <div className="container-fluid">
       <style jsx>{`
@@ -362,6 +416,18 @@ export default function AusenciasPage() {
         @keyframes spin {
           from { transform: rotate(0deg); }
           to { transform: rotate(360deg); }
+        }
+        .cursor-pointer {
+          cursor: pointer;
+        }
+        .user-select-none {
+          user-select: none;
+        }
+        .sortable-header {
+          transition: background-color 0.2s;
+        }
+        .sortable-header:hover {
+          background-color: rgba(0, 0, 0, 0.05);
         }
       `}</style>
       <h1 className="h3 mb-4">Gestión de Ausencias</h1>
@@ -515,7 +581,18 @@ export default function AusenciasPage() {
             </div>
             <div className="card-body">
               <div className="row">
-                <div className="col-md-6 mb-3">
+                <div className="col-md-4 mb-3">
+                  <label htmlFor="filterId" className="form-label">ID</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    id="filterId"
+                    value={filterId}
+                    onChange={(e) => setFilterId(e.target.value)}
+                    placeholder="Buscar por ID exacto"
+                  />
+                </div>
+                <div className="col-md-4 mb-3">
                   <label htmlFor="filterFecha" className="form-label">Fecha</label>
                   <input
                     type="date"
@@ -525,7 +602,7 @@ export default function AusenciasPage() {
                     onChange={(e) => setFilterFecha(e.target.value)}
                   />
                 </div>
-                <div className="col-md-6 mb-3">
+                <div className="col-md-4 mb-3">
                   <label htmlFor="filterEstado" className="form-label">Estado</label>
                   <select
                     className="form-select"
@@ -548,17 +625,10 @@ export default function AusenciasPage() {
                   onClick={() => {
                     setFilterFecha("")
                     setFilterEstado("")
+                    setFilterId("")
                   }}
                 >
                   <i className="bi bi-x-circle me-1"></i>Limpiar filtros
-                </button>
-                <button
-                  className="btn btn-outline-primary btn-sm"
-                  onClick={() => setSortDirection(prev => prev === 'desc' ? 'asc' : 'desc')}
-                  title="Cambiar orden"
-                >
-                  <i className={`bi bi-sort-down${sortDirection === 'asc' ? '-alt' : ''} me-1`}></i>
-                  {sortDirection === 'desc' ? 'Más recientes primero' : 'Más antiguos primero'}
                 </button>
               </div>
             </div>
@@ -598,8 +668,48 @@ export default function AusenciasPage() {
                 <table className="table table-hover">
                   <thead>
                     <tr>
-                      <th>Fecha</th>
-                      <th>Tramo</th>
+                      <th 
+                        onClick={() => handleSort('id')}
+                        className="cursor-pointer user-select-none sortable-header"
+                        title="Ordenar por ID"
+                      >
+                        <div className="d-flex align-items-center">
+                          ID
+                          {sortField === 'id' && (
+                            <span className="ms-2 text-primary">
+                              <i className={`bi bi-sort-${sortDirection === 'asc' ? 'up' : 'down'}-alt`}></i>
+                            </span>
+                          )}
+                        </div>
+                      </th>
+                      <th 
+                        onClick={() => handleSort('fecha')}
+                        className="cursor-pointer user-select-none sortable-header"
+                        title="Ordenar por fecha"
+                      >
+                        <div className="d-flex align-items-center">
+                          Fecha
+                          {sortField === 'fecha' && (
+                            <span className="ms-2 text-primary">
+                              <i className={`bi bi-sort-${sortDirection === 'asc' ? 'up' : 'down'}-alt`}></i>
+                            </span>
+                          )}
+                        </div>
+                      </th>
+                      <th 
+                        onClick={() => handleSort('tramoHorario')}
+                        className="cursor-pointer user-select-none sortable-header"
+                        title="Ordenar por tramo"
+                      >
+                        <div className="d-flex align-items-center">
+                          Tramo
+                          {sortField === 'tramoHorario' && (
+                            <span className="ms-2 text-primary">
+                              <i className={`bi bi-sort-${sortDirection === 'asc' ? 'up' : 'down'}-alt`}></i>
+                            </span>
+                          )}
+                        </div>
+                      </th>
                       <th>Estado</th>
                       <th>Observaciones</th>
                       <th>Acciones</th>
@@ -608,6 +718,7 @@ export default function AusenciasPage() {
                   <tbody>
                     {currentItems.map((ausencia) => (
                       <tr key={`${ausencia.id}-${ausencia.tramoHorario}`} className={getBackgroundColor(ausencia.estado)}>
+                        <td>{ausencia.id}</td>
                         <td>{new Date(ausencia.fecha).toLocaleDateString("es-ES")}</td>
                         <td>{ausencia.tramoHorario}</td>
                         <td>
@@ -628,7 +739,7 @@ export default function AusenciasPage() {
                         </td>
                         <td>
                           <div className="d-flex gap-1">
-                            {ausencia.estado === "Pendiente" && (
+                            {ausencia.estado === DB_CONFIG.ESTADOS_AUSENCIA.PENDIENTE && (
                               <>
                                 <button
                                   className="btn btn-sm btn-outline-primary"
@@ -784,9 +895,9 @@ export default function AusenciasPage() {
                               </h6>
                               <p className="card-text">
                                 <span className={`badge ${
-                                  guardia.estado === "Pendiente" ? "bg-warning text-dark" : 
-                                  guardia.estado === "Asignada" ? "bg-info" : 
-                                  guardia.estado === "Firmada" ? "bg-success" : "bg-secondary"
+                                  guardia.estado === DB_CONFIG.ESTADOS_GUARDIA.PENDIENTE ? "bg-warning text-dark" : 
+                                  guardia.estado === DB_CONFIG.ESTADOS_GUARDIA.ASIGNADA ? "bg-info" : 
+                                  guardia.estado === DB_CONFIG.ESTADOS_GUARDIA.FIRMADA ? "bg-success" : "bg-secondary"
                                 }`}>{guardia.estado}</span>
                               </p>
                             </div>

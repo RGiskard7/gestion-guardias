@@ -8,6 +8,7 @@ import { useLugares } from "@/src/contexts/LugaresContext"
 import { Usuario } from "@/src/types"
 import StatusCard from "@/components/common/StatusCard"
 import ActionCard from "@/components/common/ActionCard"
+import { DB_CONFIG } from "@/lib/db-config"
 
 export default function AdminDashboardPage() {
   const { guardias } = useGuardias()
@@ -18,19 +19,19 @@ export default function AdminDashboardPage() {
   const totalUsuarios = usuarios.length
   const totalGuardias = guardias.length
   const totalLugares = lugares.length
-  const guardiasCompletadas = guardias.filter(g => g.estado === "Firmada").length
+  const guardiasCompletadas = guardias.filter(g => g.estado === DB_CONFIG.ESTADOS_GUARDIA.FIRMADA).length
 
   // Filtrar profesores (rol = profesor)
-  const profesores = usuarios.filter(u => u.rol === "profesor")
+  const profesores = usuarios.filter(u => u.rol === DB_CONFIG.ROLES.PROFESOR)
 
   // Get today's date in YYYY-MM-DD format
   const today = new Date().toISOString().split("T")[0]
   
   // Count guardias by estado for today
   const guardiasHoy = guardias.filter((g) => g.fecha === today)
-  const pendientesHoy = guardiasHoy.filter((g) => g.estado === "Pendiente").length
-  const asignadasHoy = guardiasHoy.filter((g) => g.estado === "Asignada").length
-  const firmadasHoy = guardiasHoy.filter((g) => g.estado === "Firmada").length
+  const pendientesHoy = guardiasHoy.filter((g) => g.estado === DB_CONFIG.ESTADOS_GUARDIA.PENDIENTE).length
+  const asignadasHoy = guardiasHoy.filter((g) => g.estado === DB_CONFIG.ESTADOS_GUARDIA.ASIGNADA).length
+  const firmadasHoy = guardiasHoy.filter((g) => g.estado === DB_CONFIG.ESTADOS_GUARDIA.FIRMADA).length
 
   return (
     <div className="container py-4">
@@ -84,7 +85,7 @@ export default function AdminDashboardPage() {
             title="Gestión de Usuarios"
             description="Administra los usuarios del sistema, crea nuevos profesores y asigna roles."
             icon="people"
-            linkHref="/admin/users"
+            linkHref={DB_CONFIG.RUTAS.ADMIN_USERS}
             linkText="Gestionar Usuarios"
           />
         </div>
@@ -93,7 +94,7 @@ export default function AdminDashboardPage() {
             title="Gestión de Guardias"
             description="Administra las guardias, asigna profesores y gestiona su estado."
             icon="clipboard-check"
-            linkHref="/admin/guardias"
+            linkHref={DB_CONFIG.RUTAS.ADMIN_GUARDIAS}
             linkText="Gestionar Guardias"
             color="info"
           />
@@ -103,7 +104,7 @@ export default function AdminDashboardPage() {
             title="Gestión de Ausencias"
             description="Administra las ausencias de profesores y genera guardias automáticamente."
             icon="calendar-x"
-            linkHref="/admin/ausencias"
+            linkHref={DB_CONFIG.RUTAS.ADMIN_AUSENCIAS}
             linkText="Gestionar Ausencias"
             color="warning"
           />
@@ -113,7 +114,7 @@ export default function AdminDashboardPage() {
             title="Gestión de Horarios"
             description="Administra los horarios de los profesores para la asignación de guardias."
             icon="calendar-week"
-            linkHref="/admin/horarios"
+            linkHref={DB_CONFIG.RUTAS.ADMIN_HORARIOS}
             linkText="Gestionar Horarios"
             color="success"
           />
@@ -123,7 +124,7 @@ export default function AdminDashboardPage() {
             title="Gestión de Lugares"
             description="Administra los lugares donde se realizan las guardias."
             icon="geo-alt"
-            linkHref="/admin/lugares"
+            linkHref={DB_CONFIG.RUTAS.ADMIN_LUGARES}
             linkText="Gestionar Lugares"
             color="secondary"
           />
@@ -133,7 +134,7 @@ export default function AdminDashboardPage() {
             title="Sala de Guardias"
             description="Visualiza el estado actual de las guardias en tiempo real."
             icon="display"
-            linkHref="/sala-guardias"
+            linkHref={DB_CONFIG.RUTAS.SALA_GUARDIAS}
             linkText="Ver Sala de Guardias"
             color="primary"
           />
@@ -143,7 +144,7 @@ export default function AdminDashboardPage() {
             title="Estadísticas"
             description="Visualiza estadísticas sobre guardias, ausencias y profesores."
             icon="bar-chart"
-            linkHref="/admin/estadisticas"
+            linkHref={DB_CONFIG.RUTAS.ADMIN_ESTADISTICAS}
             linkText="Ver Estadísticas"
             color="danger"
           />

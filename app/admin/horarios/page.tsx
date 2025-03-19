@@ -1,18 +1,22 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useHorarios } from "@/src/contexts/HorariosContext"
 import { useUsuarios } from "@/src/contexts/UsuariosContext"
+import { useLugares } from "@/src/contexts/LugaresContext"
 import { Horario, Usuario } from "@/src/types"
 import { Pagination } from "@/components/ui/pagination"
 import DataCard from "@/components/common/DataCard"
+import { Calendar } from "@/components/ui/calendar"
+import { DB_CONFIG } from "@/lib/db-config"
 
 export default function HorariosPage() {
   const { horarios, addHorario, updateHorario, deleteHorario } = useHorarios()
   const { usuarios } = useUsuarios()
+  const { lugares } = useLugares()
 
   // Obtener solo profesores (no admins)
-  const profesores = usuarios.filter((u: Usuario) => u.rol === "profesor" && u.activo)
+  const profesores = usuarios.filter((u: Usuario) => u.rol === DB_CONFIG.ROLES.PROFESOR && u.activo)
 
   // Estado para el formulario
   const [formData, setFormData] = useState<Omit<Horario, "id">>({
@@ -71,10 +75,10 @@ export default function HorariosPage() {
   }
 
   // Días de la semana
-  const diasSemana = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes"]
-
+  const diasSemana = DB_CONFIG.DIAS_SEMANA
+  
   // Tramos horarios
-  const tramosHorarios = ["1ª hora", "2ª hora", "3ª hora", "4ª hora", "5ª hora", "6ª hora"]
+  const tramosHorarios = DB_CONFIG.TRAMOS_HORARIOS
 
   // Manejar cambios en el formulario
   const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {

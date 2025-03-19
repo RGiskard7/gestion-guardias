@@ -6,19 +6,20 @@ import { useHorarios } from "@/src/contexts/HorariosContext"
 import { Usuario, Horario } from "@/src/types"
 import { Pagination } from "@/components/ui/pagination"
 import DataCard from "@/components/common/DataCard"
+import { DB_CONFIG } from "@/lib/db-config"
 
 export default function UsersPage() {
   const { usuarios, addUsuario, updateUsuario, deleteUsuario } = useUsuarios()
   const { horarios, addHorario } = useHorarios()
 
   // Filtrar solo profesores (no admins)
-  const profesores = usuarios.filter((u: Usuario) => u.rol === "profesor")
+  const profesores = usuarios.filter((u: Usuario) => u.rol === DB_CONFIG.ROLES.PROFESOR)
 
   // Estado para el formulario
   const [formData, setFormData] = useState<Omit<Usuario, "id">>({
     nombre: "",
     email: "",
-    rol: "profesor",
+    rol: DB_CONFIG.ROLES.PROFESOR,
     activo: true,
   })
 
@@ -47,10 +48,10 @@ export default function UsersPage() {
     }
     
     // Filtrar por estado
-    if (filterEstado === "activo" && !profesor.activo) {
+    if (filterEstado === DB_CONFIG.ESTADOS_USUARIO.ACTIVO && !profesor.activo) {
       return false
     }
-    if (filterEstado === "inactivo" && profesor.activo) {
+    if (filterEstado === DB_CONFIG.ESTADOS_USUARIO.INACTIVO && profesor.activo) {
       return false
     }
     
@@ -112,7 +113,7 @@ export default function UsersPage() {
     setFormData({
       nombre: "",
       email: "",
-      rol: "profesor",
+      rol: DB_CONFIG.ROLES.PROFESOR,
       activo: true,
     })
     setEditingId(null)
@@ -224,8 +225,8 @@ export default function UsersPage() {
                 onChange={(e) => setFilterEstado(e.target.value)}
               >
                 <option value="">Todos los estados</option>
-                <option value="activo">Activos</option>
-                <option value="inactivo">Inactivos</option>
+                <option value={DB_CONFIG.ESTADOS_USUARIO.ACTIVO}>Activos</option>
+                <option value={DB_CONFIG.ESTADOS_USUARIO.INACTIVO}>Inactivos</option>
               </select>
               <small className="form-text text-muted">Filtrar por estado del profesor</small>
             </div>

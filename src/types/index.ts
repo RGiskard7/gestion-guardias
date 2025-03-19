@@ -1,3 +1,5 @@
+import { DB_CONFIG } from "@/lib/db-config";
+
 // Tipos de la base de datos (como están en la base de datos)
 export interface UsuarioDB {
   id: number;
@@ -55,7 +57,7 @@ export interface Usuario {
   id: number;
   nombre: string;
   email: string;
-  rol: "admin" | "profesor";
+  rol: typeof DB_CONFIG.ROLES.ADMIN | typeof DB_CONFIG.ROLES.PROFESOR;
   activo: boolean;
 }
 
@@ -78,8 +80,8 @@ export interface Ausencia {
   profesorId: number;
   fecha: string;
   tramoHorario: string;
-  estado: "Pendiente" | "Aceptada" | "Rechazada";
-  observaciones: string;
+  estado: string;
+  observaciones?: string;
 }
 
 export interface Guardia {
@@ -88,7 +90,10 @@ export interface Guardia {
   tramoHorario: string;
   tipoGuardia: string;
   firmada: boolean;
-  estado: "Pendiente" | "Asignada" | "Firmada" | "Anulada";
+  estado: typeof DB_CONFIG.ESTADOS_GUARDIA.PENDIENTE | 
+          typeof DB_CONFIG.ESTADOS_GUARDIA.ASIGNADA | 
+          typeof DB_CONFIG.ESTADOS_GUARDIA.FIRMADA | 
+          typeof DB_CONFIG.ESTADOS_GUARDIA.ANULADA;
   observaciones: string;
   lugarId: number;
   profesorCubridorId: number | null;
@@ -107,7 +112,7 @@ export function mapUsuarioFromDB(usuario: UsuarioDB): Usuario {
     id: usuario.id,
     nombre: usuario.nombre,
     email: usuario.email,
-    rol: usuario.rol as "admin" | "profesor",
+    rol: usuario.rol as typeof DB_CONFIG.ROLES.ADMIN | typeof DB_CONFIG.ROLES.PROFESOR,
     activo: usuario.activo
   };
 }
@@ -161,18 +166,19 @@ export function mapAusenciaFromDB(ausencia: AusenciaDB): Ausencia {
     profesorId: ausencia.profesor_id,
     fecha: ausencia.fecha,
     tramoHorario: ausencia.tramo_horario,
-    estado: ausencia.estado as "Pendiente" | "Aceptada" | "Rechazada",
-    observaciones: ausencia.observaciones || "",
+    estado: ausencia.estado,
+    observaciones: ausencia.observaciones
   };
 }
 
-export function mapAusenciaToDB(ausencia: Omit<Ausencia, "id">): Omit<AusenciaDB, "id"> {
+export function mapAusenciaToDB(ausencia: Ausencia): AusenciaDB {
   return {
+    id: ausencia.id,
     profesor_id: ausencia.profesorId,
     fecha: ausencia.fecha,
     tramo_horario: ausencia.tramoHorario,
     estado: ausencia.estado,
-    observaciones: ausencia.observaciones || undefined,
+    observaciones: ausencia.observaciones
   };
 }
 
@@ -183,7 +189,10 @@ export function mapGuardiaFromDB(guardia: GuardiaDB): Guardia {
     tramoHorario: guardia.tramo_horario,
     tipoGuardia: guardia.tipo_guardia,
     firmada: guardia.firmada,
-    estado: guardia.estado as "Pendiente" | "Asignada" | "Firmada" | "Anulada",
+    estado: guardia.estado as typeof DB_CONFIG.ESTADOS_GUARDIA.PENDIENTE | 
+                            typeof DB_CONFIG.ESTADOS_GUARDIA.ASIGNADA | 
+                            typeof DB_CONFIG.ESTADOS_GUARDIA.FIRMADA | 
+                            typeof DB_CONFIG.ESTADOS_GUARDIA.ANULADA,
     observaciones: guardia.observaciones || "",
     lugarId: guardia.lugar_id,
     profesorCubridorId: guardia.profesor_cubridor_id || null,

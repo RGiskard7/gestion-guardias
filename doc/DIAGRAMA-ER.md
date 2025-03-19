@@ -35,7 +35,6 @@ erDiagram
         string tramo_horario
         string estado
         text observaciones
-        text tareas
     }
     
     Guardias {
@@ -54,14 +53,14 @@ erDiagram
     Tareas_guardia {
         int id PK
         int guardia_id FK
-        text descripcion
+        text descripcion_tarea
     }
     
     Usuarios ||--o{ Horarios : "tiene asignados"
     Usuarios ||--o{ Ausencias : "registra"
     Usuarios ||--o{ Guardias : "cubre"
     Lugares ||--o{ Guardias : "se realiza en"
-    Ausencias ||--o{ Guardias : "genera"
+    Ausencias ||--o| Guardias : "genera"
     Guardias ||--o{ Tareas_guardia : "tiene"
 ```
 
@@ -95,28 +94,27 @@ Representa las ausencias registradas por los profesores.
 - **profesor_id**: Referencia al profesor ausente
 - **fecha**: Fecha de la ausencia
 - **tramo_horario**: Franja horaria de la ausencia
-- **estado**: Estado de la ausencia (Pendiente/Aceptada/Rechazada)
+- **estado**: Estado de la ausencia (Pendiente/Aceptada/Rechazada/Anulada)
 - **observaciones**: Notas adicionales sobre la ausencia
-- **tareas**: Tareas asignadas para los alumnos durante la ausencia
 
 ### Guardias
-Representa las guardias generadas a partir de ausencias.
+Representa las guardias generadas a partir de ausencias o creadas manualmente.
 - **id**: Identificador único de la guardia
 - **fecha**: Fecha de la guardia
 - **tramo_horario**: Franja horaria de la guardia
-- **tipo_guardia**: Tipo de guardia
+- **tipo_guardia**: Tipo de guardia (Aula, Patio, Recreo)
 - **firmada**: Indica si la guardia ha sido firmada
 - **estado**: Estado de la guardia (Pendiente/Asignada/Firmada/Anulada)
 - **observaciones**: Notas adicionales sobre la guardia
 - **lugar_id**: Referencia al lugar donde se realiza la guardia
-- **profesor_cubridor_id**: Referencia al profesor que cubre la guardia
-- **ausencia_id**: Referencia a la ausencia que generó la guardia
+- **profesor_cubridor_id**: Referencia al profesor que cubre la guardia (puede ser NULL si está pendiente)
+- **ausencia_id**: Referencia a la ausencia que generó la guardia (puede ser NULL si fue creada manualmente)
 
 ### Tareas_guardia
 Representa las tareas específicas asociadas a una guardia.
 - **id**: Identificador único de la tarea
 - **guardia_id**: Referencia a la guardia
-- **descripcion**: Descripción detallada de la tarea
+- **descripcion_tarea**: Descripción detallada de la tarea a realizar durante la guardia
 
 ## Relaciones Principales
 
@@ -124,13 +122,36 @@ Representa las tareas específicas asociadas a una guardia.
 2. Un **Usuario** puede registrar múltiples **Ausencias**.
 3. Un **Usuario** puede cubrir múltiples **Guardias**.
 4. Un **Lugar** puede ser el sitio donde se realizan múltiples **Guardias**.
-5. Una **Ausencia** puede generar múltiples **Guardias** (en diferentes tramos horarios).
+5. Una **Ausencia** puede generar una **Guardia** específica (relación 1:1 o 1:0).
 6. Una **Guardia** puede tener múltiples **Tareas_guardia** asociadas.
 
-## Notas Adicionales
+## Notas sobre el Ciclo de Vida y Relaciones
 
-- La tabla **Usuarios** almacena tanto a profesores como administradores, diferenciados por el campo `rol`.
-- El campo `estado` en **Ausencias** permite seguir el flujo de aprobación (Pendiente → Aceptada/Rechazada).
-- El campo `estado` en **Guardias** permite seguir el flujo de asignación y firma (Pendiente → Asignada → Firmada).
-- La relación entre **Ausencias** y **Guardias** permite rastrear qué guardias fueron generadas por cada ausencia.
-- El campo `ausencia_id` en **Guardias** puede ser nulo en caso de guardias que no están asociadas a ausencias específicas. 
+### Relación entre Ausencias y Guardias
+
+- La relación entre **Ausencias** y **Guardias** es de uno a uno (una ausencia genera exactamente una guardia) o de uno a cero (ausencia pendiente o rechazada).
+- El campo `ausencia_id` en **Guardias** es opcional, permitiendo:
+  - Guardias vinculadas a ausencias específicas (cuando `ausencia_id` no es NULL)
+  - Guardias creadas manualmente sin asociación a ausencias (cuando `ausencia_id` es NULL)
+
+### Estados y Transiciones
+
+- **Ausencias**:
+  - **PENDIENTE**: Ausencia registrada, esperando aprobación administrativa.
+  - **ACEPTADA**: Ausencia aprobada que ha generado una guardia.
+  - **RECHAZADA**: Ausencia denegada sin generación de guardia.
+  - **ANULADA**: Ausencia cancelada por el profesor o administrador.
+
+- **Guardias**:
+  - **PENDIENTE**: Guardia creada pero sin profesor asignado.
+  - **ASIGNADA**: Guardia con profesor asignado pero aún no realizada/firmada.
+  - **FIRMADA**: Guardia realizada y firmada por el profesor (estado terminal).
+  - **ANULADA**: Guardia cancelada.
+
+### Reglas de Integridad
+
+1. Cuando una ausencia se acepta, genera automáticamente una guardia en estado PENDIENTE.
+2. Si una guardia vinculada a una ausencia se anula, la ausencia vuelve a estado PENDIENTE.
+3. Si una ausencia se anula y tiene una guardia asociada no firmada, la guardia también se anula.
+4. Las guardias en estado FIRMADA no pueden modificarse ni anularse.
+5. Solo las guardias en estado ANULADA pueden eliminarse permanentemente. 

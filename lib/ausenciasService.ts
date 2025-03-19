@@ -11,7 +11,6 @@ export interface Ausencia {
   tramo_horario: string;
   estado: string; // 'Pendiente', 'Aceptada', 'Rechazada'
   observaciones?: string;
-  tareas?: string;
 }
 
 /**
@@ -124,6 +123,17 @@ export async function getAusenciasPendientes(): Promise<Ausencia[]> {
  */
 export async function createAusencia(ausencia: Omit<Ausencia, 'id'>): Promise<Ausencia> {
   try {
+    // Validar que la fecha no sea en el pasado
+    const fechaAusencia = new Date(ausencia.fecha);
+    fechaAusencia.setHours(0, 0, 0, 0);
+    
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    
+    if (fechaAusencia < hoy) {
+      throw new Error('No se pueden crear ausencias con fechas pasadas');
+    }
+    
     // Obtener el próximo ID disponible
     const { data: maxIdData } = await supabase
       .from(getTableName('AUSENCIAS'))
@@ -152,7 +162,7 @@ export async function createAusencia(ausencia: Omit<Ausencia, 'id'>): Promise<Au
 
     return data;
   } catch (error) {
-    console.error('Error inesperado al crear ausencia:', error);
+    console.error('Error al crear ausencia:', error);
     throw error;
   }
 }
@@ -194,7 +204,7 @@ export async function updateAusencia(id: number, ausencia: Partial<Ausencia>): P
  * @param ausenciaId ID de la ausencia a aceptar
  * @param tipoGuardia Tipo de guardia a crear
  * @param lugarId ID del lugar donde se realizará la guardia
- * @param observaciones Observaciones adicionales (opcional)
+ * @param observaciones Observaciones para la guardia (opcional)
  * @returns Guardia creada o null si hubo un error
  */
 export async function acceptAusencia(
@@ -210,25 +220,35 @@ export async function acceptAusencia(
       throw new Error(`No existe una ausencia con ID ${ausenciaId}`);
     }
 
-    // Actualizar el estado de la ausencia a 'Aceptada'
-    await updateAusencia(ausenciaId, { 
-      estado: DB_CONFIG.ESTADOS_AUSENCIA.ACEPTADA 
-    });
+    // Intentar crear la guardia asociada (sin cambiar el estado de la ausencia aún)
+    let nuevaGuardia: Guardia | null = null;
+    try {
+      nuevaGuardia = await createGuardia({
+        fecha: ausencia.fecha,
+        tramo_horario: ausencia.tramo_horario,
+        tipo_guardia: tipoGuardia,
+        firmada: false,
+        estado: DB_CONFIG.ESTADOS_GUARDIA.PENDIENTE,
+        observaciones: observaciones || ausencia.observaciones,
+        lugar_id: lugarId,
+        profesor_cubridor_id: undefined,
+        ausencia_id: ausenciaId
+      });
+    } catch (error) {
+      console.error(`Error al crear guardia para la ausencia ${ausenciaId}:`, error);
+      return null;
+    }
 
-    // Crear la guardia asociada
-    const nuevaGuardia = await createGuardia({
-      fecha: ausencia.fecha,
-      tramo_horario: ausencia.tramo_horario,
-      tipo_guardia: tipoGuardia,
-      firmada: false,
-      estado: DB_CONFIG.ESTADOS_GUARDIA.PENDIENTE,
-      observaciones: observaciones || ausencia.observaciones,
-      lugar_id: lugarId,
-      profesor_cubridor_id: undefined,
-      ausencia_id: ausenciaId
-    });
-
-    return nuevaGuardia;
+    // Si la guardia se creó correctamente, actualizar el estado de la ausencia a 'Aceptada'
+    if (nuevaGuardia) {
+      await updateAusencia(ausenciaId, { 
+        estado: DB_CONFIG.ESTADOS_AUSENCIA.ACEPTADA 
+      });
+      
+      return nuevaGuardia;
+    }
+    
+    return null;
   } catch (error) {
     console.error(`Error al aceptar ausencia con ID ${ausenciaId}:`, error);
     return null;

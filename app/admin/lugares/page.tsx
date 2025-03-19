@@ -5,6 +5,7 @@ import { useLugares } from "@/src/contexts/LugaresContext"
 import { Lugar } from "@/src/types"
 import { Pagination } from "@/components/ui/pagination"
 import DataCard from "@/components/common/DataCard"
+import { DB_CONFIG } from "@/lib/db-config"
 
 export default function LugaresPage() {
   const { lugares, addLugar, updateLugar, deleteLugar } = useLugares()
@@ -13,7 +14,7 @@ export default function LugaresPage() {
   const [formData, setFormData] = useState<Omit<Lugar, "id">>({
     codigo: "",
     descripcion: "",
-    tipoLugar: "aula",
+    tipoLugar: DB_CONFIG.TIPOS_LUGAR[0].toLowerCase(),
   })
 
   const [editingId, setEditingId] = useState<number | null>(null)
@@ -63,7 +64,7 @@ export default function LugaresPage() {
   }
 
   // Tipos de lugar
-  const tiposLugar = ["Aula", "Patio", "Laboratorio", "Gimnasio", "Biblioteca", "Otro"]
+  const tiposLugar = DB_CONFIG.TIPOS_LUGAR
 
   // Manejar cambios en el formulario
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -98,7 +99,7 @@ export default function LugaresPage() {
     setFormData({
       codigo: "",
       descripcion: "",
-      tipoLugar: "aula",
+      tipoLugar: DB_CONFIG.TIPOS_LUGAR[0].toLowerCase(),
     })
     setEditingId(null)
     setError(null)

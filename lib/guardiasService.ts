@@ -266,7 +266,38 @@ export async function anularGuardia(guardiaId: number, motivo: string): Promise<
 export async function createGuardia(guardia: Omit<Guardia, 'id'>): Promise<Guardia> {
   try {
     // Log para verificar el tipo de guardia
-    console.log("Tipo de guardia en createGuardia:", guardia.tipoGuardia);
+    console.log("Tipo de guardia en createGuardia:", guardia.tipo_guardia);
+    
+    // Validar que la fecha no sea en el pasado
+    const fechaGuardia = new Date(guardia.fecha);
+    fechaGuardia.setHours(0, 0, 0, 0);
+    
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    
+    if (fechaGuardia < hoy) {
+      throw new Error('No se pueden crear guardias con fechas pasadas');
+    }
+    
+    // Verificar si ya existe una guardia con la misma fecha, tramo, tipo y lugar
+    const { data: existingGuardia, error: errorBusqueda } = await supabase
+      .from(getTableName('GUARDIAS'))
+      .select('*')
+      .eq('fecha', guardia.fecha)
+      .eq('tramo_horario', guardia.tramo_horario)
+      .eq('tipo_guardia', guardia.tipo_guardia)
+      .eq('lugar_id', guardia.lugar_id)
+      .neq('estado', DB_CONFIG.ESTADOS_GUARDIA.ANULADA); // Excluir guardias anuladas
+    
+    if (errorBusqueda) {
+      console.error('Error al verificar guardias existentes:', errorBusqueda);
+      throw errorBusqueda;
+    }
+    
+    // Si existe una guardia con los mismos parámetros que no esté anulada, lanzar error
+    if (existingGuardia && existingGuardia.length > 0) {
+      throw new Error(`Ya existe una guardia activa con la misma fecha (${guardia.fecha}), tramo horario (${guardia.tramo_horario}), tipo (${guardia.tipo_guardia}) y lugar. No se pueden crear guardias duplicadas.`);
+    }
     
     // Obtener el próximo ID disponible
     const nextId = await getNextId();
@@ -312,6 +343,36 @@ export async function updateGuardia(id: number, guardia: Partial<Guardia>): Prom
     // Crear una copia del objeto para manipularlo
     const guardiaToUpdate = { ...guardia };
 
+    // Log para debugging
+    console.log(`Actualizando guardia ${id} con:`, guardiaToUpdate);
+
+    // Detectar explícitamente si estamos desasociando una ausencia
+    const desasociarAusencia = 'ausencia_id' in guardiaToUpdate && guardiaToUpdate.ausencia_id === undefined;
+    if (desasociarAusencia) {
+      console.log(`Desasociando ausencia de guardia ${id}. Antes de actualizar, ausencia_id:`, guardiaExistente.ausencia_id);
+
+      // Ejecutar SQL directo para establecer ausencia_id a NULL
+      const { data: updateResult, error: sqlError } = await supabase
+        .from(getTableName('GUARDIAS'))
+        .update({ ausencia_id: null })
+        .eq('id', id)
+        .select();
+        
+      if (sqlError) {
+        console.error(`Error al establecer ausencia_id a NULL para guardia ${id}:`, sqlError);
+        throw sqlError;
+      }
+
+      console.log(`Resultado de desasociación:`, updateResult);
+      
+      // Eliminar la propiedad del objeto para que no se procese de nuevo
+      delete guardiaToUpdate.ausencia_id;
+      
+      // Verificar que se ha aplicado correctamente
+      const guardiaVerificacion = await getGuardiaById(id);
+      console.log(`Después de desasociar, guardia ${id} tiene ausencia_id:`, guardiaVerificacion?.ausencia_id);
+    }
+
     // Usar SQL directo para establecer profesor_cubridor_id a NULL si es undefined
     if ('profesor_cubridor_id' in guardiaToUpdate && guardiaToUpdate.profesor_cubridor_id === undefined) {
       // Eliminar la propiedad del objeto para no enviarla en el update normal
@@ -325,23 +386,6 @@ export async function updateGuardia(id: number, guardia: Partial<Guardia>): Prom
         
       if (sqlError) {
         console.error(`Error al establecer profesor_cubridor_id a NULL para guardia ${id}:`, sqlError);
-        throw sqlError;
-      }
-    }
-
-    // Manejar ausencia_id de manera similar cuando es undefined para establecerlo a NULL
-    if ('ausencia_id' in guardiaToUpdate && guardiaToUpdate.ausencia_id === undefined) {
-      // Eliminar la propiedad del objeto para no enviarla en el update normal
-      delete guardiaToUpdate.ausencia_id;
-      
-      // Ejecutar SQL directo para establecer el campo a NULL
-      const { error: sqlError } = await supabase
-        .from(getTableName('GUARDIAS'))
-        .update({ ausencia_id: null })
-        .eq('id', id);
-        
-      if (sqlError) {
-        console.error(`Error al establecer ausencia_id a NULL para guardia ${id}:`, sqlError);
         throw sqlError;
       }
     }

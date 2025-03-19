@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useGuardias } from "@/src/contexts/GuardiasContext"
 import { useHorarios } from "@/src/contexts/HorariosContext"
 import { useAusencias } from "@/src/contexts/AusenciasContext"
@@ -10,6 +10,7 @@ import { Horario } from "@/src/types"
 import StatusCard from "@/components/common/StatusCard"
 import ActionCard from "@/components/common/ActionCard"
 import DataCard from "@/components/common/DataCard"
+import { DB_CONFIG } from "@/lib/db-config"
 
 export default function ProfesorDashboardPage() {
   const { user } = useAuth()
@@ -28,19 +29,19 @@ export default function ProfesorDashboardPage() {
 
   // Get guardias where the profesor is cubridor
   const misGuardias = guardias.filter((g) => g.profesorCubridorId === user.id)
-  const guardiasPendientesFirma = misGuardias.filter((g) => g.estado === "Asignada")
+  const guardiasPendientesFirma = misGuardias.filter((g) => g.estado === DB_CONFIG.ESTADOS_GUARDIA.ASIGNADA)
 
   // Get guardias pendientes that the profesor could cover
-  const guardiasPendientes = guardias.filter((g) => g.estado === "Pendiente")
+  const guardiasPendientes = guardias.filter((g) => g.estado === DB_CONFIG.ESTADOS_GUARDIA.PENDIENTE)
 
   // Get horarios of the profesor
   const misHorarios = horarios.filter((h) => h.profesorId === user.id)
 
   // Filter guardias for today
   const guardiasHoy = guardias.filter((g) => g.fecha === today)
-  const pendientes = guardiasHoy.filter((g) => g.estado === "Pendiente").length
-  const asignadas = guardiasHoy.filter((g) => g.estado === "Asignada").length
-  const firmadas = guardiasHoy.filter((g) => g.estado === "Firmada").length
+  const pendientes = guardiasHoy.filter((g) => g.estado === DB_CONFIG.ESTADOS_GUARDIA.PENDIENTE).length
+  const asignadas = guardiasHoy.filter((g) => g.estado === DB_CONFIG.ESTADOS_GUARDIA.ASIGNADA).length
+  const firmadas = guardiasHoy.filter((g) => g.estado === DB_CONFIG.ESTADOS_GUARDIA.FIRMADA).length
 
   return (
     <div className="container py-4">
@@ -85,7 +86,7 @@ export default function ProfesorDashboardPage() {
             title="Mis Ausencias"
             description="Gestiona tus ausencias y permisos."
             icon="calendar-x"
-            linkHref="/profesor/ausencias"
+            linkHref={DB_CONFIG.RUTAS.PROFESOR_AUSENCIAS}
             linkText="Gestionar Ausencias"
             color="warning"
           />
@@ -93,10 +94,10 @@ export default function ProfesorDashboardPage() {
 
         <div className="col-lg-4 col-md-6 mb-4">
           <ActionCard
-            title="Guardias Pendientes"
-            description="Revisa las guardias que tienes asignadas."
+            title="Mis Guardias"
+            description="Revisa y gestiona todas tus guardias."
             icon="clipboard-check"
-            linkHref="/profesor/guardias-pendientes"
+            linkHref={DB_CONFIG.RUTAS.PROFESOR_MIS_GUARDIAS}
             linkText="Ver Guardias"
             color="info"
           />
@@ -107,7 +108,7 @@ export default function ProfesorDashboardPage() {
             title="Sala de Guardias"
             description="Visualiza el estado actual de las guardias."
             icon="display"
-            linkHref="/sala-guardias"
+            linkHref={DB_CONFIG.RUTAS.SALA_GUARDIAS}
             linkText="Ver Sala"
             color="primary"
           />
@@ -123,7 +124,7 @@ export default function ProfesorDashboardPage() {
             {misHorarios.length === 0 ? (
               <div className="alert alert-info d-flex align-items-center">
                 <i className="bi bi-info-circle me-2"></i>
-                No tienes horarios de guardia asignados.
+                {DB_CONFIG.ETIQUETAS.MENSAJES.SIN_HORARIOS}
               </div>
             ) : (
               <div className="table-responsive">
@@ -146,7 +147,7 @@ export default function ProfesorDashboardPage() {
               </div>
             )}
             <div className="mt-3 text-end">
-              <Link href="/profesor/horario" className="btn btn-sm btn-outline-primary">
+              <Link href={DB_CONFIG.RUTAS.PROFESOR_HORARIO} className="btn btn-sm btn-outline-primary">
                 <i className="bi bi-calendar-week me-1"></i>
                 Ver horario semanal
               </Link>
@@ -162,14 +163,14 @@ export default function ProfesorDashboardPage() {
             {guardiasPendientesFirma.length === 0 ? (
               <div className="alert alert-info d-flex align-items-center">
                 <i className="bi bi-info-circle me-2"></i>
-                No tienes guardias pendientes de firma.
+                {DB_CONFIG.ETIQUETAS.MENSAJES.SIN_GUARDIAS_FIRMA}
               </div>
             ) : (
               <div className="list-group">
-                {guardiasPendientesFirma.slice(0, 5).map((guardia) => (
+                {guardiasPendientesFirma.slice(0, DB_CONFIG.LIMITES.LISTA_PREVIEW).map((guardia) => (
                   <Link
                     key={guardia.id}
-                    href="/profesor/firmar-guardia"
+                    href={`${DB_CONFIG.RUTAS.PROFESOR_MIS_GUARDIAS}?tab=por-firmar`}
                     className="list-group-item list-group-item-action"
                   >
                     <div className="d-flex w-100 justify-content-between">
@@ -179,11 +180,11 @@ export default function ProfesorDashboardPage() {
                       </h5>
                       <small><span className="badge bg-info">{guardia.tipoGuardia}</span></small>
                     </div>
-                    <p className="mb-1"><i className="bi bi-exclamation-circle me-2"></i>Pendiente de firma</p>
+                    <p className="mb-1"><i className="bi bi-exclamation-circle me-2"></i>{DB_CONFIG.ETIQUETAS.GUARDIAS.PENDIENTE_FIRMA}</p>
                   </Link>
                 ))}
-                {guardiasPendientesFirma.length > 5 && (
-                  <Link href="/profesor/firmar-guardia" className="list-group-item list-group-item-action text-center">
+                {guardiasPendientesFirma.length > DB_CONFIG.LIMITES.LISTA_PREVIEW && (
+                  <Link href={`${DB_CONFIG.RUTAS.PROFESOR_MIS_GUARDIAS}?tab=por-firmar`} className="list-group-item list-group-item-action text-center">
                     <i className="bi bi-arrow-right-circle me-2"></i>
                     Ver todas ({guardiasPendientesFirma.length})
                   </Link>

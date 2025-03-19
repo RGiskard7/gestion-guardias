@@ -6,6 +6,7 @@ import { useHorarios } from "@/src/contexts/HorariosContext"
 import { useLugares } from "@/src/contexts/LugaresContext"
 import { useUsuarios } from "@/src/contexts/UsuariosContext"
 import { useAuth } from "@/src/contexts/AuthContext"
+import { DB_CONFIG } from "@/lib/db-config"
 
 export default function HorarioProfesorPage() {
   const { guardias, getGuardiasByProfesor, getProfesorAusenteIdByGuardia } = useGuardias()
@@ -24,11 +25,11 @@ export default function HorarioProfesorPage() {
   const [selectedDate, setSelectedDate] = useState<string>(getTodayDate())
   const [viewMode, setViewMode] = useState<"disponibilidad" | "guardias">("guardias")
   
-  // Días de la semana en español
-  const diasSemana = ["lunes", "martes", "miércoles", "jueves", "viernes"]
+  // Días de la semana en español (manteniendo el caso original)
+  const diasSemana = DB_CONFIG.DIAS_SEMANA
   
   // Tramos horarios
-  const tramosHorarios = ["1ª hora", "2ª hora", "3ª hora", "4ª hora", "5ª hora", "6ª hora"]
+  const tramosHorarios = DB_CONFIG.TRAMOS_HORARIOS;
   
   /**
    * Calcula las fechas de inicio (lunes) y fin (viernes) de la semana que contiene la fecha proporcionada
@@ -100,7 +101,7 @@ export default function HorarioProfesorPage() {
   const todasLasGuardias = user ? getGuardiasByProfesor(user.id) : []
   const guardiasEnSemana = todasLasGuardias.filter(guardia => 
     fechasISO.includes(guardia.fecha) && 
-    (guardia.estado === "Asignada" || guardia.estado === "Firmada") &&
+    (guardia.estado === DB_CONFIG.ESTADOS_GUARDIA.ASIGNADA || guardia.estado === DB_CONFIG.ESTADOS_GUARDIA.FIRMADA) &&
     guardia.profesorCubridorId === user?.id
   )
   
@@ -109,18 +110,18 @@ export default function HorarioProfesorPage() {
   
   // Inicializar la matriz con valores vacíos
   diasSemana.forEach(dia => {
-    horarioDisponibilidad[dia] = {}
+    horarioDisponibilidad[dia.toLowerCase()] = {}
     tramosHorarios.forEach(tramo => {
-      horarioDisponibilidad[dia][tramo] = false
+      horarioDisponibilidad[dia.toLowerCase()][tramo] = false
     })
   })
   
   // Rellenar la matriz con los horarios del profesor (disponibilidad)
   horarioProfesor.forEach(horario => {
-    const dia = horario.diaSemana.toLowerCase()
+    const dia = horario.diaSemana
     const tramo = horario.tramoHorario
     if (diasSemana.includes(dia) && tramosHorarios.includes(tramo)) {
-      horarioDisponibilidad[dia][tramo] = true
+      horarioDisponibilidad[dia.toLowerCase()][tramo] = true
     }
   })
   
@@ -142,12 +143,12 @@ export default function HorarioProfesorPage() {
     if (fechasISO.includes(fecha) && tramosHorarios.includes(tramo)) {
       // Obtener información del lugar
       const lugar = guardia.lugarId ? getLugarById(guardia.lugarId) : null
-      const lugarNombre = lugar ? `${lugar.codigo} - ${lugar.descripcion}` : "Sin lugar"
+      const lugarNombre = lugar ? `${lugar.codigo} - ${lugar.descripcion}` : DB_CONFIG.ETIQUETAS.LUGARES.SIN_LUGAR
       
       // Obtener información del profesor ausente
       const profesorAusenteId = getProfesorAusenteIdByGuardia(guardia.id)
       const profesorAusente = profesorAusenteId ? getUsuarioById(profesorAusenteId) : null
-      const profesorAusenteNombre = profesorAusente ? profesorAusente.nombre : "No especificado"
+      const profesorAusenteNombre = profesorAusente ? profesorAusente.nombre : DB_CONFIG.ETIQUETAS.USUARIOS.NO_ESPECIFICADO
       
       guardiasAsignadas[fecha][tramo] = { 
         guardia, 
@@ -178,13 +179,13 @@ export default function HorarioProfesorPage() {
   // Obtener el color de fondo según el estado de la guardia
   const getBackgroundColor = (estado: string) => {
     switch (estado) {
-      case "Pendiente":
+      case DB_CONFIG.ESTADOS_GUARDIA.PENDIENTE:
         return "bg-warning bg-opacity-10 border-warning";
-      case "Asignada":
+      case DB_CONFIG.ESTADOS_GUARDIA.ASIGNADA:
         return "bg-info bg-opacity-10 border-info";
-      case "Firmada":
+      case DB_CONFIG.ESTADOS_GUARDIA.FIRMADA:
         return "bg-success bg-opacity-10 border-success";
-      case "Anulada":
+      case DB_CONFIG.ESTADOS_GUARDIA.ANULADA:
         return "bg-secondary bg-opacity-10 border-secondary";
       default:
         return "bg-primary bg-opacity-10 border-primary";
@@ -194,13 +195,13 @@ export default function HorarioProfesorPage() {
   // Obtener el color del badge según el estado de la guardia
   const getBadgeColor = (estado: string) => {
     switch (estado) {
-      case "Pendiente":
+      case DB_CONFIG.ESTADOS_GUARDIA.PENDIENTE:
         return "bg-warning text-dark";
-      case "Asignada":
+      case DB_CONFIG.ESTADOS_GUARDIA.ASIGNADA:
         return "bg-info";
-      case "Firmada":
+      case DB_CONFIG.ESTADOS_GUARDIA.FIRMADA:
         return "bg-success";
-      case "Anulada":
+      case DB_CONFIG.ESTADOS_GUARDIA.ANULADA:
         return "bg-secondary";
       default:
         return "bg-primary";
@@ -222,6 +223,12 @@ export default function HorarioProfesorPage() {
     const nextMondayStr = `${nextMonday.getFullYear()}-${String(nextMonday.getMonth() + 1).padStart(2, '0')}-${String(nextMonday.getDate()).padStart(2, '0')}`
     setSelectedDate(nextMondayStr)
   }
+
+  // Agrupar los horarios por día de la semana
+  const horariosPorDia = DB_CONFIG.DIAS_SEMANA.reduce((acc: any, dia) => {
+    acc[dia] = horarioProfesor.filter(h => h.diaSemana === dia);
+    return acc;
+  }, {});
 
   return (
     <div className="container-fluid">
@@ -289,7 +296,7 @@ export default function HorarioProfesorPage() {
                 </div>
                 <div className="col-6 col-md-6 mb-2">
                   <div className="p-2 rounded bg-success bg-opacity-10">
-                    <h3 className="text-success">{guardiasEnSemana.filter(g => g.estado === "Firmada").length}</h3>
+                    <h3 className="text-success">{guardiasEnSemana.filter(g => g.estado === DB_CONFIG.ESTADOS_GUARDIA.FIRMADA).length}</h3>
                     <p className="mb-0"><i className="bi bi-check-circle me-1"></i>Firmadas</p>
                   </div>
                 </div>
@@ -333,12 +340,12 @@ export default function HorarioProfesorPage() {
                       // Mostrar disponibilidad
                       return (
                         <td key={fechaIndex} className="p-3 text-center">
-                          {horarioDisponibilidad[diaSemana][tramo] ? (
+                          {horarioDisponibilidad[diaSemana.toLowerCase()][tramo] ? (
                             <div className="card border bg-primary bg-opacity-10 border-primary shadow-sm sala-guardias-card">
                               <div className="card-body p-2">
                                 <div className="d-flex justify-content-center align-items-center">
                                   <span className="badge bg-primary">
-                                    <i className="bi bi-clock me-1"></i>Disponible
+                                    <i className="bi bi-clock me-1"></i>{DB_CONFIG.ETIQUETAS.GUARDIAS.DISPONIBLE}
                                   </span>
                                 </div>
                                 <small className="d-block mt-2 text-center">
@@ -420,7 +427,7 @@ export default function HorarioProfesorPage() {
                   {viewMode === "disponibilidad" ? (
                     // Mostrar disponibilidad
                     diasSemana.map((dia, diaIndex) => {
-                      if (!horarioDisponibilidad[dia][tramo]) return null;
+                      if (!horarioDisponibilidad[dia.toLowerCase()][tramo]) return null;
                       
                       return (
                         <div key={diaIndex} className="mb-3">
@@ -431,7 +438,7 @@ export default function HorarioProfesorPage() {
                             <div className="card-body p-3">
                               <div className="d-flex justify-content-center align-items-center">
                                 <span className="badge bg-primary">
-                                  <i className="bi bi-clock me-1"></i>Disponible
+                                  <i className="bi bi-clock me-1"></i>{DB_CONFIG.ETIQUETAS.GUARDIAS.DISPONIBLE}
                                 </span>
                               </div>
                               <small className="d-block mt-2 text-center">
@@ -477,7 +484,7 @@ export default function HorarioProfesorPage() {
                     })
                   )}
                   
-                  {viewMode === "disponibilidad" && !diasSemana.some(dia => horarioDisponibilidad[dia][tramo]) && (
+                  {viewMode === "disponibilidad" && !diasSemana.some(dia => horarioDisponibilidad[dia.toLowerCase()][tramo]) && (
                     <div className="alert alert-light">
                       No tienes horas de guardia asignadas en este tramo horario.
                     </div>

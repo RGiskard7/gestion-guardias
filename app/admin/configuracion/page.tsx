@@ -72,8 +72,8 @@ export default function ConfiguracionPage() {
   // Función para eliminar un tipo de guardia
   const handleDeleteTipoGuardia = (tipo: string) => {
     // No permitir eliminar el tipo "Aula" que es el obligatorio
-    if (tipo === "Aula") {
-      alert("No se puede eliminar el tipo 'Aula', es obligatorio en el sistema")
+    if (tipo === DB_CONFIG.TIPOS_GUARDIA[0]) {
+      alert(`No se puede eliminar el tipo '${DB_CONFIG.TIPOS_GUARDIA[0]}', es obligatorio en el sistema`)
       return
     }
     
@@ -125,8 +125,8 @@ export default function ConfiguracionPage() {
                 <button
                   className="btn btn-sm btn-outline-danger"
                   onClick={() => handleDeleteTipoGuardia(tipo)}
-                  disabled={tipo === "Aula"}
-                  title={tipo === "Aula" ? "No se puede eliminar este tipo obligatorio" : "Eliminar tipo de guardia"}
+                  disabled={tipo === DB_CONFIG.TIPOS_GUARDIA[0]}
+                  title={tipo === DB_CONFIG.TIPOS_GUARDIA[0] ? "No se puede eliminar este tipo obligatorio" : "Eliminar tipo de guardia"}
                 >
                   <i className="bi bi-trash"></i>
                 </button>

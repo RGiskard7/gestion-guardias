@@ -2,6 +2,74 @@
 
 Este documento registra todos los cambios, mejoras y correcciones realizadas en el proyecto de Sistema de Gestión de Guardias.
 
+## [2025-03-19] - Mejoras en la selección de profesores disponibles y en la navegación del sistema
+
+### Autor(es)
+- Equipo de Desarrollo
+
+### Cambios realizados
+- Corrección de la función `profesorTieneDisponibilidad` que filtra los profesores disponibles para cubrir guardias
+- Optimización del algoritmo de verificación de disponibilidad para comprobar correctamente el día de la semana y el tramo horario
+- Implementación de mejora para que ignore la guardia actual al comprobar disponibilidad durante la edición
+- Añadida la propiedad `tarea` al estado del formulario para evitar errores al crear guardias con tareas
+- Limpieza de elementos de depuración de la interfaz de usuario
+- Simplificación de la interfaz de edición de guardias
+- Renombrada la sección "Guardias pendientes" a "Mis guardias" en la interfaz del profesor
+- Restructuración de la página de "Mis guardias" con un sistema de pestañas para acceder a diferentes tipos de guardias:
+  - Guardias pendientes (por asignar)
+  - Guardias generadas (por ausencias del profesor)
+  - Guardias por firmar (asignadas al profesor)
+- Implementada la navegación por pestañas con parámetros URL para mantener el estado entre recargas
+
+### Archivos modificados
+- `app/admin/guardias/page.tsx`: Corrección de la función `profesorTieneDisponibilidad` y mejoras en la interfaz
+- `app/profesor/guardias-pendientes/page.tsx`: Redireccionamiento a la nueva página "Mis guardias"
+- `app/profesor/mis-guardias/page.tsx`: Nueva página con sistema de pestañas para gestionar todos los tipos de guardias
+- `components/common/Sidebar.tsx`: Actualización de enlaces en la barra lateral de navegación
+- `lib/db-config.ts`: Actualización de rutas para reflejar el cambio de nomenclatura
+
+### Problemas resueltos
+- Error al mostrar profesores disponibles para cubrir una guardia, ahora se verifica correctamente si tienen horario para ese día de la semana y tramo
+- Problema al editar guardias donde no se mostraba el profesor asignado actualmente como opción disponible
+- Error al crear guardias con tareas debido a la falta de la propiedad `tarea` en el estado del formulario
+- Navegación confusa para profesores entre diferentes tipos de guardias (pendientes, generadas, por firmar)
+- Experiencia de usuario fragmentada que requería navegar entre diferentes páginas para gestionar guardias
+
+### Notas adicionales
+- La selección de profesores disponibles ahora funciona correctamente y muestra:
+  - Profesores con horario para ese día de la semana y tramo horario
+  - Profesores que no tienen otra guardia asignada en esa fecha y tramo
+  - El profesor actualmente asignado a la guardia (en modo edición)
+- Se ha eliminado el botón de depuración y los mensajes de consola para mantener un código limpio y profesional
+- La nueva página "Mis guardias" unifica la experiencia del profesor proporcionando acceso a todos los tipos de guardias desde una única interfaz
+- El sistema de pestañas con parámetros URL permite compartir enlaces directos a secciones específicas y mantener la pestaña activa en recargas
+
+## [2025-03-25] (5) - Mejora en la validación de fechas para guardias y ausencias
+
+### Autor(es)
+- Equipo de desarrollo
+
+### Cambios realizados
+- Añadida validación para impedir la creación de guardias y ausencias con fechas pasadas
+- Implementada validación en formularios web para evitar la selección de fechas anteriores a la actual
+- Agregada validación a nivel de servicios para rechazar operaciones con fechas pasadas
+- Implementada validación en `createGuardia` y `createAusencia` para verificar fechas válidas
+
+### Archivos modificados
+- `app/admin/guardias/page.tsx`: Añadido atributo `min` a los campos de fecha para prevenir selección de fechas pasadas
+- `app/admin/ausencias/page.tsx`: Añadido atributo `min` al campo de fecha para prevenir selección de fechas pasadas
+- `lib/guardiasService.ts`: Implementada validación en `createGuardia` para rechazar fechas pasadas
+- `lib/ausenciasService.ts`: Implementada validación en `createAusencia` para rechazar fechas pasadas
+
+### Problemas resueltos
+- Eliminada la posibilidad de crear guardias y ausencias con fechas pasadas
+- Mejorada la validación de datos para garantizar la integridad temporal del sistema
+- Prevenidos errores de consistencia en la asignación de profesores a guardias pasadas
+
+### Notas adicionales
+- Esta implementación forma parte de las mejoras de seguridad y consistencia del sistema
+- Se mantiene la funcionalidad para visualizar registros históricos, solo se impide la creación en fechas pasadas
+
 ## [2025-03-18] (4) - Mejora en la anulación de guardias y corrección de errores en la creación
 
 ### Autor(es)
