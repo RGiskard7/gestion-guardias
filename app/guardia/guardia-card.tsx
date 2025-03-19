@@ -12,9 +12,18 @@ interface GuardiaCardProps {
   showActions?: boolean
   onAsignar?: (guardiaId: number) => void
   onFirmar?: (guardiaId: number) => void
+  onEditTarea?: (tarea: TareaGuardia) => void
+  onDeleteTarea?: (tarea: TareaGuardia) => void
 }
 
-const GuardiaCard: React.FC<GuardiaCardProps> = ({ guardia, showActions = false, onAsignar, onFirmar }) => {
+const GuardiaCard: React.FC<GuardiaCardProps> = ({ 
+  guardia, 
+  showActions = false, 
+  onAsignar, 
+  onFirmar, 
+  onEditTarea,
+  onDeleteTarea 
+}) => {
   const { getTareasByGuardia, getProfesorAusenteIdByGuardia } = useGuardias()
   const { getLugarById } = useLugares()
   const { getUsuarioById } = useUsuarios()
@@ -134,9 +143,39 @@ const GuardiaCard: React.FC<GuardiaCardProps> = ({ guardia, showActions = false,
             <h6><i className="bi bi-list-check me-1"></i>Tareas:</h6>
             <ul className="list-group">
               {tareas.map((tarea) => (
-                <li key={tarea.id} className="list-group-item">
-                  <i className="bi bi-check2-square me-2"></i>
-                  {tarea.descripcionTarea}
+                <li 
+                  key={tarea.id} 
+                  className={`list-group-item ${(onEditTarea || onDeleteTarea) ? 'd-flex justify-content-between align-items-center' : ''}`}
+                >
+                  <span>
+                    <i className="bi bi-check2-square me-2"></i>
+                    {tarea.descripcionTarea}
+                  </span>
+                  
+                  {(onEditTarea || onDeleteTarea) && (
+                    <div>
+                      {onEditTarea && (
+                        <button 
+                          className="btn btn-sm btn-outline-primary me-1" 
+                          onClick={() => onEditTarea(tarea)}
+                          title="Editar tarea"
+                          aria-label="Editar tarea"
+                        >
+                          <i className="bi bi-pencil"></i>
+                        </button>
+                      )}
+                      {onDeleteTarea && (
+                        <button 
+                          className="btn btn-sm btn-outline-danger" 
+                          onClick={() => onDeleteTarea(tarea)}
+                          title="Eliminar tarea"
+                          aria-label="Eliminar tarea"
+                        >
+                          <i className="bi bi-trash"></i>
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </li>
               ))}
             </ul>

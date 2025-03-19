@@ -7,7 +7,7 @@ import { useHorarios } from "@/src/contexts/HorariosContext"
 import { useLugares } from "@/src/contexts/LugaresContext"
 import { useAuth } from "@/src/contexts/AuthContext"
 import { useAusencias } from "@/src/contexts/AusenciasContext"
-import { Guardia, Usuario } from "@/src/types"
+import { Guardia, Usuario, TareaGuardia } from "@/src/types"
 import { Pagination } from "@/components/ui/pagination"
 import GuardiaCard from "@/app/guardia/guardia-card"
 import { DB_CONFIG } from "@/lib/db-config"
@@ -15,7 +15,7 @@ import { useSearchParams } from "next/navigation"
 
 export default function MisGuardiasPage() {
   const { user } = useAuth()
-  const { guardias, asignarGuardia, firmarGuardia, getProfesorAusenteIdByGuardia, canProfesorAsignarGuardia, addTareaGuardia } = useGuardias()
+  const { guardias, asignarGuardia, firmarGuardia, getProfesorAusenteIdByGuardia, canProfesorAsignarGuardia, addTareaGuardia, updateTareaGuardia, deleteTareaGuardia, getTareasByGuardia } = useGuardias()
   const { horarios } = useHorarios()
   const { usuarios } = useUsuarios()
   const { lugares } = useLugares()
@@ -47,6 +47,11 @@ export default function MisGuardiasPage() {
   // Estado para el modal de detalles
   const [showDetailsModal, setShowDetailsModal] = useState(false)
   const [guardiaDetalles, setGuardiaDetalles] = useState<Guardia | null>(null)
+  
+  // Añadir nuevos estados para edición de tareas
+  const [tareaEditing, setTareaEditing] = useState<TareaGuardia | null>(null)
+  const [editedTareaText, setEditedTareaText] = useState("")
+  const [showTareaEditModal, setShowTareaEditModal] = useState(false)
   
   // Usar siempre la fecha actual
   const today = new Date().toISOString().split("T")[0]
@@ -340,49 +345,103 @@ export default function MisGuardiasPage() {
 
   const tabMessage = getTabMessage()
 
+  // Agregar funciones para gestionar tareas
+  // 4. Editar tarea
+  const handleEditTarea = (tarea: TareaGuardia) => {
+    setTareaEditing(tarea)
+    setEditedTareaText(tarea.descripcionTarea)
+    setShowTareaEditModal(true)
+  }
+
+  // 5. Guardar edición de tarea
+  const handleSaveEditTarea = async () => {
+    if (!tareaEditing || !editedTareaText.trim()) return
+    
+    try {
+      // Crear objeto con los datos actualizados
+      const updatedTarea = {
+        ...tareaEditing,
+        descripcionTarea: editedTareaText.trim()
+      }
+      
+      // Actualizar la tarea en la base de datos
+      await updateTareaGuardia(updatedTarea.id, updatedTarea)
+      
+      // Cerrar modal y mostrar mensaje
+      setShowTareaEditModal(false)
+      setTareaEditing(null)
+      setMensaje({
+        texto: "Tarea actualizada correctamente.",
+        tipo: "success"
+      })
+    } catch (error) {
+      console.error("Error al actualizar tarea:", error)
+      setMensaje({
+        texto: "Error al actualizar la tarea. Inténtalo de nuevo más tarde.",
+        tipo: "danger"
+      })
+    }
+  }
+
+  // 6. Eliminar tarea
+  const handleDeleteTarea = async (tarea: TareaGuardia) => {
+    if (window.confirm("¿Estás seguro de que quieres eliminar esta tarea?")) {
+      try {
+        // Eliminar la tarea
+        await deleteTareaGuardia(tarea.id)
+        
+        // Mostrar mensaje de éxito
+        setMensaje({
+          texto: "Tarea eliminada correctamente.",
+          tipo: "success"
+        })
+      } catch (error) {
+        console.error("Error al eliminar tarea:", error)
+        setMensaje({
+          texto: "Error al eliminar la tarea. Inténtalo de nuevo más tarde.",
+          tipo: "danger"
+        })
+      }
+    }
+  }
+
   return (
     <div className="container-fluid">
       <h1 className="h3 mb-4">Mis Guardias</h1>
 
-      {/* Tabs */}
-      <ul className="nav nav-tabs mb-4">
-        <li className="nav-item">
-          <button 
-            className={`nav-link ${activeTab === 'pendientes' ? 'active' : ''}`}
-            onClick={() => handleTabChange('pendientes')}
-          >
-            <i className="bi bi-hourglass-split me-2"></i>
-            Pendientes
-            {guardiasPendientes.length > 0 && (
-              <span className="badge bg-warning text-dark ms-2">{guardiasPendientes.length}</span>
-            )}
-          </button>
-        </li>
-        <li className="nav-item">
-          <button 
-            className={`nav-link ${activeTab === 'generadas' ? 'active' : ''}`}
-            onClick={() => handleTabChange('generadas')}
-          >
-            <i className="bi bi-calendar-event me-2"></i>
-            Generadas
-            {guardiasGeneradas.length > 0 && (
-              <span className="badge bg-primary ms-2">{guardiasGeneradas.length}</span>
-            )}
-          </button>
-        </li>
-        <li className="nav-item">
-          <button 
-            className={`nav-link ${activeTab === 'por-firmar' ? 'active' : ''}`}
-            onClick={() => handleTabChange('por-firmar')}
-          >
-            <i className="bi bi-pen me-2"></i>
-            Por firmar
-            {guardiasPorFirmar.length > 0 && (
-              <span className="badge bg-info ms-2">{guardiasPorFirmar.length}</span>
-            )}
-          </button>
-        </li>
-      </ul>
+      {/* Tabs con estilo mejorado */}
+      <div className="d-flex flex-wrap gap-2 mb-4">
+        <button 
+          className={`btn ${activeTab === 'pendientes' ? 'btn-warning text-dark' : 'btn-outline-warning'}`}
+          onClick={() => handleTabChange('pendientes')}
+        >
+          <i className="bi bi-hourglass-split me-2"></i>
+          Pendientes
+          {guardiasPendientes.length > 0 && (
+            <span className="badge bg-white text-warning ms-2">{guardiasPendientes.length}</span>
+          )}
+        </button>
+        <button 
+          className={`btn ${activeTab === 'generadas' ? 'btn-primary' : 'btn-outline-primary'}`}
+          onClick={() => handleTabChange('generadas')}
+        >
+          <i className="bi bi-calendar-event me-2"></i>
+          Generadas
+          {guardiasGeneradas.length > 0 && (
+            <span className="badge bg-white text-primary ms-2">{guardiasGeneradas.length}</span>
+          )}
+        </button>
+        <button 
+          className={`btn ${activeTab === 'por-firmar' ? 'btn-info text-white' : 'btn-outline-info'}`}
+          onClick={() => handleTabChange('por-firmar')}
+        >
+          <i className="bi bi-pen me-2"></i>
+          Por firmar
+          {guardiasPorFirmar.length > 0 && (
+            <span className="badge bg-white text-info ms-2">{guardiasPorFirmar.length}</span>
+          )}
+        </button>
+      </div>
 
       {/* Mensajes */}
       {mensaje && (
@@ -429,8 +488,11 @@ export default function MisGuardiasPage() {
                   }
                   onAsignar={activeTab === 'pendientes' ? handleAsignarGuardia : undefined}
                   onFirmar={activeTab === 'por-firmar' ? handleFirmarGuardia : undefined}
+                  onEditTarea={activeTab === 'generadas' ? handleEditTarea : undefined}
+                  onDeleteTarea={activeTab === 'generadas' ? handleDeleteTarea : undefined}
                 />
-                {/* Botones adicionales para la pestaña Generadas */}
+                
+                {/* Botones adicionales para ver detalles y añadir tareas en la pestaña Generadas */}
                 {activeTab === 'generadas' && (
                   <div className="d-flex justify-content-end gap-2 mt-2">
                     <button 
@@ -540,71 +602,117 @@ export default function MisGuardiasPage() {
                 ></button>
               </div>
               <div className="modal-body">
-                <div className="row mb-3">
+                <div className="row g-4">
                   <div className="col-md-6">
-                    <h6 className="fw-bold">ID de la Guardia</h6>
-                    <p>{guardiaDetalles.id}</p>
+                    <div className="card h-100 border-0 shadow-sm">
+                      <div className="card-body">
+                        <h6 className="card-subtitle mb-3 text-muted border-bottom pb-2">
+                          <i className="bi bi-info-circle me-2"></i>
+                          Información General
+                        </h6>
+                        <p><strong>ID:</strong> {guardiaDetalles.id}</p>
+                        <p>
+                          <strong>Estado:</strong>{" "}
+                          <span className={`badge ${
+                            guardiaDetalles.estado === DB_CONFIG.ESTADOS_GUARDIA.PENDIENTE ? "bg-warning text-dark" : 
+                            guardiaDetalles.estado === DB_CONFIG.ESTADOS_GUARDIA.ASIGNADA ? "bg-info" : 
+                            guardiaDetalles.estado === DB_CONFIG.ESTADOS_GUARDIA.FIRMADA ? "bg-success" : "bg-secondary"
+                          }`}>{guardiaDetalles.estado}</span>
+                        </p>
+                        <p><strong>Tipo:</strong> {guardiaDetalles.tipoGuardia}</p>
+                      </div>
+                    </div>
                   </div>
+                  
                   <div className="col-md-6">
-                    <h6 className="fw-bold">Estado</h6>
-                    <p>
-                      <span className={`badge ${
-                        guardiaDetalles.estado === DB_CONFIG.ESTADOS_GUARDIA.PENDIENTE ? "bg-warning text-dark" : 
-                        guardiaDetalles.estado === DB_CONFIG.ESTADOS_GUARDIA.ASIGNADA ? "bg-info" : 
-                        guardiaDetalles.estado === DB_CONFIG.ESTADOS_GUARDIA.FIRMADA ? "bg-success" : "bg-secondary"
-                      }`}>{guardiaDetalles.estado}</span>
-                    </p>
+                    <div className="card h-100 border-0 shadow-sm">
+                      <div className="card-body">
+                        <h6 className="card-subtitle mb-3 text-muted border-bottom pb-2">
+                          <i className="bi bi-calendar-date me-2"></i>
+                          Fecha y Hora
+                        </h6>
+                        <p><strong>Fecha:</strong> {new Date(guardiaDetalles.fecha).toLocaleDateString('es-ES', { 
+                          weekday: 'long', 
+                          year: 'numeric', 
+                          month: 'long', 
+                          day: 'numeric' 
+                        })}</p>
+                        <p><strong>Tramo Horario:</strong> {guardiaDetalles.tramoHorario}</p>
+                      </div>
+                    </div>
                   </div>
+                  
+                  <div className="col-md-6">
+                    <div className="card h-100 border-0 shadow-sm">
+                      <div className="card-body">
+                        <h6 className="card-subtitle mb-3 text-muted border-bottom pb-2">
+                          <i className="bi bi-geo-alt me-2"></i>
+                          Ubicación
+                        </h6>
+                        {(() => {
+                          const lugar = lugares.find(l => l.id === guardiaDetalles.lugarId)
+                          return lugar ? (
+                            <p><strong>Lugar:</strong> {lugar.codigo} - {lugar.descripcion}</p>
+                          ) : (
+                            <p><strong>Lugar:</strong> No especificado</p>
+                          )
+                        })()}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="col-md-6">
+                    <div className="card h-100 border-0 shadow-sm">
+                      <div className="card-body">
+                        <h6 className="card-subtitle mb-3 text-muted border-bottom pb-2">
+                          <i className="bi bi-people me-2"></i>
+                          Profesores
+                        </h6>
+                        <p><strong>Profesor Ausente:</strong> {getProfesorName(getProfesorAusenteIdByGuardia(guardiaDetalles.id) || 0)}</p>
+                        <p><strong>Profesor Cubridor:</strong> {guardiaDetalles.profesorCubridorId 
+                          ? getProfesorName(guardiaDetalles.profesorCubridorId) 
+                          : "Pendiente de asignar"}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {guardiaDetalles.observaciones && (
+                    <div className="col-12">
+                      <div className="card border-0 shadow-sm">
+                        <div className="card-body">
+                          <h6 className="card-subtitle mb-3 text-muted border-bottom pb-2">
+                            <i className="bi bi-chat-left-text me-2"></i>
+                            Observaciones
+                          </h6>
+                          <p>{guardiaDetalles.observaciones}</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Mostrar tareas si existen */}
+                  {getTareasByGuardia(guardiaDetalles.id).length > 0 && (
+                    <div className="col-12">
+                      <div className="card border-0 shadow-sm">
+                        <div className="card-body">
+                          <h6 className="card-subtitle mb-3 text-muted border-bottom pb-2">
+                            <i className="bi bi-list-check me-2"></i>
+                            Tareas Asignadas
+                          </h6>
+                          <ul className="list-group list-group-flush">
+                            {getTareasByGuardia(guardiaDetalles.id).map((tarea: TareaGuardia) => (
+                              <li key={tarea.id} className="list-group-item px-0">
+                                <i className="bi bi-check2-square me-2"></i>
+                                {tarea.descripcionTarea}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
-                
-                <div className="row mb-3">
-                  <div className="col-md-6">
-                    <h6 className="fw-bold">Fecha</h6>
-                    <p>{new Date(guardiaDetalles.fecha).toLocaleDateString('es-ES', { 
-                      weekday: 'long', 
-                      year: 'numeric', 
-                      month: 'long', 
-                      day: 'numeric' 
-                    })}</p>
-                  </div>
-                  <div className="col-md-6">
-                    <h6 className="fw-bold">Tramo Horario</h6>
-                    <p>{guardiaDetalles.tramoHorario}</p>
-                  </div>
-                </div>
-                
-                <div className="row mb-3">
-                  <div className="col-md-6">
-                    <h6 className="fw-bold">Tipo de Guardia</h6>
-                    <p>{guardiaDetalles.tipoGuardia}</p>
-                  </div>
-                  <div className="col-md-6">
-                    <h6 className="fw-bold">Lugar</h6>
-                    <p>{getLugarName(guardiaDetalles.lugarId)} (ID: {guardiaDetalles.lugarId})</p>
-                  </div>
-                </div>
-                
-                <div className="row mb-3">
-                  <div className="col-md-6">
-                    <h6 className="fw-bold">Profesor Ausente</h6>
-                    <p>{getProfesorName(getProfesorAusenteIdByGuardia(guardiaDetalles.id) || 0)}</p>
-                  </div>
-                  <div className="col-md-6">
-                    <h6 className="fw-bold">Profesor Cubridor</h6>
-                    <p>
-                      {guardiaDetalles.profesorCubridorId 
-                        ? getProfesorName(guardiaDetalles.profesorCubridorId) 
-                        : "Pendiente de asignar"}
-                    </p>
-                  </div>
-                </div>
-                
-                {guardiaDetalles.observaciones && (
-                  <div className="mb-3">
-                    <h6 className="fw-bold">Observaciones</h6>
-                    <p>{guardiaDetalles.observaciones}</p>
-                  </div>
-                )}
               </div>
               <div className="modal-footer">
                 <button 
@@ -612,15 +720,69 @@ export default function MisGuardiasPage() {
                   className="btn btn-secondary"
                   onClick={handleCloseModals}
                 >
+                  <i className="bi bi-x-circle me-1"></i>
                   Cerrar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal para editar tarea */}
+      {showTareaEditModal && tareaEditing && (
+        <div className="modal fade show" 
+             style={{ display: 'block', backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <div className="modal-dialog">
+            <div className="modal-content">
+              <div className="modal-header bg-primary text-white">
+                <h5 className="modal-title">
+                  <i className="bi bi-pencil-square me-2"></i>
+                  Editar Tarea
+                </h5>
+                <button 
+                  type="button" 
+                  className="btn-close btn-close-white" 
+                  onClick={() => {
+                    setShowTareaEditModal(false)
+                    setTareaEditing(null)
+                  }}
+                  aria-label="Cerrar"
+                ></button>
+              </div>
+              <div className="modal-body">
+                <div className="mb-3">
+                  <label htmlFor="editTarea" className="form-label">Descripción de la tarea</label>
+                  <textarea
+                    id="editTarea"
+                    className="form-control"
+                    value={editedTareaText}
+                    onChange={(e) => setEditedTareaText(e.target.value)}
+                    rows={3}
+                    placeholder="Escribe aquí la descripción de la tarea..."
+                  ></textarea>
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button 
+                  type="button" 
+                  className="btn btn-secondary" 
+                  onClick={() => {
+                    setShowTareaEditModal(false)
+                    setTareaEditing(null)
+                  }}
+                >
+                  <i className="bi bi-x-circle me-1"></i>
+                  Cancelar
                 </button>
                 <button 
                   type="button" 
-                  className="btn btn-success"
-                  onClick={() => handleAddTarea(guardiaDetalles)}
+                  className="btn btn-primary"
+                  onClick={handleSaveEditTarea}
+                  disabled={!editedTareaText.trim()}
                 >
-                  <i className="bi bi-plus-circle me-1"></i>
-                  Añadir Tarea
+                  <i className="bi bi-save me-1"></i>
+                  Guardar Cambios
                 </button>
               </div>
             </div>
