@@ -79,12 +79,13 @@ export default function GuardiasPage() {
     fecha: new Date().toISOString().split("T")[0],
     tramoHorario: "",
     tramosHorarios: [] as string[],
-    tipoGuardia: DB_CONFIG.TIPOS_GUARDIA.GUARDIA,
+    tipoGuardia: Object.values(DB_CONFIG.TIPOS_GUARDIA)[0],
     lugarId: "",
     observaciones: "",
     estado: DB_CONFIG.ESTADOS_GUARDIA.PENDIENTE,
     profesorAusenteId: "",
-    profesorCubridorId: ""
+    profesorCubridorId: "",
+    tarea: ""
   })
   
   const [error, setError] = useState<string | null>(null)
@@ -232,11 +233,9 @@ export default function GuardiasPage() {
       [name]:
         type === "checkbox"
           ? (e.target as HTMLInputElement).checked
-          : name === "lugarId" || (name === "profesorAusenteId" && value !== "") || (name === "profesorCubridorId" && value !== "")
-            ? Number.parseInt(value)
-            : (name === "profesorAusenteId" || name === "profesorCubridorId") && value === ""
-              ? null
-              : value,
+          : name === "lugarId" || name === "profesorAusenteId" || name === "profesorCubridorId"
+            ? value === "" ? "" : value // Permitir valor vacío para los IDs
+            : value,
     }))
   }
 
@@ -329,6 +328,23 @@ export default function GuardiasPage() {
     // Extraer datos necesarios del formulario
     const { tramosHorarios, ...guardiaData } = formData
     
+    // Determinar el estado correcto de la guardia basado en profesorCubridorId
+    // Si el profesor cubridor está vacío, debe ser "Pendiente"
+    // Si hay profesor cubridor, debe ser "Asignada" (a menos que ya esté firmada)
+    let nuevoEstado = guardiaData.estado
+    
+    if (guardiaData.profesorCubridorId === "") {
+      // Si se quita el profesor cubridor, la guardia pasa a "Pendiente"
+      nuevoEstado = DB_CONFIG.ESTADOS_GUARDIA.PENDIENTE as typeof formData.estado
+    } else if (guardiaData.profesorCubridorId !== "" && 
+               guardiaActual.profesorCubridorId !== Number(guardiaData.profesorCubridorId) &&
+               guardiaActual.estado !== DB_CONFIG.ESTADOS_GUARDIA.FIRMADA &&
+               guardiaActual.estado !== DB_CONFIG.ESTADOS_GUARDIA.ANULADA) {
+      // Si se asigna o cambia el profesor cubridor, la guardia pasa a "Asignada"
+      // excepto si ya estaba firmada o anulada
+      nuevoEstado = DB_CONFIG.ESTADOS_GUARDIA.ASIGNADA as typeof formData.estado
+    }
+    
     try {
       if (hasAssociatedAusencia && desasociarAusencia) {
         // Primero desasociar la guardia de la ausencia
@@ -339,8 +355,12 @@ export default function GuardiasPage() {
           await updateGuardia(editingId, {
             ...guardiaData,
             lugarId: guardiaData.lugarId ? Number(guardiaData.lugarId) : 0,
-            // Al desasociar, establecer el estado como pendiente
-            estado: DB_CONFIG.ESTADOS_GUARDIA.PENDIENTE
+            profesorCubridorId: guardiaData.profesorCubridorId === "" ? null : 
+                              typeof guardiaData.profesorCubridorId === "string" ? 
+                              Number(guardiaData.profesorCubridorId) : guardiaData.profesorCubridorId,
+            observaciones: guardiaData.observaciones, // Asegurar que se actualizan las observaciones
+            // Al desasociar, establecer el estado como pendiente sin importar lo anterior
+            estado: DB_CONFIG.ESTADOS_GUARDIA.PENDIENTE as typeof formData.estado
           })
           
           // Refrescar todos los datos para asegurar que el estado de asociación está actualizado
@@ -355,7 +375,12 @@ export default function GuardiasPage() {
         // Actualización normal sin desasociar
         await updateGuardia(editingId, {
           ...guardiaData,
-          lugarId: guardiaData.lugarId ? Number(guardiaData.lugarId) : 0
+          lugarId: guardiaData.lugarId ? Number(guardiaData.lugarId) : 0,
+          profesorCubridorId: guardiaData.profesorCubridorId === "" ? null : 
+                            typeof guardiaData.profesorCubridorId === "string" ? 
+                            Number(guardiaData.profesorCubridorId) : guardiaData.profesorCubridorId,
+          observaciones: guardiaData.observaciones, // Asegurar que se actualizan las observaciones
+          estado: nuevoEstado // Aplicar el nuevo estado según la lógica
         })
         
         // Refrescar todos los datos para mantener la coherencia
@@ -692,12 +717,13 @@ export default function GuardiasPage() {
       fecha: new Date().toISOString().split("T")[0],
       tramoHorario: "",
       tramosHorarios: [],
-      tipoGuardia: DB_CONFIG.TIPOS_GUARDIA.GUARDIA,
+      tipoGuardia: Object.values(DB_CONFIG.TIPOS_GUARDIA)[0],
       lugarId: "",
       observaciones: "",
       estado: DB_CONFIG.ESTADOS_GUARDIA.PENDIENTE,
       profesorAusenteId: "",
-      profesorCubridorId: ""
+      profesorCubridorId: "",
+      tarea: ""
     })
     setRangoFechas({
       fechaInicio: new Date().toISOString().split("T")[0],
@@ -711,12 +737,16 @@ export default function GuardiasPage() {
     setDesasociarAusencia(false)
   }
 
-  // Manejar edición de guardia
+  // Corregir la función handleEdit
   const handleEdit = (guardia: Guardia) => {
     // Verificar si la guardia tiene una ausencia asociada
     const profesorAusenteId = getProfesorAusenteIdByGuardia(guardia.id)
     setHasAssociatedAusencia(profesorAusenteId !== null)
     setDesasociarAusencia(false) // Restablecer el estado de desasociación
+
+    // Obtener la primera tarea asociada a la guardia, si existe
+    const tareas = getTareasByGuardia(guardia.id)
+    const primeraTarea = tareas.length > 0 ? tareas[0].descripcionTarea : ""
 
     setFormData({
       fecha: guardia.fecha,
@@ -725,9 +755,10 @@ export default function GuardiasPage() {
       tipoGuardia: guardia.tipoGuardia,
       observaciones: guardia.observaciones,
       lugarId: String(guardia.lugarId),
-      profesorCubridorId: guardia.profesorCubridorId,
-      estado: guardia.estado,
-      profesorAusenteId: ""
+      profesorCubridorId: guardia.profesorCubridorId === null ? "" : String(guardia.profesorCubridorId),
+      estado: guardia.estado as typeof formData.estado, // Forzar el tipo correcto para estado
+      profesorAusenteId: profesorAusenteId === null ? "" : String(profesorAusenteId),
+      tarea: primeraTarea // Incluir la primera tarea si existe
     })
     setEditingId(guardia.id)
     setShowForm(true)
@@ -859,6 +890,53 @@ export default function GuardiasPage() {
     setTareaEditing(null)
     setSelectedGuardia(null)
   }
+
+  // Corregir la función que verifica si un profesor tiene disponibilidad
+  const profesorTieneDisponibilidad = (profesorId: number, fecha: string, tramoHorario: string): boolean => {
+    // Si estamos editando una guardia, el profesor cubridor actual siempre debe estar disponible
+    if (editingId) {
+      const guardiaActual = guardias.find(g => g.id === editingId);
+      if (guardiaActual && guardiaActual.profesorCubridorId === profesorId) {
+        return true; // El profesor actual siempre está disponible para la guardia que edita
+      }
+    }
+    
+    // Obtener el día de la semana (1-7, donde 1 es lunes y 7 es domingo)
+    const fechaObj = new Date(fecha);
+    const diaSemanaNumerico = fechaObj.getDay() || 7; // Si es domingo (0), convertirlo a 7
+    
+    // Solo considerar días laborables (lunes a viernes)
+    if (diaSemanaNumerico > 5) {
+      return false; // No hay disponibilidad en fin de semana
+    }
+    
+    // Obtener el nombre del día a partir del número
+    const nombreDiaSemana = DB_CONFIG.DIAS_SEMANA[diaSemanaNumerico - 1];
+    
+    // Verificar si el profesor tiene horario para ese día y tramo
+    const tieneHorario = horarios.some(h => 
+      h.profesorId === profesorId && 
+      h.diaSemana === nombreDiaSemana && 
+      h.tramoHorario === tramoHorario
+    );
+    
+    // Si no tiene horario para este día y tramo, no está disponible
+    if (!tieneHorario) {
+      return false;
+    }
+    
+    // Verificar si ya tiene una guardia asignada para esta fecha específica y tramo
+    const tieneProgramada = guardias.some(g => 
+      g.profesorCubridorId === profesorId && 
+      g.fecha === fecha && 
+      g.tramoHorario === tramoHorario &&
+      g.id !== editingId && // Ignorar la guardia que estamos editando
+      (g.estado === DB_CONFIG.ESTADOS_GUARDIA.ASIGNADA || g.estado === DB_CONFIG.ESTADOS_GUARDIA.FIRMADA)
+    );
+    
+    // Está disponible si no tiene otra guardia ya asignada
+    return !tieneProgramada;
+  };
 
   return (
     <div className="container py-4">
@@ -1279,8 +1357,51 @@ export default function GuardiasPage() {
                       <small className="form-text text-muted">Ubicación donde se realizará la guardia</small>
                     </div>
                   </div>
+
+                  {/* Añadir profesor cubridor aquí para el modo edición */}
+                  {editingId && (
+                    <div className="col-md-6">
+                      <div className="form-group">
+                        <label htmlFor="profesorCubridorId" className="form-label fw-bold">
+                          Profesor Cubridor
+                        </label>
+                        <select
+                          className="form-select"
+                          id="profesorCubridorId"
+                          name="profesorCubridorId"
+                          value={formData.profesorCubridorId}
+                          onChange={handleChange}
+                        >
+                          <option value="">Sin asignar</option>
+                          {profesores
+                            .filter(profesor => profesorTieneDisponibilidad(profesor.id, formData.fecha, formData.tramoHorario))
+                            .map((profesor) => (
+                              <option key={profesor.id} value={profesor.id}>
+                                {profesor.nombre}
+                              </option>
+                          ))}
+                        </select>
+                        <small className="form-text text-muted">
+                          <i className="bi bi-info-circle me-1"></i>
+                          Solo se muestran profesores con horario para este día y tramo que no tengan otra guardia asignada
+                        </small>
+                        {guardias.find(g => g.id === editingId)?.profesorCubridorId !== null && (
+                          <small className="d-block mt-1 text-info">
+                            <i className="bi bi-person-check me-1"></i>
+                            El profesor cubridor actual siempre aparece en la lista, incluso si su disponibilidad ha cambiado
+                          </small>
+                        )}
+                        {formData.profesorCubridorId !== guardias.find(g => g.id === editingId)?.profesorCubridorId?.toString() && (
+                          <div className="alert alert-info mt-2">
+                            <i className="bi bi-info-circle-fill me-2"></i>
+                            Al cambiar el profesor cubridor, el estado de la guardia se actualizará automáticamente
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
-    
+        
                 <div className="form-group mt-4">
                   <label htmlFor="observaciones" className="form-label fw-bold">
                     Observaciones
@@ -1378,9 +1499,9 @@ export default function GuardiasPage() {
                     </div>
                   </div>
                 )}
-    
+        
                 {error && <div className="alert alert-danger mt-3">{error}</div>}
-    
+        
                 <div className="d-flex justify-content-end mt-4 pt-3 border-top">
                   <button type="button" className="btn btn-outline-secondary me-3" onClick={() => {
                     resetForm()
@@ -1661,6 +1782,18 @@ export default function GuardiasPage() {
                       )
                     })()}
                   </div>
+                </div>
+                
+                <div className="mb-4">
+                  <h6 className="fw-bold">
+                    <i className="bi bi-chat-left-text me-1"></i>
+                    Observaciones
+                  </h6>
+                  {selectedGuardia.observaciones ? (
+                    <p className="mb-0">{selectedGuardia.observaciones}</p>
+                  ) : (
+                    <p className="text-muted mb-0">No hay observaciones</p>
+                  )}
                 </div>
                 
                 <div className="mb-3">
