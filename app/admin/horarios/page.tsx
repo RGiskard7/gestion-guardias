@@ -11,7 +11,7 @@ import { Calendar } from "@/components/ui/calendar"
 import { DB_CONFIG } from "@/lib/db-config"
 
 export default function HorariosPage() {
-  const { horarios, addHorario, updateHorario, deleteHorario } = useHorarios()
+  const { horarios, addHorario, updateHorario, deleteHorario, refreshHorarios } = useHorarios()
   const { usuarios } = useUsuarios()
   const { lugares } = useLugares()
 
@@ -137,7 +137,7 @@ export default function HorariosPage() {
   }
 
   // Manejar envío del formulario
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
 
@@ -155,7 +155,7 @@ export default function HorariosPage() {
       }
       
       // Actualizar horario existente
-      updateHorario(editingId, {
+      await updateHorario(editingId, {
         profesorId: formData.profesorId,
         diaSemana: formData.diaSemana,
         tramoHorario: formData.tramoHorario
@@ -181,13 +181,22 @@ export default function HorariosPage() {
       
       if (creacionExitosa) {
         // Crear un horario para cada tramo seleccionado
+        const promesas = []
         for (const tramo of tramosACrear) {
-          addHorario({
-            profesorId: formData.profesorId,
-            diaSemana: formData.diaSemana,
-            tramoHorario: tramo
-          })
+          promesas.push(
+            addHorario({
+              profesorId: formData.profesorId,
+              diaSemana: formData.diaSemana,
+              tramoHorario: tramo
+            })
+          )
         }
+        
+        // Esperar a que se completen todas las operaciones
+        await Promise.all(promesas)
+        
+        // Refrescar los datos para ver los cambios
+        await refreshHorarios()
       } else {
         return // No seguir si hay error
       }
@@ -265,6 +274,16 @@ export default function HorariosPage() {
       horariosPorProfesor[horario.profesorId][horario.diaSemana].push(horario.tramoHorario)
     }
   })
+
+  // Función para encontrar el ID de un horario específico
+  const getHorarioId = (profesorId: number, dia: string, tramo: string): number | null => {
+    const horario = horarios.find(h => 
+      h.profesorId === profesorId && 
+      h.diaSemana === dia && 
+      h.tramoHorario === tramo
+    )
+    return horario ? horario.id : null
+  }
 
   return (
     <div className="container-fluid">
@@ -588,21 +607,32 @@ export default function HorariosPage() {
                       <tbody>
                         {tramosHorarios.map(tramo => (
                           <tr key={tramo}>
-                            <th className="table-light">{tramo}</th>
+                            <th className="table-secondary">{tramo}</th>
                             {diasSemana.map(dia => {
                               const hasHorario = horariosPorProfesor[selectedProfesor] && 
                                                horariosPorProfesor[selectedProfesor][dia] && 
                                                horariosPorProfesor[selectedProfesor][dia].includes(tramo)
+                              const horarioId = hasHorario ? getHorarioId(selectedProfesor, dia, tramo) : null
                               
                               return (
                                 <td key={`${dia}-${tramo}`} className="p-3 text-center">
                                   {hasHorario ? (
                                     <div className="card border bg-primary bg-opacity-10 border-primary shadow-sm sala-guardias-card">
                                       <div className="card-body p-2">
-                                        <div className="d-flex justify-content-center align-items-center">
+                                        <div className="d-flex justify-content-between align-items-center">
                                           <span className="badge bg-primary">
                                             <i className="bi bi-clock me-1"></i>{DB_CONFIG.ETIQUETAS.GUARDIAS.DISPONIBLE}
                                           </span>
+                                          {horarioId && (
+                                            <button 
+                                              type="button" 
+                                              className="btn btn-sm btn-outline-danger border-0" 
+                                              onClick={() => handleDelete(horarioId)}
+                                              title="Eliminar disponibilidad"
+                                            >
+                                              <i className="bi bi-trash"></i>
+                                            </button>
+                                          )}
                                         </div>
                                         <small className="d-block mt-2 text-center">
                                           <i className="bi bi-calendar-date me-1"></i>

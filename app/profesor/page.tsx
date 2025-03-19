@@ -10,7 +10,7 @@ import { Horario } from "@/src/types"
 import StatusCard from "@/components/common/StatusCard"
 import ActionCard from "@/components/common/ActionCard"
 import DataCard from "@/components/common/DataCard"
-import { DB_CONFIG } from "@/lib/db-config"
+import { DB_CONFIG, getDuracionTramo } from "@/lib/db-config"
 
 export default function ProfesorDashboardPage() {
   const { user } = useAuth()
@@ -22,6 +22,31 @@ export default function ProfesorDashboardPage() {
 
   // Get today's date in YYYY-MM-DD format
   const today = new Date().toISOString().split("T")[0]
+  
+  // Función para obtener el lunes de la semana actual
+  const getStartOfWeek = () => {
+    const now = new Date()
+    const dayOfWeek = now.getDay() // 0 = domingo, 1 = lunes, ...
+    // Ajustar para que semana comience el lunes (Si es domingo, restar 6 días, sino restar dayOfWeek - 1)
+    const diff = dayOfWeek === 0 ? 6 : dayOfWeek - 1
+    const monday = new Date(now)
+    monday.setDate(now.getDate() - diff)
+    monday.setHours(0, 0, 0, 0)
+    return monday
+  }
+  
+  // Función para obtener el viernes de la semana actual
+  const getEndOfWeek = () => {
+    const monday = getStartOfWeek()
+    const friday = new Date(monday)
+    friday.setDate(monday.getDate() + 4) // 4 días después del lunes es viernes
+    friday.setHours(23, 59, 59, 999)
+    return friday
+  }
+  
+  // Obtener las fechas de inicio y fin de la semana actual
+  const startOfWeek = getStartOfWeek()
+  const endOfWeek = getEndOfWeek()
 
   // Get ausencias where the profesor is ausente
   const misAusencias = ausencias.filter((a) => a.profesorId === user.id)
@@ -30,6 +55,20 @@ export default function ProfesorDashboardPage() {
   // Get guardias where the profesor is cubridor
   const misGuardias = guardias.filter((g) => g.profesorCubridorId === user.id)
   const guardiasPendientesFirma = misGuardias.filter((g) => g.estado === DB_CONFIG.ESTADOS_GUARDIA.ASIGNADA)
+  
+  // Obtener guardias firmadas de la semana actual
+  const misGuardiasFirmadasSemana = misGuardias.filter((g) => {
+    const fechaGuardia = new Date(g.fecha)
+    return g.estado === DB_CONFIG.ESTADOS_GUARDIA.FIRMADA && 
+           fechaGuardia >= startOfWeek && 
+           fechaGuardia <= endOfWeek
+  })
+  
+  // Calcular total de horas de guardia en la semana
+  const totalHorasSemanales = misGuardiasFirmadasSemana.reduce((total, guardia) => {
+    const duracionTramo = getDuracionTramo(guardia.tramoHorario)
+    return total + duracionTramo
+  }, 0)
 
   // Get guardias pendientes that the profesor could cover
   const guardiasPendientes = guardias.filter((g) => g.estado === DB_CONFIG.ESTADOS_GUARDIA.PENDIENTE)
@@ -51,7 +90,7 @@ export default function ProfesorDashboardPage() {
       </div>
       
       <div className="row mb-4">
-        <div className="col-md-4">
+        <div className="col-md-3">
           <StatusCard 
             title="Guardias Pendientes" 
             value={pendientes} 
@@ -60,7 +99,7 @@ export default function ProfesorDashboardPage() {
             subtitle="Hoy"
           />
         </div>
-        <div className="col-md-4">
+        <div className="col-md-3">
           <StatusCard 
             title="Guardias Asignadas" 
             value={asignadas} 
@@ -69,13 +108,22 @@ export default function ProfesorDashboardPage() {
             subtitle="Hoy"
           />
         </div>
-        <div className="col-md-4">
+        <div className="col-md-3">
           <StatusCard 
             title="Guardias Firmadas" 
             value={firmadas} 
             icon="check-circle" 
             color="success"
             subtitle="Hoy"
+          />
+        </div>
+        <div className="col-md-3">
+          <StatusCard 
+            title="Horas de Guardia" 
+            value={totalHorasSemanales.toString()}
+            icon="clock-history" 
+            color="primary"
+            subtitle={`Semana (${startOfWeek.toLocaleDateString('es-ES', {day: '2-digit', month: '2-digit'})} - ${endOfWeek.toLocaleDateString('es-ES', {day: '2-digit', month: '2-digit'})})`}
           />
         </div>
       </div>
