@@ -4,7 +4,9 @@ import { DB_CONFIG } from "@/lib/db-config";
 export interface UsuarioDB {
   id: number;
   nombre: string;
+  apellido: string;
   email: string;
+  password: string;
   rol: string;
   activo: boolean;
 }
@@ -56,6 +58,7 @@ export interface TareaGuardiaDB {
 export interface Usuario {
   id: number;
   nombre: string;
+  apellido: string;
   email: string;
   rol: typeof DB_CONFIG.ROLES.ADMIN | typeof DB_CONFIG.ROLES.PROFESOR;
   activo: boolean;
@@ -111,15 +114,17 @@ export function mapUsuarioFromDB(usuario: UsuarioDB): Usuario {
   return {
     id: usuario.id,
     nombre: usuario.nombre,
+    apellido: usuario.apellido || "",
     email: usuario.email,
     rol: usuario.rol as typeof DB_CONFIG.ROLES.ADMIN | typeof DB_CONFIG.ROLES.PROFESOR,
     activo: usuario.activo
   };
 }
 
-export function mapUsuarioToDB(usuario: Omit<Usuario, "id">): Omit<UsuarioDB, "id"> {
+export function mapUsuarioToDB(usuario: Omit<Usuario, "id">): Omit<UsuarioDB, "id" | "password"> {
   return {
     nombre: usuario.nombre,
+    apellido: usuario.apellido || "",
     email: usuario.email,
     rol: usuario.rol,
     activo: usuario.activo

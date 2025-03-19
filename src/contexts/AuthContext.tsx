@@ -6,11 +6,13 @@ import Cookies from "js-cookie"
 import { loginUser, type Usuario as UsuarioDB } from "@/lib/authService"
 import { supabase } from "@/lib/supabaseClient"
 import { DB_CONFIG, getTableName } from "@/lib/db-config"
+import { useRouter } from "next/navigation"
 
 // Define user type (mantenemos la misma estructura para compatibilidad)
 export interface User {
   id: number
   nombre: string
+  apellido: string
   email: string
   rol: "admin" | "profesor"
   activo: boolean
@@ -20,7 +22,7 @@ export interface User {
 interface AuthContextType {
   user: User | null
   loading: boolean
-  login: (email: string) => Promise<boolean>
+  login: (email: string, password: string) => Promise<boolean>
   logout: () => void
   isAuthenticated: boolean
 }
@@ -41,6 +43,7 @@ interface AuthProviderProps {
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
+  const router = useRouter()
 
   // Check if user is already logged in (from localStorage and cookies)
   useEffect(() => {
@@ -57,20 +60,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setLoading(false)
   }, [])
 
-  // Login function - Actualizada para usar Supabase
-  const login = async (email: string): Promise<boolean> => {
+  // Login function - Actualizada para usar Supabase y verificar contraseña
+  const login = async (email: string, password: string): Promise<boolean> => {
     console.log("Intentando login con:", email)
     
     try {
-      // Verificamos si el usuario existe en la base de datos
-      const userExists = await loginUser(email)
+      // Verificamos si el usuario existe y tiene credenciales válidas
+      const userValid = await loginUser(email, password)
       
-      if (!userExists) {
-        console.log("Usuario no encontrado o inactivo")
+      if (!userValid) {
+        console.log("Usuario no encontrado, inactivo o contraseña incorrecta")
         return false
       }
       
-      // Si el usuario existe, obtenemos sus datos completos
+      // Si el usuario existe y es válido, obtenemos sus datos completos
       const { data, error } = await supabase
         .from(getTableName('USUARIOS'))
         .select('*')
@@ -86,15 +89,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const userData: User = {
         id: data.id,
         nombre: data.nombre,
+        apellido: data.apellido || '',
         email: data.email,
         rol: data.rol as typeof DB_CONFIG.ROLES.ADMIN | typeof DB_CONFIG.ROLES.PROFESOR,
         activo: data.activo
-      }
-      
-      // Verificamos que el usuario esté activo
-      if (!userData.activo) {
-        console.log("Usuario inactivo")
-        return false
       }
       
       console.log("Usuario encontrado:", userData.email)
@@ -113,11 +111,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   }
 
-  // Logout function
+  // Logout function - Mejorada para redirigir al login
   const logout = () => {
     setUser(null)
     localStorage.removeItem("user")
     Cookies.remove("user")
+    router.push(DB_CONFIG.RUTAS.LOGIN)
   }
 
   return (

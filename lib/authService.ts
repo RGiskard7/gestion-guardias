@@ -1,11 +1,14 @@
 import { supabase } from './supabaseClient';
 import { DB_CONFIG, getTableName } from './db-config';
+import bcrypt from 'bcryptjs';
 
 // Definición de la interfaz Usuario
 export interface Usuario {
   id: number;
   nombre: string;
+  apellido: string;
   email: string;
+  password: string;
   rol: string;
   activo: boolean;
 }
@@ -47,13 +50,14 @@ export async function testSupabaseConnection(): Promise<{ success: boolean; mess
 }
 
 /**
- * Verifica si un usuario existe en la base de datos
+ * Verifica si un usuario existe en la base de datos y si sus credenciales son correctas
  * @param email Email del usuario
- * @returns true si el usuario existe, false en caso contrario
+ * @param password Contraseña del usuario (sin hashear)
+ * @returns true si el usuario existe, está activo y la contraseña es correcta, false en caso contrario
  */
-export async function loginUser(email: string): Promise<boolean> {
+export async function loginUser(email: string, password: string): Promise<boolean> {
   try {
-    console.log(`Verificando si existe el usuario con email: ${email}`);
+    console.log(`Verificando credenciales para usuario con email: ${email}`);
     
     // Buscamos el usuario por su email
     const { data, error } = await supabase
@@ -78,10 +82,27 @@ export async function loginUser(email: string): Promise<boolean> {
       return false;
     }
     
-    console.log('Usuario encontrado y activo');
+    // Verificamos la contraseña (usando bcrypt)
+    const passwordValid = await bcrypt.compare(password, data.password);
+    if (!passwordValid) {
+      console.log('Contraseña incorrecta');
+      return false;
+    }
+    
+    console.log('Usuario encontrado, activo y contraseña correcta');
     return true;
   } catch (error) {
     console.error('Error inesperado al verificar usuario:', error);
     return false;
   }
+}
+
+/**
+ * Genera un hash de la contraseña usando bcrypt
+ * @param password Contraseña en texto plano
+ * @returns Hash de la contraseña
+ */
+export async function hashPassword(password: string): Promise<string> {
+  const salt = await bcrypt.genSalt(10);
+  return bcrypt.hash(password, salt);
 } 

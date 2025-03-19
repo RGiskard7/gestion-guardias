@@ -5,7 +5,7 @@ import { useGuardias } from "@/src/contexts/GuardiasContext"
 import { useUsuarios } from "@/src/contexts/UsuariosContext"
 import { useLugares } from "@/src/contexts/LugaresContext"
 import { Usuario, Lugar } from "@/src/types"
-import { DB_CONFIG } from "@/lib/db-config"
+import { DB_CONFIG, getDuracionTramo } from "@/lib/db-config"
 
 export default function EstadisticasPage() {
   const { guardias } = useGuardias()
@@ -72,31 +72,57 @@ export default function EstadisticasPage() {
     }
   }).sort((a, b) => b.total - a.total)
 
-  // Contar guardias por profesor
+  // Calcular horas de guardia por profesor
   const guardiasPorProfesor = profesores
     .map((profesor) => {
       const guardiasCubiertas = guardiasEnPeriodo.filter(
         (g) => g.profesorCubridorId === profesor.id && (g.estado === DB_CONFIG.ESTADOS_GUARDIA.ASIGNADA || g.estado === DB_CONFIG.ESTADOS_GUARDIA.FIRMADA),
       )
+      
+      const guardiasFirmadas = guardiasCubiertas.filter(
+        (g) => g.estado === DB_CONFIG.ESTADOS_GUARDIA.FIRMADA
+      )
+
+      // Calcular horas totales de guardia
+      const horasTotales = guardiasCubiertas.reduce((total, guardia) => {
+        return total + getDuracionTramo(guardia.tramoHorario)
+      }, 0)
+      
+      // Calcular horas firmadas de guardia
+      const horasFirmadas = guardiasFirmadas.reduce((total, guardia) => {
+        return total + getDuracionTramo(guardia.tramoHorario)
+      }, 0)
 
       return {
         profesorId: profesor.id,
-        profesorNombre: profesor.nombre,
+        profesorNombre: profesor.nombre + (profesor.apellido ? ` ${profesor.apellido}` : ''),
         total: guardiasCubiertas.length,
-        firmadas: guardiasCubiertas.filter((g) => g.estado === DB_CONFIG.ESTADOS_GUARDIA.FIRMADA).length,
-        porTramo: tramosHorarios.map((tramo) => ({
-          tramo,
-          total: guardiasCubiertas.filter((g) => g.tramoHorario === tramo).length,
-        })),
+        firmadas: guardiasFirmadas.length,
+        horasTotales: horasTotales,
+        horasFirmadas: horasFirmadas,
+        porTramo: tramosHorarios.map((tramo) => {
+          const tramoCubierto = guardiasCubiertas.filter((g) => g.tramoHorario === tramo)
+          return {
+            tramo,
+            total: tramoCubierto.length,
+            horas: tramoCubierto.length * getDuracionTramo(tramo)
+          }
+        }),
         porLugar: lugares.map((lugar) => ({
           lugarId: lugar.id,
           lugarCodigo: lugar.codigo,
           lugarDescripcion: lugar.descripcion,
           total: guardiasCubiertas.filter((g) => g.lugarId === lugar.id).length,
-          porTramo: tramosHorarios.map((tramo) => ({
-            tramo,
-            total: guardiasCubiertas.filter((g) => g.lugarId === lugar.id && g.tramoHorario === tramo).length,
-          })),
+          porTramo: tramosHorarios.map((tramo) => {
+            const guardiasFiltradas = guardiasCubiertas.filter(
+              (g) => g.lugarId === lugar.id && g.tramoHorario === tramo
+            )
+            return {
+              tramo,
+              total: guardiasFiltradas.length,
+              horas: guardiasFiltradas.length * getDuracionTramo(tramo)
+            }
+          }),
         })).filter(l => l.total > 0), // Solo incluir lugares donde el profesor ha realizado guardias
       }
     })
@@ -175,6 +201,7 @@ export default function EstadisticasPage() {
                       <th>Asignadas</th>
                       <th>Firmadas</th>
                       <th>% Cobertura</th>
+                      <th>Duración</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -190,6 +217,7 @@ export default function EstadisticasPage() {
                             ? `${Math.round(((item.asignadas + item.firmadas) / item.total) * 100)}%`
                             : "0%"}
                         </td>
+                        <td>{getDuracionTramo(item.tramo)} hora(s)</td>
                       </tr>
                     ))}
                   </tbody>
@@ -292,6 +320,8 @@ export default function EstadisticasPage() {
                       <th>Profesor</th>
                       <th>Total Guardias</th>
                       <th>Firmadas</th>
+                      <th>Horas Totales</th>
+                      <th>Horas Firmadas</th>
                       {tramosHorarios.map((tramo) => (
                         <th key={tramo}>{tramo}</th>
                       ))}
@@ -303,8 +333,18 @@ export default function EstadisticasPage() {
                         <td>{item.profesorNombre}</td>
                         <td>{item.total}</td>
                         <td>{item.firmadas}</td>
+                        <td>{item.horasTotales.toFixed(1)}</td>
+                        <td>{item.horasFirmadas.toFixed(1)}</td>
                         {item.porTramo.map((tramoData) => (
-                          <td key={tramoData.tramo}>{tramoData.total}</td>
+                          <td key={tramoData.tramo}>
+                            {tramoData.total > 0 ? (
+                              <span title={`${tramoData.horas.toFixed(1)} horas`}>
+                                {tramoData.total}
+                              </span>
+                            ) : (
+                              <span>-</span>
+                            )}
+                          </td>
                         ))}
                       </tr>
                     ))}
@@ -333,7 +373,7 @@ export default function EstadisticasPage() {
                         aria-expanded="false"
                         aria-controls={`collapse${profesor.profesorId}`}
                       >
-                        {profesor.profesorNombre}
+                        {profesor.profesorNombre} - {profesor.total} guardias ({profesor.horasTotales.toFixed(1)} horas)
                       </button>
                     </h2>
                     <div
@@ -342,7 +382,58 @@ export default function EstadisticasPage() {
                       data-bs-parent="#accordionProfesores"
                     >
                       <div className="accordion-body">
-                        {/* Rest of the component code remains unchanged */}
+                        <h5>Desglose por tramos</h5>
+                        <div className="table-responsive mb-3">
+                          <table className="table table-sm">
+                            <thead>
+                              <tr>
+                                <th>Tramo</th>
+                                <th>Nº Guardias</th>
+                                <th>Horas</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {profesor.porTramo.filter(t => t.total > 0).map(t => (
+                                <tr key={t.tramo}>
+                                  <td>{t.tramo}</td>
+                                  <td>{t.total}</td>
+                                  <td>{t.horas.toFixed(1)}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                        
+                        <h5>Desglose por lugares</h5>
+                        {profesor.porLugar.length > 0 ? (
+                          profesor.porLugar.map(lugar => (
+                            <div key={lugar.lugarId} className="mb-3">
+                              <h6>{lugar.lugarCodigo} - {lugar.lugarDescripcion} ({lugar.total} guardias)</h6>
+                              <div className="table-responsive">
+                                <table className="table table-sm">
+                                  <thead>
+                                    <tr>
+                                      <th>Tramo</th>
+                                      <th>Nº Guardias</th>
+                                      <th>Horas</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {lugar.porTramo.filter(t => t.total > 0).map(t => (
+                                      <tr key={t.tramo}>
+                                        <td>{t.tramo}</td>
+                                        <td>{t.total}</td>
+                                        <td>{t.horas.toFixed(1)}</td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </div>
+                          ))
+                        ) : (
+                          <p className="text-muted">No hay información de lugares disponible</p>
+                        )}
                       </div>
                     </div>
                   </div>

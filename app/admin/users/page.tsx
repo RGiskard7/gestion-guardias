@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { useUsuarios } from "@/src/contexts/UsuariosContext"
+import { useUsuarios, type UsuarioConPassword } from "@/src/contexts/UsuariosContext"
 import { useHorarios } from "@/src/contexts/HorariosContext"
 import { Usuario, Horario } from "@/src/types"
 import { Pagination } from "@/components/ui/pagination"
@@ -9,18 +9,20 @@ import DataCard from "@/components/common/DataCard"
 import { DB_CONFIG } from "@/lib/db-config"
 
 export default function UsersPage() {
-  const { usuarios, addUsuario, updateUsuario, deleteUsuario } = useUsuarios()
+  const { usuarios, addUsuario, addUsuarioConHorarios, updateUsuario, deleteUsuario } = useUsuarios()
   const { horarios, addHorario } = useHorarios()
 
   // Filtrar solo profesores (no admins)
   const profesores = usuarios.filter((u: Usuario) => u.rol === DB_CONFIG.ROLES.PROFESOR)
 
   // Estado para el formulario
-  const [formData, setFormData] = useState<Omit<Usuario, "id">>({
+  const [formData, setFormData] = useState<UsuarioConPassword>({
     nombre: "",
+    apellido: "",
     email: "",
     rol: DB_CONFIG.ROLES.PROFESOR,
     activo: true,
+    password: "", // Campo para la contraseña
   })
 
   const [editingId, setEditingId] = useState<number | null>(null)
@@ -40,9 +42,10 @@ export default function UsersPage() {
 
   // Filtrar profesores según criterios
   const filteredProfesores = profesores.filter((profesor: Usuario) => {
-    // Filtrar por nombre o email
+    // Filtrar por nombre, apellido o email
     if (filterNombre && 
         !profesor.nombre.toLowerCase().includes(filterNombre.toLowerCase()) &&
+        !profesor.apellido.toLowerCase().includes(filterNombre.toLowerCase()) &&
         !profesor.email.toLowerCase().includes(filterNombre.toLowerCase())) {
       return false
     }
@@ -94,9 +97,39 @@ export default function UsersPage() {
         await updateUsuario(editingId, formData)
         alert("Usuario actualizado correctamente")
       } else {
-        // Añadir nuevo usuario
-        await addUsuario(formData)
-        alert("Usuario creado correctamente")
+        // Validar datos básicos
+        if (!formData.nombre) {
+          setError("El nombre es obligatorio")
+          setIsSubmitting(false)
+          return
+        }
+        if (!formData.email) {
+          setError("El email es obligatorio")
+          setIsSubmitting(false)
+          return
+        }
+        
+        // Verificar si la contraseña está configurada cuando se crea un nuevo usuario
+        if (!formData.password) {
+          if (!confirm("No ha establecido una contraseña. ¿Desea usar la contraseña por defecto 'changeme'?")) {
+            setError("Por favor, establezca una contraseña")
+            setIsSubmitting(false)
+            return
+          }
+          // Usar contraseña por defecto
+          formData.password = "changeme"
+        }
+        
+        // Si hay un usuario del que heredar horarios, usar la función correspondiente
+        if (inheritFromId) {
+          // Añadir usuario con horarios heredados
+          await addUsuarioConHorarios(formData, inheritFromId)
+          alert("Usuario creado correctamente con horarios heredados")
+        } else {
+          // Añadir usuario normal
+          await addUsuario(formData)
+          alert("Usuario creado correctamente")
+        }
       }
       resetForm()
       setShowForm(false)
@@ -112,9 +145,11 @@ export default function UsersPage() {
   const resetForm = () => {
     setFormData({
       nombre: "",
+      apellido: "",
       email: "",
       rol: DB_CONFIG.ROLES.PROFESOR,
       activo: true,
+      password: "",
     })
     setEditingId(null)
     setInheritFromId(null)
@@ -125,9 +160,11 @@ export default function UsersPage() {
   const handleEdit = (usuario: Usuario) => {
     setFormData({
       nombre: usuario.nombre,
+      apellido: usuario.apellido || "", // Incluir apellido
       email: usuario.email,
       rol: usuario.rol,
       activo: usuario.activo,
+      password: "", // Vacío por defecto, se actualizará solo si se introduce algo
     })
     setEditingId(usuario.id)
     setShowForm(true)
@@ -208,11 +245,11 @@ export default function UsersPage() {
                 type="text"
                 id="filterNombre"
                 className="form-control"
-                placeholder="Nombre o email"
+                placeholder="Nombre, apellido o email"
                 value={filterNombre}
                 onChange={(e) => setFilterNombre(e.target.value)}
               />
-              <small className="form-text text-muted">Buscar por nombre o email del profesor</small>
+              <small className="form-text text-muted">Buscar por nombre, apellido o email del profesor</small>
             </div>
           </div>
           <div className="col-md-4">
@@ -273,7 +310,24 @@ export default function UsersPage() {
                     onChange={handleChange}
                     required
                   />
-                  <small className="form-text text-muted">Nombre completo del profesor</small>
+                  <small className="form-text text-muted">Nombre del profesor</small>
+                </div>
+              </div>
+
+              <div className="col-md-6">
+                <div className="form-group">
+                  <label htmlFor="apellido" className="form-label fw-bold">
+                    Apellidos
+                  </label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    id="apellido"
+                    name="apellido"
+                    value={formData.apellido}
+                    onChange={handleChange}
+                  />
+                  <small className="form-text text-muted">Apellidos del profesor</small>
                 </div>
               </div>
 
@@ -292,6 +346,29 @@ export default function UsersPage() {
                     required
                   />
                   <small className="form-text text-muted">Correo electrónico del profesor</small>
+                </div>
+              </div>
+
+              <div className="col-md-6">
+                <div className="form-group">
+                  <label htmlFor="password" className="form-label fw-bold">
+                    {editingId ? "Nueva Contraseña" : "Contraseña"}
+                  </label>
+                  <input
+                    type="password"
+                    className="form-control"
+                    id="password"
+                    name="password"
+                    value={formData.password}
+                    onChange={handleChange}
+                    placeholder={editingId ? "Dejar en blanco para no cambiar" : ""}
+                    required={!editingId}
+                  />
+                  <small className="form-text text-muted">
+                    {editingId 
+                      ? "Solo introduzca si desea cambiar la contraseña actual" 
+                      : "Contraseña para acceder al sistema"}
+                  </small>
                 </div>
               </div>
 
@@ -331,7 +408,7 @@ export default function UsersPage() {
                       <option value="">No heredar horarios</option>
                       {profesores.map((profesor: Usuario) => (
                         <option key={profesor.id} value={profesor.id}>
-                          {profesor.nombre}
+                          {profesor.nombre} {profesor.apellido || ""}
                         </option>
                       ))}
                     </select>
@@ -404,7 +481,9 @@ export default function UsersPage() {
                 <tbody>
                   {getCurrentPageItems().map((profesor: Usuario) => (
                     <tr key={profesor.id}>
-                      <td className="fw-medium">{profesor.nombre}</td>
+                      <td className="fw-medium">
+                        {profesor.nombre} {profesor.apellido || ""}
+                      </td>
                       <td>{profesor.email}</td>
                       <td>
                         {profesor.activo ? (
