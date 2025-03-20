@@ -16,7 +16,7 @@ export default function GuardiasPage() {
     addGuardia, 
     updateGuardia, 
     deleteGuardia, 
-    addTareaGuardia,
+    addTareaGuardia, 
     updateTareaGuardia,
     deleteTareaGuardia,
     anularGuardia,
@@ -235,7 +235,7 @@ export default function GuardiasPage() {
           ? (e.target as HTMLInputElement).checked
           : name === "lugarId" || name === "profesorAusenteId" || name === "profesorCubridorId"
             ? value === "" ? "" : value // Permitir valor vacío para los IDs
-            : value,
+              : value,
     }))
   }
 
@@ -1355,22 +1355,22 @@ export default function GuardiasPage() {
                         ))}
                       </select>
                       <small className="form-text text-muted">Ubicación donde se realizará la guardia</small>
-                    </div>
                   </div>
-
+                </div>
+    
                   {/* Añadir profesor cubridor aquí para el modo edición */}
                   {editingId && (
                     <div className="col-md-6">
                       <div className="form-group">
                         <label htmlFor="profesorCubridorId" className="form-label fw-bold">
                           Profesor Cubridor
-                        </label>
+                  </label>
                         <select
                           className="form-select"
                           id="profesorCubridorId"
                           name="profesorCubridorId"
                           value={formData.profesorCubridorId}
-                          onChange={handleChange}
+                    onChange={handleChange}
                         >
                           <option value="">Sin asignar</option>
                           {profesores
@@ -1401,7 +1401,7 @@ export default function GuardiasPage() {
                     </div>
                   )}
                 </div>
-        
+    
                 <div className="form-group mt-4">
                   <label htmlFor="observaciones" className="form-label fw-bold">
                     Observaciones
@@ -1499,9 +1499,9 @@ export default function GuardiasPage() {
                     </div>
                   </div>
                 )}
-        
+    
                 {error && <div className="alert alert-danger mt-3">{error}</div>}
-        
+    
                 <div className="d-flex justify-content-end mt-4 pt-3 border-top">
                   <button type="button" className="btn btn-outline-secondary me-3" onClick={() => {
                     resetForm()
@@ -1785,15 +1785,15 @@ export default function GuardiasPage() {
                 </div>
                 
                 <div className="mb-4">
-                  <h6 className="fw-bold">
+                      <h6 className="fw-bold">
                     <i className="bi bi-chat-left-text me-1"></i>
-                    Observaciones
-                  </h6>
-                  {selectedGuardia.observaciones ? (
-                    <p className="mb-0">{selectedGuardia.observaciones}</p>
-                  ) : (
+                      Observaciones
+                    </h6>
+                    {selectedGuardia.observaciones ? (
+                      <p className="mb-0">{selectedGuardia.observaciones}</p>
+                    ) : (
                     <p className="text-muted mb-0">No hay observaciones</p>
-                  )}
+                    )}
                 </div>
                 
                 <div className="mb-3">
