@@ -716,7 +716,7 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
     protected void configure(HttpSecurity http) throws Exception {
         http
             .authorizeRequests()
-                .antMatchers("/login").permitAll()
+            .antMatchers("/login").permitAll()
                 .antMatchers("/admin/**").hasRole("ADMIN")
                 .antMatchers("/profesor/**").hasRole("PROFESOR")
                 .anyRequest().authenticated()
@@ -810,7 +810,7 @@ export default function MisGuardiasPage() {
     router.push(`?${params.toString()}`);
   };
 
-  return (
+    return (
     <div className="container py-4">
       <h1>Mis Guardias</h1>
       

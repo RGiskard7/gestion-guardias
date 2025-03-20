@@ -533,14 +533,14 @@ export default function UsersPage() {
           </div>
         ) : (
           <>
-            <div className="table-responsive">
+            <div className="table-responsive" style={{ overflow: 'auto', maxWidth: '100%' }}>
               <table className="table table-striped table-hover align-middle">
                 <thead className="table-light">
                   <tr>
-                    <th scope="col">Nombre</th>
-                    <th scope="col">Email</th>
-                    <th scope="col">Estado</th>
-                    <th scope="col" className="text-center">Acciones</th>
+                    <th scope="col" style={{ minWidth: '150px' }}>Nombre</th>
+                    <th scope="col" style={{ minWidth: '180px' }}>Email</th>
+                    <th scope="col" style={{ minWidth: '90px' }}>Estado</th>
+                    <th scope="col" className="text-center" style={{ minWidth: '100px' }}>Acciones</th>
                   </tr>
                 </thead>
                 <tbody>

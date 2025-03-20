@@ -1,16 +1,19 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { useGuardias } from "@/src/contexts/GuardiasContext"
-import { useUsuarios } from "@/src/contexts/UsuariosContext"
+import { useAusencias } from "@/src/contexts/AusenciasContext"
 import { useLugares } from "@/src/contexts/LugaresContext"
-import { Usuario, Lugar } from "@/src/types"
+import { useUsuarios } from "@/src/contexts/UsuariosContext"
+import { Guardia, Usuario, Lugar } from "@/src/types"
+import DataCard from "@/components/common/DataCard"
 import { DB_CONFIG, getDuracionTramo } from "@/lib/db-config"
 
 export default function EstadisticasPage() {
   const { guardias } = useGuardias()
-  const { usuarios } = useUsuarios()
+  const { ausencias } = useAusencias()
   const { lugares } = useLugares()
+  const { usuarios } = useUsuarios()
   const [periodoInicio, setPeriodoInicio] = useState<string>(
     new Date(new Date().setDate(new Date().getDate() - 30)).toISOString().split("T")[0],
   )
@@ -18,206 +21,305 @@ export default function EstadisticasPage() {
   const [activeTab, setActiveTab] = useState<"profesores" | "lugares">("profesores")
 
   // Configurar periodo de tiempo
-  const tramosHorarios = DB_CONFIG.TRAMOS_HORARIOS
+  const handlePeriodoInicioChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setPeriodoInicio(e.target.value)
+  }
+  
+  const handlePeriodoFinChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setPeriodoFin(e.target.value)
+  }
 
   // Filtrar guardias por periodo
-  const guardiasEnPeriodo = guardias.filter((g) => g.fecha >= periodoInicio && g.fecha <= periodoFin)
+  const guardiasEnPeriodo = guardias.filter((guardia: any) => {
+    const guardiaDate = new Date(guardia.fecha)
+    return guardiaDate >= new Date(periodoInicio) && guardiaDate <= new Date(periodoFin)
+  })
 
-  // Obtener profesores (no admins)
-  const profesores = usuarios.filter((u: Usuario) => u.rol === DB_CONFIG.ROLES.PROFESOR && u.activo)
+  // Tramos horarios
+  const tramosHorarios = DB_CONFIG.TRAMOS_HORARIOS
 
-  // Contar guardias por estado
+  // Obtener días únicos en el periodo
+  const diasUnicos = [...new Set(guardiasEnPeriodo.map((g) => g.fecha))].sort()
+
+  // Contadores por estado
   const pendientes = guardiasEnPeriodo.filter((g) => g.estado === DB_CONFIG.ESTADOS_GUARDIA.PENDIENTE).length
   const asignadas = guardiasEnPeriodo.filter((g) => g.estado === DB_CONFIG.ESTADOS_GUARDIA.ASIGNADA).length
   const firmadas = guardiasEnPeriodo.filter((g) => g.estado === DB_CONFIG.ESTADOS_GUARDIA.FIRMADA).length
   const anuladas = guardiasEnPeriodo.filter((g) => g.estado === DB_CONFIG.ESTADOS_GUARDIA.ANULADA).length
   const total = guardiasEnPeriodo.length
 
+  // Contadores por estado de ausencias
+  const ausenciasPendientes = ausencias.filter(a => a.estado === DB_CONFIG.ESTADOS_AUSENCIA.PENDIENTE).length
+  const ausenciasAceptadas = ausencias.filter(a => a.estado === DB_CONFIG.ESTADOS_AUSENCIA.ACEPTADA).length
+  const ausenciasRechazadas = ausencias.filter(a => a.estado === DB_CONFIG.ESTADOS_AUSENCIA.RECHAZADA).length
+  const totalAusencias = ausencias.length
+
   // Contar guardias por tramo horario
   const guardiasPorTramo = tramosHorarios.map((tramo) => {
-    const guardiasFiltradas = guardiasEnPeriodo.filter((g) => g.tramoHorario === tramo)
     return {
       tramo,
-      total: guardiasFiltradas.length,
-      pendientes: guardiasFiltradas.filter((g) => g.estado === DB_CONFIG.ESTADOS_GUARDIA.PENDIENTE).length,
-      asignadas: guardiasFiltradas.filter((g) => g.estado === DB_CONFIG.ESTADOS_GUARDIA.ASIGNADA).length,
-      firmadas: guardiasFiltradas.filter((g) => g.estado === DB_CONFIG.ESTADOS_GUARDIA.FIRMADA).length,
+      total: guardiasEnPeriodo.filter((g) => g.tramoHorario === tramo).length,
+      horas: guardiasEnPeriodo
+        .filter((g) => g.tramoHorario === tramo)
+        .reduce((acc, g) => acc + getDuracionTramo(g.tramoHorario), 0),
     }
   })
 
-  // Contar guardias por tipo
-  const tiposGuardia = DB_CONFIG.TIPOS_GUARDIA
-  const guardiasPorTipo = tiposGuardia.map((tipo) => {
-    const guardiasFiltradas = guardiasEnPeriodo.filter((g) => g.tipoGuardia === tipo)
-    return {
-      tipo,
-      total: guardiasFiltradas.length,
-      pendientes: guardiasFiltradas.filter((g) => g.estado === DB_CONFIG.ESTADOS_GUARDIA.PENDIENTE).length,
-      asignadas: guardiasFiltradas.filter((g) => g.estado === DB_CONFIG.ESTADOS_GUARDIA.ASIGNADA).length,
-      firmadas: guardiasFiltradas.filter((g) => g.estado === DB_CONFIG.ESTADOS_GUARDIA.FIRMADA).length,
-    }
-  })
-
-  // Contar guardias por lugar
-  const guardiasPorLugar = lugares.map((lugar) => {
-    const guardiasFiltradas = guardiasEnPeriodo.filter((g) => g.lugarId === lugar.id)
-    return {
-      lugarId: lugar.id,
-      lugarCodigo: lugar.codigo,
-      lugarDescripcion: lugar.descripcion,
-      total: guardiasFiltradas.length,
-      pendientes: guardiasFiltradas.filter((g) => g.estado === DB_CONFIG.ESTADOS_GUARDIA.PENDIENTE).length,
-      asignadas: guardiasFiltradas.filter((g) => g.estado === DB_CONFIG.ESTADOS_GUARDIA.ASIGNADA).length,
-      firmadas: guardiasFiltradas.filter((g) => g.estado === DB_CONFIG.ESTADOS_GUARDIA.FIRMADA).length,
-    }
-  }).sort((a, b) => b.total - a.total)
-
-  // Calcular horas de guardia por profesor
-  const guardiasPorProfesor = profesores
-    .map((profesor) => {
-      const guardiasCubiertas = guardiasEnPeriodo.filter(
-        (g) => g.profesorCubridorId === profesor.id && (g.estado === DB_CONFIG.ESTADOS_GUARDIA.ASIGNADA || g.estado === DB_CONFIG.ESTADOS_GUARDIA.FIRMADA),
-      )
+  // Guardias por día y tramo horario
+  const guardiasPorDiayTramo = diasUnicos.map(fecha => {
+    const guardiasDelDia = guardiasEnPeriodo.filter(g => g.fecha === fecha);
+    
+    const porTramo = tramosHorarios.map(tramo => {
+      const guardiasTramo = guardiasDelDia.filter(g => g.tramoHorario === tramo);
+      const asignadas = guardiasTramo.filter(g => 
+        g.estado === DB_CONFIG.ESTADOS_GUARDIA.ASIGNADA || 
+        g.estado === DB_CONFIG.ESTADOS_GUARDIA.FIRMADA
+      ).length;
+      const noAsignadas = guardiasTramo.filter(g => 
+        g.estado === DB_CONFIG.ESTADOS_GUARDIA.PENDIENTE
+      ).length;
       
-      const guardiasFirmadas = guardiasCubiertas.filter(
+      return {
+        tramo,
+        total: guardiasTramo.length,
+        asignadas,
+        noAsignadas,
+        porcentajeAsignadas: guardiasTramo.length > 0 
+          ? Math.round((asignadas / guardiasTramo.length) * 100) 
+          : 0
+      };
+    });
+    
+    return {
+      fecha,
+      porTramo
+    };
+  });
+
+  // Contar guardias por profesor
+  const profesoresIds = [...new Set(guardiasEnPeriodo.map((g) => g.profesorCubridorId))]
+  const guardiasPorProfesor = profesoresIds
+    .filter((id) => id !== null) // Filtrar null
+    .map((id) => {
+      const profesor = usuarios.find((u) => u.id === id)
+      const guardiasProfesor = guardiasEnPeriodo.filter((g) => g.profesorCubridorId === id)
+      const guardiasProfesorFirmadas = guardiasProfesor.filter(
         (g) => g.estado === DB_CONFIG.ESTADOS_GUARDIA.FIRMADA
       )
-
-      // Calcular horas totales de guardia
-      const horasTotales = guardiasCubiertas.reduce((total, guardia) => {
-        return total + getDuracionTramo(guardia.tramoHorario)
-      }, 0)
       
-      // Calcular horas firmadas de guardia
-      const horasFirmadas = guardiasFirmadas.reduce((total, guardia) => {
-        return total + getDuracionTramo(guardia.tramoHorario)
-      }, 0)
+      // Contar guardias por tramo para este profesor
+      const porTramo = tramosHorarios.map((tramo) => {
+        const guardiasEnTramo = guardiasProfesor.filter((g) => g.tramoHorario === tramo)
+        return {
+          tramo,
+          total: guardiasEnTramo.length,
+          horas: guardiasEnTramo.reduce((acc, g) => acc + getDuracionTramo(g.tramoHorario), 0),
+        }
+      })
 
-      return {
-        profesorId: profesor.id,
-        profesorNombre: profesor.nombre + (profesor.apellido ? ` ${profesor.apellido}` : ''),
-        total: guardiasCubiertas.length,
-        firmadas: guardiasFirmadas.length,
-        horasTotales: horasTotales,
-        horasFirmadas: horasFirmadas,
-        porTramo: tramosHorarios.map((tramo) => {
-          const tramoCubierto = guardiasCubiertas.filter((g) => g.tramoHorario === tramo)
+      // Contar guardias por lugar
+      const lugaresIds = [...new Set(guardiasProfesor.map((g) => g.lugarId))]
+      const porLugar = lugaresIds.map((lugarId) => {
+        const lugar = lugares.find((l) => l.id === lugarId)
+        const guardiasEnLugar = guardiasProfesor.filter((g) => g.lugarId === lugarId)
+
+        // Contar guardias por tramo para este lugar
+        const porTramoLugar = tramosHorarios.map((tramo) => {
+          const guardiasEnTramo = guardiasEnLugar.filter((g) => g.tramoHorario === tramo)
           return {
             tramo,
-            total: tramoCubierto.length,
-            horas: tramoCubierto.length * getDuracionTramo(tramo)
+            total: guardiasEnTramo.length,
+            horas: guardiasEnTramo.reduce((acc, g) => acc + getDuracionTramo(g.tramoHorario), 0),
           }
-        }),
-        porLugar: lugares.map((lugar) => ({
-          lugarId: lugar.id,
-          lugarCodigo: lugar.codigo,
-          lugarDescripcion: lugar.descripcion,
-          total: guardiasCubiertas.filter((g) => g.lugarId === lugar.id).length,
-          porTramo: tramosHorarios.map((tramo) => {
-            const guardiasFiltradas = guardiasCubiertas.filter(
-              (g) => g.lugarId === lugar.id && g.tramoHorario === tramo
-            )
-            return {
-              tramo,
-              total: guardiasFiltradas.length,
-              horas: guardiasFiltradas.length * getDuracionTramo(tramo)
-            }
-          }),
-        })).filter(l => l.total > 0), // Solo incluir lugares donde el profesor ha realizado guardias
+        })
+
+        return {
+          lugarId: lugarId,
+          lugarCodigo: lugar ? lugar.codigo : "Sin asignar",
+          lugarDescripcion: lugar ? lugar.descripcion : "Sin asignar",
+          total: guardiasEnLugar.length,
+          horas: guardiasEnLugar.reduce((acc, g) => acc + getDuracionTramo(g.tramoHorario), 0),
+          porTramo: porTramoLugar,
+        }
+      })
+
+      return {
+        profesorId: id,
+        profesorNombre: profesor ? `${profesor.nombre} ${profesor.apellido || ""}` : "Desconocido",
+        total: guardiasProfesor.length,
+        firmadas: guardiasProfesorFirmadas.length,
+        horasTotales: guardiasProfesor.reduce((acc, g) => acc + getDuracionTramo(g.tramoHorario), 0),
+        horasFirmadas: guardiasProfesorFirmadas.reduce(
+          (acc, g) => acc + getDuracionTramo(g.tramoHorario),
+          0
+        ),
+        porTramo,
+        porLugar,
       }
     })
     .sort((a, b) => b.total - a.total)
 
+  // Contar guardias por lugar
+  const lugaresIdsGuardias = [...new Set(guardiasEnPeriodo.map((g) => g.lugarId))]
+  const guardiasPorLugarData = lugaresIdsGuardias.map((id) => {
+    const lugar = lugares.find((l) => l.id === id)
+    const guardiasLugar = guardiasEnPeriodo.filter((g) => g.lugarId === id)
+    return {
+      lugarId: id,
+      lugarCodigo: lugar ? lugar.codigo : "Sin asignar",
+      lugarDescripcion: lugar ? lugar.descripcion : "Sin asignar",
+      total: guardiasLugar.length,
+    }
+  }).sort((a, b) => b.total - a.total)
+
+  // Contar guardias por tipo
+  const tiposGuardia = [...new Set(guardiasEnPeriodo.map((g) => g.tipoGuardia))]
+  const guardiasPorTipoData = tiposGuardia.map((tipo) => {
+    const guardiasTipo = guardiasEnPeriodo.filter((g) => g.tipoGuardia === tipo)
+    return {
+      tipo,
+      total: guardiasTipo.length,
+    }
+  }).sort((a, b) => b.total - a.total)
+
+  // Ausencias por profesor
+  const ausenciasPorProfesorData = usuarios
+    .filter(u => u.rol === DB_CONFIG.ROLES.PROFESOR)
+    .map(usuario => {
+      const ausenciasProfesor = ausencias.filter(a => a.profesorId === usuario.id)
+      return {
+        profesorId: usuario.id,
+        profesorNombre: `${usuario.nombre} ${usuario.apellido || ''}`,
+        total: ausenciasProfesor.length
+      }
+    })
+    .filter(p => p.total > 0)
+    .sort((a, b) => b.total - a.total)
+
+  // Función para formatear fecha
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('es-ES', { 
+      weekday: 'long', 
+      day: 'numeric', 
+      month: 'long' 
+    });
+  };
+
   return (
     <div className="container-fluid">
-      <h1 className="h3 mb-4">Estadísticas</h1>
-
+      <h1 className="mb-4">Estadísticas</h1>
+      
+      {/* Selector de periodo */}
+      <div className="row mb-4">
+        <div className="col-12">
+          <div className="card">
+            <div className="card-header">Periodo de análisis</div>
+            <div className="card-body">
+              <div className="row">
+                <div className="col-md-5 mb-3 mb-md-0">
+                  <label htmlFor="periodoInicio" className="form-label">Fecha de inicio</label>
+                  <input
+                    type="date"
+                    id="periodoInicio"
+                    className="form-control"
+                    value={periodoInicio}
+                    onChange={handlePeriodoInicioChange}
+                  />
+                </div>
+                <div className="col-md-5">
+                  <label htmlFor="periodoFin" className="form-label">Fecha de fin</label>
+                  <input
+                    type="date"
+                    id="periodoFin"
+                    className="form-control"
+                    value={periodoFin}
+                    onChange={handlePeriodoFinChange}
+                  />
+                </div>
+                <div className="col-md-2 d-flex align-items-end">
+                  <div className="w-100 text-center pt-2">
+                    <div className="badge bg-primary text-white p-2">
+                      {guardiasEnPeriodo.length} guardias en periodo
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      {/* Resumen de guardias y ausencias */}
       <div className="row mb-4">
         <div className="col-md-6">
-          <div className="input-group">
-            <span className="input-group-text">Periodo</span>
-            <input
-              type="date"
-              className="form-control"
-              value={periodoInicio}
-              onChange={(e) => setPeriodoInicio(e.target.value)}
-              aria-label="Fecha de inicio del periodo"
-            />
-            <input
-              type="date"
-              className="form-control"
-              value={periodoFin}
-              onChange={(e) => setPeriodoFin(e.target.value)}
-              aria-label="Fecha de fin del periodo"
-            />
-          </div>
+          <DataCard
+            title="Resumen de Guardias"
+            items={[
+              { label: "Pendientes", value: pendientes },
+              { label: "Asignadas", value: asignadas },
+              { label: "Firmadas", value: firmadas },
+              { label: "Anuladas", value: anuladas },
+              { label: "Total", value: total },
+            ]}
+          />
+        </div>
+        <div className="col-md-6">
+          <DataCard
+            title="Resumen de Ausencias"
+            items={[
+              { label: "Pendientes", value: ausenciasPendientes },
+              { label: "Aceptadas", value: ausenciasAceptadas },
+              { label: "Rechazadas", value: ausenciasRechazadas },
+              { label: "Total", value: totalAusencias },
+            ]}
+          />
         </div>
       </div>
 
-      <div className="row mb-4">
-        <div className="col-md-12">
-          <div className="card">
-            <div className="card-header">Resumen de guardias</div>
-            <div className="card-body">
-              <div className="row text-center">
-                <div className="col">
-                  <h3 className="text-warning">{pendientes}</h3>
-                  <p>Pendientes</p>
-                </div>
-                <div className="col">
-                  <h3 className="text-info">{asignadas}</h3>
-                  <p>Asignadas</p>
-                </div>
-                <div className="col">
-                  <h3 className="text-success">{firmadas}</h3>
-                  <p>Firmadas</p>
-                </div>
-                <div className="col">
-                  <h3 className="text-danger">{anuladas}</h3>
-                  <p>Anuladas</p>
-                </div>
-                <div className="col">
-                  <h3 className="text-primary">{total}</h3>
-                  <p>Total</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
+      {/* Guardias por día y tramo horario */}
       <div className="row mb-4">
         <div className="col-12">
           <div className="card">
-            <div className="card-header">Guardias por tramo horario</div>
+            <div className="card-header">Guardias por día y tramo horario</div>
             <div className="card-body">
-              <div className="table-responsive">
-                <table className="table table-striped">
-                  <thead>
+              <div className="table-responsive" style={{ overflow: 'auto', maxWidth: '100%' }}>
+                <table className="table table-striped table-bordered">
+                  <thead className="table-light">
                     <tr>
-                      <th>Tramo</th>
-                      <th>Total</th>
-                      <th>Pendientes</th>
-                      <th>Asignadas</th>
-                      <th>Firmadas</th>
-                      <th>% Cobertura</th>
-                      <th>Duración</th>
+                      <th>Día</th>
+                      {tramosHorarios.map(tramo => (
+                        <th key={tramo} className="text-center">{tramo}</th>
+                      ))}
                     </tr>
                   </thead>
                   <tbody>
-                    {guardiasPorTramo.map((item) => (
-                      <tr key={item.tramo}>
-                        <td>{item.tramo}</td>
-                        <td>{item.total}</td>
-                        <td>{item.pendientes}</td>
-                        <td>{item.asignadas}</td>
-                        <td>{item.firmadas}</td>
-                        <td>
-                          {item.total > 0
-                            ? `${Math.round(((item.asignadas + item.firmadas) / item.total) * 100)}%`
-                            : "0%"}
-                        </td>
-                        <td>{getDuracionTramo(item.tramo)} hora(s)</td>
+                    {guardiasPorDiayTramo.map(dia => (
+                      <tr key={dia.fecha}>
+                        <td>{formatDate(dia.fecha)}</td>
+                        {dia.porTramo.map(tramo => (
+                          <td key={tramo.tramo} className="text-center">
+                            {tramo.total > 0 ? (
+                              <div>
+                                <div>Total: {tramo.total}</div>
+                                <div className="small text-success">Asignadas: {tramo.asignadas}</div>
+                                <div className="small text-danger">Pendientes: {tramo.noAsignadas}</div>
+                                <div className="progress mt-1" style={{ height: "4px" }}>
+                                  <div 
+                                    className="progress-bar" 
+                                    role="progressbar" 
+                                    style={{ width: `${tramo.porcentajeAsignadas}%` }}
+                                    aria-valuenow={tramo.porcentajeAsignadas} 
+                                    aria-valuemin={0} 
+                                    aria-valuemax={100}
+                                  ></div>
+                                </div>
+                              </div>
+                            ) : (
+                              <span>-</span>
+                            )}
+                          </td>
+                        ))}
                       </tr>
                     ))}
                   </tbody>
@@ -228,94 +330,15 @@ export default function EstadisticasPage() {
         </div>
       </div>
 
+      {/* Tiempo de guardia por profesor en cada tramo */}
       <div className="row mb-4">
-        <div className="col-12">
-          <div className="card">
-            <div className="card-header">Guardias por tipo</div>
-            <div className="card-body">
-              <div className="table-responsive">
-                <table className="table table-striped">
-                  <thead>
-                    <tr>
-                      <th>Tipo</th>
-                      <th>Total</th>
-                      <th>Pendientes</th>
-                      <th>Asignadas</th>
-                      <th>Firmadas</th>
-                      <th>% Cobertura</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {guardiasPorTipo.map((item) => (
-                      <tr key={item.tipo}>
-                        <td>{item.tipo}</td>
-                        <td>{item.total}</td>
-                        <td>{item.pendientes}</td>
-                        <td>{item.asignadas}</td>
-                        <td>{item.firmadas}</td>
-                        <td>
-                          {item.total > 0
-                            ? `${Math.round(((item.asignadas + item.firmadas) / item.total) * 100)}%`
-                            : "0%"}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="row mb-4">
-        <div className="col-12">
-          <div className="card">
-            <div className="card-header">Guardias por lugar</div>
-            <div className="card-body">
-              <div className="table-responsive">
-                <table className="table table-striped">
-                  <thead>
-                    <tr>
-                      <th>Lugar</th>
-                      <th>Total</th>
-                      <th>Pendientes</th>
-                      <th>Asignadas</th>
-                      <th>Firmadas</th>
-                      <th>% Cobertura</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {guardiasPorLugar.filter(item => item.total > 0).map((item) => (
-                      <tr key={item.lugarId}>
-                        <td>{item.lugarCodigo} - {item.lugarDescripcion}</td>
-                        <td>{item.total}</td>
-                        <td>{item.pendientes}</td>
-                        <td>{item.asignadas}</td>
-                        <td>{item.firmadas}</td>
-                        <td>
-                          {item.total > 0
-                            ? `${Math.round(((item.asignadas + item.firmadas) / item.total) * 100)}%`
-                            : "0%"}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="row">
         <div className="col-12">
           <div className="card">
             <div className="card-header">Guardias por profesor</div>
             <div className="card-body">
-              <div className="table-responsive">
+              <div className="table-responsive" style={{ overflow: 'auto', maxWidth: '100%' }}>
                 <table className="table table-striped">
-                  <thead>
+                  <thead className="table-light">
                     <tr>
                       <th>Profesor</th>
                       <th>Total Guardias</th>
@@ -339,7 +362,7 @@ export default function EstadisticasPage() {
                           <td key={tramoData.tramo}>
                             {tramoData.total > 0 ? (
                               <span title={`${tramoData.horas.toFixed(1)} horas`}>
-                                {tramoData.total}
+                                {tramoData.total} ({tramoData.horas.toFixed(1)}h)
                               </span>
                             ) : (
                               <span>-</span>
@@ -356,88 +379,236 @@ export default function EstadisticasPage() {
         </div>
       </div>
 
-      <div className="row mt-4">
+      {/* Tiempo de guardia por profesor en cada lugar */}
+      <div className="row mb-4">
         <div className="col-12">
           <div className="card">
-            <div className="card-header">Tiempo de guardia por profesor y lugar</div>
+            <div className="card-header">Detalle de guardias por profesor y lugar</div>
             <div className="card-body">
               <div className="accordion" id="accordionProfesores">
-                {guardiasPorProfesor.filter(p => p.total > 0).map((profesor) => (
+                {guardiasPorProfesor.map((profesor, index) => (
                   <div className="accordion-item" key={profesor.profesorId}>
-                    <h2 className="accordion-header">
-                      <button
-                        className="accordion-button collapsed"
-                        type="button"
-                        data-bs-toggle="collapse"
-                        data-bs-target={`#collapse${profesor.profesorId}`}
-                        aria-expanded="false"
+                    <h2 className="accordion-header" id={`heading${profesor.profesorId}`}>
+                      <button 
+                        className="accordion-button collapsed" 
+                        type="button" 
+                        data-bs-toggle="collapse" 
+                        data-bs-target={`#collapse${profesor.profesorId}`} 
+                        aria-expanded="false" 
                         aria-controls={`collapse${profesor.profesorId}`}
                       >
                         {profesor.profesorNombre} - {profesor.total} guardias ({profesor.horasTotales.toFixed(1)} horas)
                       </button>
                     </h2>
-                    <div
-                      id={`collapse${profesor.profesorId}`}
-                      className="accordion-collapse collapse"
+                    <div 
+                      id={`collapse${profesor.profesorId}`} 
+                      className="accordion-collapse collapse" 
+                      aria-labelledby={`heading${profesor.profesorId}`} 
                       data-bs-parent="#accordionProfesores"
                     >
                       <div className="accordion-body">
-                        <h5>Desglose por tramos</h5>
-                        <div className="table-responsive mb-3">
-                          <table className="table table-sm">
-                            <thead>
+                        <h5>Guardias por lugar</h5>
+                        <div className="table-responsive">
+                          <table className="table table-sm table-bordered">
+                            <thead className="table-light">
                               <tr>
-                                <th>Tramo</th>
-                                <th>Nº Guardias</th>
+                                <th>Lugar</th>
+                                <th>Total</th>
                                 <th>Horas</th>
+                                {tramosHorarios.map(tramo => (
+                                  <th key={tramo}>{tramo}</th>
+                                ))}
                               </tr>
                             </thead>
                             <tbody>
-                              {profesor.porTramo.filter(t => t.total > 0).map(t => (
-                                <tr key={t.tramo}>
-                                  <td>{t.tramo}</td>
-                                  <td>{t.total}</td>
-                                  <td>{t.horas.toFixed(1)}</td>
+                              {profesor.porLugar.map(lugar => (
+                                <tr key={lugar.lugarId}>
+                                  <td>{lugar.lugarCodigo} - {lugar.lugarDescripcion}</td>
+                                  <td>{lugar.total}</td>
+                                  <td>{lugar.horas.toFixed(1)}</td>
+                                  {lugar.porTramo.map(tramoData => (
+                                    <td key={tramoData.tramo}>
+                                      {tramoData.total > 0 ? (
+                                        <span>
+                                          {tramoData.total} ({tramoData.horas.toFixed(1)}h)
+                                        </span>
+                                      ) : (
+                                        <span>-</span>
+                                      )}
+                                    </td>
+                                  ))}
                                 </tr>
                               ))}
                             </tbody>
                           </table>
                         </div>
-                        
-                        <h5>Desglose por lugares</h5>
-                        {profesor.porLugar.length > 0 ? (
-                          profesor.porLugar.map(lugar => (
-                            <div key={lugar.lugarId} className="mb-3">
-                              <h6>{lugar.lugarCodigo} - {lugar.lugarDescripcion} ({lugar.total} guardias)</h6>
-                              <div className="table-responsive">
-                                <table className="table table-sm">
-                                  <thead>
-                                    <tr>
-                                      <th>Tramo</th>
-                                      <th>Nº Guardias</th>
-                                      <th>Horas</th>
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    {lugar.porTramo.filter(t => t.total > 0).map(t => (
-                                      <tr key={t.tramo}>
-                                        <td>{t.tramo}</td>
-                                        <td>{t.total}</td>
-                                        <td>{t.horas.toFixed(1)}</td>
-                                      </tr>
-                                    ))}
-                                  </tbody>
-                                </table>
-                              </div>
-                            </div>
-                          ))
-                        ) : (
-                          <p className="text-muted">No hay información de lugares disponible</p>
-                        )}
                       </div>
                     </div>
                   </div>
                 ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="row mb-4">
+        <div className="col-12">
+          <div className="card">
+            <div className="card-header">Lugares más utilizados para guardias</div>
+            <div className="card-body">
+              <div className="table-responsive" style={{ overflow: 'auto', maxWidth: '100%' }}>
+                <table className="table table-striped">
+                  <thead className="table-light">
+                    <tr>
+                      <th>Lugar</th>
+                      <th>Guardias</th>
+                      <th>Porcentaje</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {guardiasPorLugarData.filter(item => item.total > 0).map((item) => (
+                      <tr key={item.lugarId}>
+                        <td>{item.lugarCodigo} - {item.lugarDescripcion}</td>
+                        <td>{item.total}</td>
+                        <td>{item.total > 0 ? `${Math.round(((item.total / total) * 100))}%` : "0%"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="row mb-4">
+        <div className="col-12">
+          <div className="card">
+            <div className="card-header">Ausencias por profesor</div>
+            <div className="card-body">
+              <div className="table-responsive" style={{ overflow: 'auto', maxWidth: '100%' }}>
+                <table className="table table-striped">
+                  <thead className="table-light">
+                    <tr>
+                      <th>Profesor</th>
+                      <th>Ausencias</th>
+                      <th>Porcentaje</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {ausenciasPorProfesorData.map((profesor) => (
+                      <tr key={profesor.profesorId}>
+                        <td>{profesor.profesorNombre}</td>
+                        <td>{profesor.total}</td>
+                        <td>{totalAusencias > 0 ? `${Math.round(((profesor.total / totalAusencias) * 100))}%` : "0%"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="row mb-4">
+        <div className="col-12">
+          <div className="card">
+            <div className="card-header">Guardias por tipo</div>
+            <div className="card-body">
+              <div className="table-responsive" style={{ overflow: 'auto', maxWidth: '100%' }}>
+                <table className="table table-striped">
+                  <thead className="table-light">
+                    <tr>
+                      <th>Tipo</th>
+                      <th>Guardias</th>
+                      <th>Porcentaje</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {guardiasPorTipoData.map((item) => (
+                      <tr key={item.tipo}>
+                        <td>{item.tipo}</td>
+                        <td>{item.total}</td>
+                        <td>{item.total > 0 ? `${Math.round(((item.total / total) * 100))}%` : "0%"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="row mb-4">
+        <div className="col-12">
+          <div className="card">
+            <div className="card-header">Resumen por estados</div>
+            <div className="card-body">
+              <h4 className="card-subtitle mb-3 text-body-secondary">Guardias por estado</h4>
+              <div className="table-responsive mb-3" style={{ overflow: 'auto', maxWidth: '100%' }}>
+                <table className="table table-sm">
+                  <thead className="table-light">
+                    <tr>
+                      <th>Estado</th>
+                      <th>Cantidad</th>
+                      <th>Porcentaje</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>Pendientes</td>
+                      <td>{pendientes}</td>
+                      <td>{pendientes > 0 ? `${Math.round(((pendientes / total) * 100))}%` : "0%"}</td>
+                    </tr>
+                    <tr>
+                      <td>Asignadas</td>
+                      <td>{asignadas}</td>
+                      <td>{asignadas > 0 ? `${Math.round(((asignadas / total) * 100))}%` : "0%"}</td>
+                    </tr>
+                    <tr>
+                      <td>Firmadas</td>
+                      <td>{firmadas}</td>
+                      <td>{firmadas > 0 ? `${Math.round(((firmadas / total) * 100))}%` : "0%"}</td>
+                    </tr>
+                    <tr>
+                      <td>Anuladas</td>
+                      <td>{anuladas}</td>
+                      <td>{anuladas > 0 ? `${Math.round(((anuladas / total) * 100))}%` : "0%"}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <h4 className="card-subtitle mb-3 text-body-secondary">Ausencias por estado</h4>
+              <div className="table-responsive" style={{ overflow: 'auto', maxWidth: '100%' }}>
+                <table className="table table-sm">
+                  <thead className="table-light">
+                    <tr>
+                      <th>Estado</th>
+                      <th>Cantidad</th>
+                      <th>Porcentaje</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>Pendientes</td>
+                      <td>{ausenciasPendientes}</td>
+                      <td>{ausenciasPendientes > 0 ? `${Math.round(((ausenciasPendientes / totalAusencias) * 100))}%` : "0%"}</td>
+                    </tr>
+                    <tr>
+                      <td>Aceptadas</td>
+                      <td>{ausenciasAceptadas}</td>
+                      <td>{ausenciasAceptadas > 0 ? `${Math.round(((ausenciasAceptadas / totalAusencias) * 100))}%` : "0%"}</td>
+                    </tr>
+                    <tr>
+                      <td>Rechazadas</td>
+                      <td>{ausenciasRechazadas}</td>
+                      <td>{ausenciasRechazadas > 0 ? `${Math.round(((ausenciasRechazadas / totalAusencias) * 100))}%` : "0%"}</td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>

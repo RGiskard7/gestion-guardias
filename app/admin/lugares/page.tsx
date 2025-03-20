@@ -336,25 +336,30 @@ export default function LugaresPage() {
           </div>
         ) : (
           <>
-            <div className="table-responsive">
+            <div className="table-responsive" style={{ overflow: 'auto', maxWidth: '100%' }}>
               <table className="table table-striped table-hover align-middle">
                 <thead className="table-light">
                   <tr>
-                    <th scope="col">Código</th>
-                    <th scope="col">Descripción</th>
-                    <th scope="col">Tipo</th>
-                    <th scope="col" className="text-center">Acciones</th>
+                    <th style={{ minWidth: '80px' }}>Código</th>
+                    <th style={{ minWidth: '120px' }}>Tipo</th>
+                    <th style={{ minWidth: '150px' }}>Descripción</th>
+                    <th style={{ minWidth: '100px' }}>Capacidad</th>
+                    <th style={{ minWidth: '100px' }} className="text-center">Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
                   {getCurrentPageItems().map((lugar) => (
                     <tr key={lugar.id}>
                       <td className="fw-medium">{lugar.codigo}</td>
-                      <td>{lugar.descripcion}</td>
                       <td>
                         <span className="badge bg-info rounded-pill px-3 py-2">
                           {lugar.tipoLugar}
                         </span>
+                      </td>
+                      <td>{lugar.descripcion}</td>
+                      <td>
+                        {/* Capacidad no disponible en el modelo actual */}
+                        <span className="text-muted">N/A</span>
                       </td>
                       <td>
                         <div className="d-flex justify-content-center gap-2">

@@ -1065,7 +1065,7 @@ export default function AdminAusenciasPage() {
           </div>
         ) : (
           <>
-            <div className="table-responsive">
+            <div className="table-responsive" style={{ overflow: 'auto', maxWidth: '100%' }}>
               <table className="table table-striped table-hover align-middle">
                 <thead className="table-light">
                   <tr>
@@ -1074,6 +1074,7 @@ export default function AdminAusenciasPage() {
                       onClick={() => handleSort('id')} 
                       className="cursor-pointer user-select-none sortable-header"
                       title="Ordenar por ID"
+                      style={{ minWidth: '60px' }}
                     >
                       <div className="d-flex align-items-center">
                         ID
@@ -1084,12 +1085,13 @@ export default function AdminAusenciasPage() {
                         )}
                       </div>
                     </th>
-                    <th scope="col">Profesor</th>
+                    <th scope="col" style={{ minWidth: '120px' }}>Profesor</th>
                     <th 
                       scope="col" 
                       onClick={() => handleSort('fecha')} 
                       className="cursor-pointer user-select-none sortable-header"
                       title="Ordenar por fecha"
+                      style={{ minWidth: '100px' }}
                     >
                       <div className="d-flex align-items-center">
                         Fecha
@@ -1105,6 +1107,7 @@ export default function AdminAusenciasPage() {
                       onClick={() => handleSort('tramoHorario')} 
                       className="cursor-pointer user-select-none sortable-header"
                       title="Ordenar por tramo horario"
+                      style={{ minWidth: '100px' }}
                     >
                       <div className="d-flex align-items-center">
                         Tramo

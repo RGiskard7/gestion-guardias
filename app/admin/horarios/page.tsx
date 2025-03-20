@@ -530,7 +530,7 @@ export default function HorariosPage() {
           </div>
             
           {viewMode === "lista" && (
-            <div className="table-responsive">
+            <div className="table-responsive" style={{ overflow: 'auto', maxWidth: '100%' }}>
               <table className="table table-hover">
                 <thead className="table-light">
                   <tr>
@@ -594,13 +594,13 @@ export default function HorariosPage() {
               {selectedProfesor ? (
                 <>
                   <h4 className="mb-3">{getProfesorName(selectedProfesor)}</h4>
-                  <div className="table-responsive">
+                  <div className="table-responsive" style={{ overflow: 'auto', maxWidth: '100%' }}>
                     <table className="table table-bordered table-hover">
                       <thead className="table-light">
                         <tr>
-                          <th style={{ width: "16%" }}>Tramo / Día</th>
+                          <th style={{ minWidth: "100px" }}>Tramo / Día</th>
                           {diasSemana.map(dia => (
-                            <th key={dia} style={{ width: "16%" }} className="text-center">{dia}</th>
+                            <th key={dia} style={{ minWidth: "120px" }} className="text-center">{dia}</th>
                           ))}
                         </tr>
                       </thead>

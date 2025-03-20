@@ -155,6 +155,14 @@ const Navbar: React.FC = () => {
                     <i className="bi bi-geo-alt me-2"></i>
                     Lugares
                   </Link>
+                  <Link 
+                    href={DB_CONFIG.RUTAS.ADMIN_ESTADISTICAS}
+                    className={`nav-link-mobile ${pathname.startsWith(DB_CONFIG.RUTAS.ADMIN_ESTADISTICAS) ? 'active' : ''}`}
+                    onClick={handleLinkClick}
+                  >
+                    <i className="bi bi-bar-chart me-2"></i>
+                    Estadísticas
+                  </Link>
                 </>
               ) : (
                 <>
@@ -219,10 +227,12 @@ const Navbar: React.FC = () => {
                     </div>
                   </div>
                 </div>
-                <button className="btn btn-outline-danger btn-sm mt-2" onClick={handleLogout}>
-                  <i className="bi bi-box-arrow-right me-1"></i>
-                  Cerrar sesión
-                </button>
+              </div>
+              <div className="w-100 mt-3">
+                  <button className="btn btn-outline-danger btn-sm w-100" onClick={handleLogout}>
+                    <i className="bi bi-box-arrow-right me-1"></i>
+                    Cerrar sesión
+                  </button>
               </div>
             </div>
           </div>
