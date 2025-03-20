@@ -1,11 +1,11 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useGuardias } from "@/src/contexts/GuardiasContext"
 import { useAusencias } from "@/src/contexts/AusenciasContext"
 import { useLugares } from "@/src/contexts/LugaresContext"
 import { useUsuarios } from "@/src/contexts/UsuariosContext"
-import { Guardia, Usuario, Lugar } from "@/src/types"
+import { Guardia, Usuario, Lugar, Ausencia } from "@/src/types"
 import DataCard from "@/components/common/DataCard"
 import { DB_CONFIG, getDuracionTramo } from "@/lib/db-config"
 
@@ -19,6 +19,7 @@ export default function EstadisticasPage() {
   )
   const [periodoFin, setPeriodoFin] = useState<string>(new Date().toISOString().split("T")[0])
   const [activeTab, setActiveTab] = useState<"profesores" | "lugares">("profesores")
+  const [ausenciasEnPeriodo, setAusenciasEnPeriodo] = useState<Ausencia[]>([])
 
   // Configurar periodo de tiempo
   const handlePeriodoInicioChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -35,6 +36,38 @@ export default function EstadisticasPage() {
     return guardiaDate >= new Date(periodoInicio) && guardiaDate <= new Date(periodoFin)
   })
 
+  // Filtrar ausencias por periodo - actualizado cada vez que cambia el periodo o las ausencias
+  useEffect(() => {
+    console.log("Filtrando ausencias para periodo:", periodoInicio, "hasta", periodoFin);
+    console.log("Total de ausencias antes de filtrar:", ausencias.length);
+    
+    const fechaInicioPeriodo = new Date(periodoInicio);
+    const fechaFinPeriodo = new Date(periodoFin);
+    fechaFinPeriodo.setHours(23, 59, 59, 999); // Incluir todo el día final
+    
+    const ausenciasFiltradas = ausencias.filter((ausencia) => {
+      // Verificar que la ausencia tenga el campo fecha
+      if (!ausencia.fecha) {
+        console.log("Ausencia sin fecha:", ausencia);
+        return false;
+      }
+      
+      const fechaAusencia = new Date(ausencia.fecha);
+      
+      // Verificar si la fecha de la ausencia está dentro del periodo
+      const dentroDePeriodo = fechaAusencia >= fechaInicioPeriodo && fechaAusencia <= fechaFinPeriodo;
+      
+      if (dentroDePeriodo) {
+        console.log("Ausencia dentro del periodo:", ausencia);
+      }
+      
+      return dentroDePeriodo;
+    });
+    
+    console.log("Ausencias filtradas:", ausenciasFiltradas.length);
+    setAusenciasEnPeriodo(ausenciasFiltradas);
+  }, [ausencias, periodoInicio, periodoFin]);
+
   // Tramos horarios
   const tramosHorarios = DB_CONFIG.TRAMOS_HORARIOS
 
@@ -49,10 +82,10 @@ export default function EstadisticasPage() {
   const total = guardiasEnPeriodo.length
 
   // Contadores por estado de ausencias
-  const ausenciasPendientes = ausencias.filter(a => a.estado === DB_CONFIG.ESTADOS_AUSENCIA.PENDIENTE).length
-  const ausenciasAceptadas = ausencias.filter(a => a.estado === DB_CONFIG.ESTADOS_AUSENCIA.ACEPTADA).length
-  const ausenciasRechazadas = ausencias.filter(a => a.estado === DB_CONFIG.ESTADOS_AUSENCIA.RECHAZADA).length
-  const totalAusencias = ausencias.length
+  const ausenciasPendientes = ausenciasEnPeriodo.filter(a => a.estado === DB_CONFIG.ESTADOS_AUSENCIA.PENDIENTE).length
+  const ausenciasAceptadas = ausenciasEnPeriodo.filter(a => a.estado === DB_CONFIG.ESTADOS_AUSENCIA.ACEPTADA).length
+  const ausenciasRechazadas = ausenciasEnPeriodo.filter(a => a.estado === DB_CONFIG.ESTADOS_AUSENCIA.RECHAZADA).length
+  const totalAusencias = ausenciasEnPeriodo.length
 
   // Contar guardias por tramo horario
   const guardiasPorTramo = tramosHorarios.map((tramo) => {
@@ -186,7 +219,7 @@ export default function EstadisticasPage() {
   const ausenciasPorProfesorData = usuarios
     .filter(u => u.rol === DB_CONFIG.ROLES.PROFESOR)
     .map(usuario => {
-      const ausenciasProfesor = ausencias.filter(a => a.profesorId === usuario.id)
+      const ausenciasProfesor = ausenciasEnPeriodo.filter(a => a.profesorId === usuario.id && a.estado === DB_CONFIG.ESTADOS_AUSENCIA.ACEPTADA)
       return {
         profesorId: usuario.id,
         profesorNombre: `${usuario.nombre} ${usuario.apellido || ''}`,
@@ -242,6 +275,9 @@ export default function EstadisticasPage() {
                     <div className="badge bg-primary text-white p-2">
                       {guardiasEnPeriodo.length} guardias en periodo
                     </div>
+                    <div className="badge bg-info text-white p-2 mt-2">
+                      {ausenciasEnPeriodo.length} ausencias en periodo
+                    </div>
                   </div>
                 </div>
               </div>
@@ -253,27 +289,89 @@ export default function EstadisticasPage() {
       {/* Resumen de guardias y ausencias */}
       <div className="row mb-4">
         <div className="col-md-6">
-          <DataCard
-            title="Resumen de Guardias"
-            items={[
-              { label: "Pendientes", value: pendientes },
-              { label: "Asignadas", value: asignadas },
-              { label: "Firmadas", value: firmadas },
-              { label: "Anuladas", value: anuladas },
-              { label: "Total", value: total },
-            ]}
-          />
+          <div className="card">
+            <div className="card-header">Resumen de Guardias</div>
+            <div className="card-body">
+              <ul className="list-group list-group-flush">
+                <li className="list-group-item d-flex justify-content-between align-items-center">
+                  Pendientes
+                  <span className="badge text-bg-warning rounded-pill">{pendientes}</span>
+                </li>
+                <li className="list-group-item d-flex justify-content-between align-items-center">
+                  Asignadas
+                  <span className="badge text-bg-primary rounded-pill">{asignadas}</span>
+                </li>
+                <li className="list-group-item d-flex justify-content-between align-items-center">
+                  Firmadas
+                  <span className="badge text-bg-success rounded-pill">{firmadas}</span>
+                </li>
+                <li className="list-group-item d-flex justify-content-between align-items-center">
+                  Anuladas
+                  <span className="badge text-bg-danger rounded-pill">{anuladas}</span>
+                </li>
+                <li className="list-group-item d-flex justify-content-between align-items-center fw-bold">
+                  Total
+                  <span className="badge text-bg-dark rounded-pill">{total}</span>
+                </li>
+              </ul>
+            </div>
+          </div>
         </div>
         <div className="col-md-6">
-          <DataCard
-            title="Resumen de Ausencias"
-            items={[
-              { label: "Pendientes", value: ausenciasPendientes },
-              { label: "Aceptadas", value: ausenciasAceptadas },
-              { label: "Rechazadas", value: ausenciasRechazadas },
-              { label: "Total", value: totalAusencias },
-            ]}
-          />
+          <div className="card">
+            <div className="card-header">Resumen de Ausencias</div>
+            <div className="card-body">
+              <ul className="list-group list-group-flush">
+                <li className="list-group-item d-flex justify-content-between align-items-center">
+                  Pendientes
+                  <span className="badge text-bg-warning rounded-pill">{ausenciasPendientes}</span>
+                </li>
+                <li className="list-group-item d-flex justify-content-between align-items-center">
+                  Aceptadas
+                  <span className="badge text-bg-success rounded-pill">{ausenciasAceptadas}</span>
+                </li>
+                <li className="list-group-item d-flex justify-content-between align-items-center">
+                  Rechazadas
+                  <span className="badge text-bg-danger rounded-pill">{ausenciasRechazadas}</span>
+                </li>
+                <li className="list-group-item d-flex justify-content-between align-items-center fw-bold">
+                  Total
+                  <span className="badge text-bg-dark rounded-pill">{totalAusencias}</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      {/* Resumen de guardias por tipo */}
+      <div className="row mb-4">
+        <div className="col-12">
+          <div className="card">
+            <div className="card-header">Guardias por tipo</div>
+            <div className="card-body">
+              <div className="table-responsive" style={{ overflow: 'auto', maxWidth: '100%' }}>
+                <table className="table table-striped">
+                  <thead className="table-light">
+                    <tr>
+                      <th>Tipo</th>
+                      <th>Guardias</th>
+                      <th>Porcentaje</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {guardiasPorTipoData.map((item) => (
+                      <tr key={item.tipo}>
+                        <td>{item.tipo}</td>
+                        <td>{item.total}</td>
+                        <td>{item.total > 0 ? `${Math.round(((item.total / total) * 100))}%` : "0%"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -309,9 +407,6 @@ export default function EstadisticasPage() {
                                     className="progress-bar" 
                                     role="progressbar" 
                                     style={{ width: `${tramo.porcentajeAsignadas}%` }}
-                                    aria-valuenow={tramo.porcentajeAsignadas} 
-                                    aria-valuemin={0} 
-                                    aria-valuemax={100}
                                   ></div>
                                 </div>
                               </div>
@@ -485,14 +580,14 @@ export default function EstadisticasPage() {
       <div className="row mb-4">
         <div className="col-12">
           <div className="card">
-            <div className="card-header">Ausencias por profesor</div>
+            <div className="card-header">Ausencias aceptadas por profesor en el periodo</div>
             <div className="card-body">
               <div className="table-responsive" style={{ overflow: 'auto', maxWidth: '100%' }}>
                 <table className="table table-striped">
                   <thead className="table-light">
                     <tr>
                       <th>Profesor</th>
-                      <th>Ausencias</th>
+                      <th>Ausencias aceptadas</th>
                       <th>Porcentaje</th>
                     </tr>
                   </thead>
@@ -501,112 +596,9 @@ export default function EstadisticasPage() {
                       <tr key={profesor.profesorId}>
                         <td>{profesor.profesorNombre}</td>
                         <td>{profesor.total}</td>
-                        <td>{totalAusencias > 0 ? `${Math.round(((profesor.total / totalAusencias) * 100))}%` : "0%"}</td>
+                        <td>{ausenciasAceptadas > 0 ? `${Math.round(((profesor.total / ausenciasAceptadas) * 100))}%` : "0%"}</td>
                       </tr>
                     ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="row mb-4">
-        <div className="col-12">
-          <div className="card">
-            <div className="card-header">Guardias por tipo</div>
-            <div className="card-body">
-              <div className="table-responsive" style={{ overflow: 'auto', maxWidth: '100%' }}>
-                <table className="table table-striped">
-                  <thead className="table-light">
-                    <tr>
-                      <th>Tipo</th>
-                      <th>Guardias</th>
-                      <th>Porcentaje</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {guardiasPorTipoData.map((item) => (
-                      <tr key={item.tipo}>
-                        <td>{item.tipo}</td>
-                        <td>{item.total}</td>
-                        <td>{item.total > 0 ? `${Math.round(((item.total / total) * 100))}%` : "0%"}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="row mb-4">
-        <div className="col-12">
-          <div className="card">
-            <div className="card-header">Resumen por estados</div>
-            <div className="card-body">
-              <h4 className="card-subtitle mb-3 text-body-secondary">Guardias por estado</h4>
-              <div className="table-responsive mb-3" style={{ overflow: 'auto', maxWidth: '100%' }}>
-                <table className="table table-sm">
-                  <thead className="table-light">
-                    <tr>
-                      <th>Estado</th>
-                      <th>Cantidad</th>
-                      <th>Porcentaje</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td>Pendientes</td>
-                      <td>{pendientes}</td>
-                      <td>{pendientes > 0 ? `${Math.round(((pendientes / total) * 100))}%` : "0%"}</td>
-                    </tr>
-                    <tr>
-                      <td>Asignadas</td>
-                      <td>{asignadas}</td>
-                      <td>{asignadas > 0 ? `${Math.round(((asignadas / total) * 100))}%` : "0%"}</td>
-                    </tr>
-                    <tr>
-                      <td>Firmadas</td>
-                      <td>{firmadas}</td>
-                      <td>{firmadas > 0 ? `${Math.round(((firmadas / total) * 100))}%` : "0%"}</td>
-                    </tr>
-                    <tr>
-                      <td>Anuladas</td>
-                      <td>{anuladas}</td>
-                      <td>{anuladas > 0 ? `${Math.round(((anuladas / total) * 100))}%` : "0%"}</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-              <h4 className="card-subtitle mb-3 text-body-secondary">Ausencias por estado</h4>
-              <div className="table-responsive" style={{ overflow: 'auto', maxWidth: '100%' }}>
-                <table className="table table-sm">
-                  <thead className="table-light">
-                    <tr>
-                      <th>Estado</th>
-                      <th>Cantidad</th>
-                      <th>Porcentaje</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td>Pendientes</td>
-                      <td>{ausenciasPendientes}</td>
-                      <td>{ausenciasPendientes > 0 ? `${Math.round(((ausenciasPendientes / totalAusencias) * 100))}%` : "0%"}</td>
-                    </tr>
-                    <tr>
-                      <td>Aceptadas</td>
-                      <td>{ausenciasAceptadas}</td>
-                      <td>{ausenciasAceptadas > 0 ? `${Math.round(((ausenciasAceptadas / totalAusencias) * 100))}%` : "0%"}</td>
-                    </tr>
-                    <tr>
-                      <td>Rechazadas</td>
-                      <td>{ausenciasRechazadas}</td>
-                      <td>{ausenciasRechazadas > 0 ? `${Math.round(((ausenciasRechazadas / totalAusencias) * 100))}%` : "0%"}</td>
-                    </tr>
                   </tbody>
                 </table>
               </div>
