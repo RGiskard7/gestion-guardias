@@ -313,7 +313,7 @@ export default function HorarioProfesorPage() {
 
       {/* Vista para pantallas grandes */}
       <div className="d-none d-lg-block">
-        <div className="table-responsive">
+        <div className="table-responsive table-weekly-view">
           <table className="table table-bordered shadow-sm">
             <thead className="bg-light">
               <tr>
@@ -329,7 +329,7 @@ export default function HorarioProfesorPage() {
             <tbody>
               {tramosHorarios.map((tramo, tramoIndex) => (
                 <tr key={tramoIndex}>
-                  <td className="text-center align-middle bg-light">
+                  <td className="text-center align-middle">
                     <strong>{tramo}</strong>
                   </td>
                   {fechasISO.map((fecha, fechaIndex) => {

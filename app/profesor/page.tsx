@@ -17,6 +17,12 @@ export default function ProfesorDashboardPage() {
   const { guardias } = useGuardias()
   const { horarios } = useHorarios()
   const { ausencias } = useAusencias()
+  
+  // Estados para la ordenación
+  const [sortField, setSortField] = useState<'diaSemana' | 'tramoHorario'>('diaSemana')
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
+  // Estado para filtrado por día
+  const [filterDia, setFilterDia] = useState<string>("")
 
   if (!user) return null
 
@@ -75,6 +81,52 @@ export default function ProfesorDashboardPage() {
 
   // Get horarios of the profesor
   const misHorarios = horarios.filter((h) => h.profesorId === user.id)
+  
+  // Filtrar horarios por día (si se ha seleccionado un filtro)
+  const misHorariosFiltrados = filterDia
+    ? misHorarios.filter(h => h.diaSemana.toLowerCase() === filterDia.toLowerCase())
+    : misHorarios
+  
+  // Ordenar horarios según los criterios seleccionados
+  const misHorariosOrdenados = [...misHorariosFiltrados].sort((a, b) => {
+    if (sortField === 'diaSemana') {
+      // Ordenar por día de la semana
+      // Crear un mapa de índices para ordenar correctamente los días
+      const diaIndices: { [key: string]: number } = {};
+      DB_CONFIG.DIAS_SEMANA.forEach((dia, index) => {
+        diaIndices[dia] = index;
+      });
+      
+      const indexA = diaIndices[a.diaSemana] || 0;
+      const indexB = diaIndices[b.diaSemana] || 0;
+      
+      return sortDirection === 'asc' ? indexA - indexB : indexB - indexA;
+    } else {
+      // Ordenar por tramo horario
+      // Extraer números del tramo para ordenar numéricamente
+      const getTramoNumber = (tramo: string) => {
+        const match = tramo.match(/(\d+)/);
+        return match ? Number.parseInt(match[1]) : 0;
+      };
+      
+      const tramoA = getTramoNumber(a.tramoHorario);
+      const tramoB = getTramoNumber(b.tramoHorario);
+      
+      return sortDirection === 'asc' ? tramoA - tramoB : tramoB - tramoA;
+    }
+  });
+  
+  // Función para cambiar el campo de ordenación
+  const handleSort = (field: 'diaSemana' | 'tramoHorario') => {
+    if (sortField === field) {
+      // Si ya estamos ordenando por este campo, cambiar dirección
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      // Si cambiamos de campo, establecer el nuevo campo y dirección por defecto
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
 
   // Filter guardias for today
   const guardiasHoy = guardias.filter((g) => g.fecha === today)
@@ -175,24 +227,77 @@ export default function ProfesorDashboardPage() {
                 {DB_CONFIG.ETIQUETAS.MENSAJES.SIN_HORARIOS}
               </div>
             ) : (
-              <div className="table-responsive">
-                <table className="table table-striped">
-                  <thead>
-                    <tr>
-                      <th><i className="bi bi-calendar-day me-2"></i>Día</th>
-                      <th><i className="bi bi-clock me-2"></i>Tramo Horario</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {misHorarios.map((horario) => (
-                      <tr key={horario.id}>
-                        <td>{horario.diaSemana}</td>
-                        <td>{horario.tramoHorario}</td>
+              <>
+                <div className="mb-3">
+                  <div className="row g-2 align-items-center">
+                    <div className="col">
+                      <label htmlFor="filterDia" className="form-label fw-bold">Filtrar por día:</label>
+                      <select 
+                        id="filterDia" 
+                        className="form-select" 
+                        value={filterDia}
+                        onChange={(e) => setFilterDia(e.target.value)}
+                      >
+                        <option value="">Todos los días</option>
+                        {DB_CONFIG.DIAS_SEMANA.map((dia, index) => (
+                          <option key={index} value={dia}>{dia}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="col-auto d-flex align-items-end">
+                      {filterDia && (
+                        <button 
+                          className="btn btn-outline-secondary mb-0"
+                          onClick={() => setFilterDia("")}
+                          title="Limpiar filtro"
+                        >
+                          <i className="bi bi-x-circle"></i>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <div className="table-responsive">
+                  <table className="table table-striped">
+                    <thead>
+                      <tr>
+                        <th 
+                          onClick={() => handleSort('diaSemana')}
+                          className="cursor-pointer user-select-none"
+                          style={{ cursor: 'pointer' }}
+                        >
+                          <div className="d-flex align-items-center">
+                            <i className="bi bi-calendar-day me-2"></i>Día
+                            {sortField === 'diaSemana' && (
+                              <i className={`bi bi-sort-${sortDirection === 'asc' ? 'up' : 'down'}-alt ms-1`}></i>
+                            )}
+                          </div>
+                        </th>
+                        <th 
+                          onClick={() => handleSort('tramoHorario')}
+                          className="cursor-pointer user-select-none"
+                          style={{ cursor: 'pointer' }}
+                        >
+                          <div className="d-flex align-items-center">
+                            <i className="bi bi-clock me-2"></i>Tramo Horario
+                            {sortField === 'tramoHorario' && (
+                              <i className={`bi bi-sort-${sortDirection === 'asc' ? 'up' : 'down'}-alt ms-1`}></i>
+                            )}
+                          </div>
+                        </th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody>
+                      {misHorariosOrdenados.map((horario) => (
+                        <tr key={horario.id}>
+                          <td>{horario.diaSemana}</td>
+                          <td>{horario.tramoHorario}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
             )}
             <div className="mt-3 text-end">
               <Link href={DB_CONFIG.RUTAS.PROFESOR_HORARIO} className="btn btn-sm btn-outline-primary">

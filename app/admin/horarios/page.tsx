@@ -531,7 +531,7 @@ export default function HorariosPage() {
             
           {viewMode === "lista" && (
             <div className="table-responsive" style={{ overflow: 'auto', maxWidth: '100%' }}>
-              <table className="table table-hover">
+              <table className="table table-striped table-hover align-middle">
                 <thead className="table-light">
                   <tr>
                     <th scope="col" style={{ minWidth: '60px' }}>ID</th>
