@@ -308,19 +308,251 @@ export default function EstadisticasPage() {
       const doc = new jsPDF("landscape");
       let currentPage = 1;
       
+      // Colores para gráficos y secciones
+      const colors = {
+        primary: [41, 128, 185] as [number, number, number],    // Azul
+        success: [46, 204, 113] as [number, number, number],    // Verde
+        warning: [241, 196, 15] as [number, number, number],    // Amarillo
+        danger: [231, 76, 60] as [number, number, number],      // Rojo
+        dark: [52, 73, 94] as [number, number, number],         // Gris oscuro
+        light: [236, 240, 241] as [number, number, number],     // Gris claro
+        headerBg: [245, 245, 245] as [number, number, number]   // Fondo de cabecera
+      };
+      
+      // Función para dibujar un gráfico circular
+      const drawPieChart = (
+        data: number[], 
+        labels: string[], 
+        centerX: number, 
+        centerY: number, 
+        radius: number, 
+        colors: [number, number, number][], 
+        title: string
+      ) => {
+        // Calcular ángulos
+        const total = data.reduce((acc: number, val: number) => acc + val, 0);
+        
+        // Dibujar título primero
+        doc.setFontSize(12);
+        doc.setTextColor(0, 0, 0);
+        doc.text(title, centerX, centerY - radius - 10, { align: 'center' });
+        
+        // Si no hay datos, dibuja un círculo vacío con mensaje
+        if (total === 0) {
+          doc.setDrawColor(200, 200, 200);
+          doc.setFillColor(245, 245, 245);
+          doc.circle(centerX, centerY, radius, 'FD');
+          doc.setFontSize(8);
+          doc.setTextColor(100, 100, 100);
+          doc.text('Sin datos', centerX, centerY, { align: 'center' });
+          return;
+        }
+        
+        // Dibujar sectores como arcos simples
+        let startAngle = 0;
+        
+        for (let i = 0; i < data.length; i++) {
+          if (data[i] === 0) continue;
+          
+          const portion = data[i] / total;
+          const endAngle = startAngle + portion * 2 * Math.PI;
+          
+          // Calcular puntos para el sector
+          const x1 = centerX + radius * Math.cos(startAngle);
+          const y1 = centerY + radius * Math.sin(startAngle);
+          const x2 = centerX + radius * Math.cos(endAngle);
+          const y2 = centerY + radius * Math.sin(endAngle);
+          
+          // Configurar color
+          doc.setFillColor(colors[i][0], colors[i][1], colors[i][2]);
+          
+          // Dibujar sector (triángulo desde el centro al arco)
+          doc.setLineWidth(0.1);
+          doc.setDrawColor(255, 255, 255);
+          
+          // Utilizamos path para dibujar el sector
+          doc.path([
+            ['M', centerX, centerY], // Mover al centro
+            ['L', x1, y1], // Línea al primer punto del arco
+            ['A', radius, radius, 0, portion > 0.5 ? 1 : 0, 1, x2, y2], // Arco al segundo punto
+            ['L', centerX, centerY] // Línea de vuelta al centro
+          ], 'F');
+          
+          startAngle = endAngle;
+        }
+        
+        // Opcionalmente, dibujar un círculo blanco en el medio para crear efecto de donut
+        doc.setFillColor(255, 255, 255);
+        doc.circle(centerX, centerY, radius * 0.6, 'F');
+        
+        // Leyenda
+        const legendX = centerX + radius + 10;
+        const legendY = centerY - radius + 5;
+        
+        doc.setFontSize(8);
+        
+        // Calcular el ancho máximo de la leyenda para evitar que se salga de la página
+        let maxLegendWidth = 0;
+        
+        labels.forEach((label: string, i: number) => {
+          if (data[i] === 0) return;
+          
+          const percentage = Math.round((data[i] / total) * 100);
+          const legendText = `${label}: ${data[i]} (${percentage}%)`;
+          const textWidth = doc.getTextWidth(legendText);
+          
+          if (textWidth > maxLegendWidth) {
+            maxLegendWidth = textWidth;
+          }
+        });
+        
+        // Verificar si la leyenda cabe en el ancho de la página
+        if (legendX + maxLegendWidth + 15 > 297) {
+          // Si no cabe, colocarla debajo del gráfico
+          let newLegendY = centerY + radius + 10;
+          
+          labels.forEach((label: string, i: number) => {
+            if (data[i] === 0) return;
+            
+            const percentage = Math.round((data[i] / total) * 100);
+            
+            // Cuadrado de color
+            doc.setFillColor(colors[i][0], colors[i][1], colors[i][2]);
+            doc.rect(centerX - radius, newLegendY - 3, 5, 5, 'F');
+            
+            // Texto de leyenda
+            doc.setTextColor(0, 0, 0);
+            doc.text(`${label}: ${data[i]} (${percentage}%)`, centerX - radius + 8, newLegendY);
+            
+            newLegendY += 8; // Espacio entre elementos de la leyenda
+          });
+        } else {
+          // Leyenda a la derecha del gráfico
+          labels.forEach((label: string, i: number) => {
+            if (data[i] === 0) return;
+            
+            const percentage = Math.round((data[i] / total) * 100);
+            const y = legendY + (i * 10);
+            
+            // Cuadrado de color
+            doc.setFillColor(colors[i][0], colors[i][1], colors[i][2]);
+            doc.rect(legendX, y - 3, 5, 5, 'F');
+            
+            // Texto de leyenda
+            doc.setTextColor(0, 0, 0);
+            doc.text(`${label}: ${data[i]} (${percentage}%)`, legendX + 8, y);
+          });
+        }
+      };
+      
+      // Función para dibujar un gráfico de barras horizontal
+      const drawHorizontalBarChart = (
+        data: number[], 
+        labels: string[], 
+        x: number, 
+        y: number, 
+        width: number, 
+        height: number, 
+        colors: [number, number, number][], 
+        title: string, 
+        maxValue?: number
+      ) => {
+        const barHeight = 12;
+        const gap = 6;
+        const totalHeight = (barHeight + gap) * data.length;
+        
+        // Determinar el valor máximo para la escala
+        const max = maxValue || Math.max(...data) * 1.1 || 1; // Evitar dividir por cero
+        
+        // Título
+        doc.setFontSize(12);
+        doc.setTextColor(0, 0, 0);
+        doc.text(title, x, y - 8);
+        
+        // Fondo para las barras
+        doc.setFillColor(245, 245, 245);
+        doc.rect(x, y, width, totalHeight, 'F');
+        
+        // Líneas de escala (verticales)
+        doc.setDrawColor(200, 200, 200);
+        doc.setLineWidth(0.2);
+        
+        const numDivisions = 5;
+        for (let i = 0; i <= numDivisions; i++) {
+          const xPos = x + (width * i / numDivisions);
+          doc.line(xPos, y, xPos, y + totalHeight);
+          
+          // Valores de escala
+          const scaleValue = Math.round((max * i / numDivisions) * 10) / 10;
+          doc.setFontSize(7);
+          doc.text(scaleValue.toString(), xPos, y + totalHeight + 5, { align: 'center' });
+        }
+        
+        // Dibujar barras
+        data.forEach((value: number, i: number) => {
+          const barY = y + (i * (barHeight + gap));
+          const barWidth = (value / max) * width;
+          
+          // Barra
+          const colorIndex = i % colors.length;
+          doc.setFillColor(colors[colorIndex][0], colors[colorIndex][1], colors[colorIndex][2]);
+          doc.rect(x, barY, barWidth, barHeight, 'F');
+          
+          // Borde de la barra
+          doc.setDrawColor(255, 255, 255);
+          doc.setLineWidth(0.5);
+          doc.rect(x, barY, barWidth, barHeight, 'S');
+          
+          // Etiqueta (a la izquierda de la barra)
+          doc.setFontSize(8);
+          doc.setTextColor(0, 0, 0);
+          
+          // Truncar etiquetas largas
+          let label = labels[i];
+          const maxLabelLength = 12;
+          if (label.length > maxLabelLength) {
+            label = label.substring(0, maxLabelLength - 3) + '...';
+          }
+          
+          doc.text(label, x - 3, barY + barHeight/2, { align: 'right' });
+          
+          // Valor (dentro o fuera de la barra, dependiendo del espacio)
+          const valueText = value.toString();
+          const valueWidth = doc.getTextWidth(valueText);
+          
+          if (barWidth > valueWidth + 6) {
+            // Si hay espacio, dibuja el valor dentro de la barra
+            doc.setTextColor(255, 255, 255);
+            doc.text(valueText, x + barWidth - 3, barY + barHeight/2, { align: 'right' });
+          } else {
+            // Si no hay espacio, dibuja el valor fuera de la barra
+            doc.setTextColor(0, 0, 0);
+            doc.text(valueText, x + barWidth + 3, barY + barHeight/2);
+          }
+        });
+      };
+      
       // Función para agregar encabezado en cada página
       const addHeader = () => {
+        // Fondo de cabecera
+        doc.setFillColor(colors.headerBg[0], colors.headerBg[1], colors.headerBg[2]);
+        doc.rect(0, 0, 297, 25, 'F');
+        
+        // Logo o icono del sistema (simulado con un rectángulo)
+        doc.setFillColor(colors.primary[0], colors.primary[1], colors.primary[2]);
+        doc.roundedRect(14, 5, 10, 10, 1, 1, 'F');
+        
         // Título
         doc.setFontSize(18);
-        doc.setTextColor(0, 0, 0); // Color negro
-        doc.text("Sistema de Gestión de Guardias - Estadísticas", 14, 15);
+        doc.setTextColor(0, 0, 0);
+        doc.text("Sistema de Gestión de Guardias - Estadísticas", 28, 12);
         
         // Subtítulo con periodo
         doc.setFontSize(11);
-        doc.setTextColor(100, 100, 100); // Color gris
+        doc.setTextColor(100, 100, 100);
         doc.text(
           `Periodo: ${new Date(periodoInicio).toLocaleDateString()} - ${new Date(periodoFin).toLocaleDateString()}`,
-          14, 22
+          28, 19
         );
         
         // Número de página
@@ -328,14 +560,107 @@ export default function EstadisticasPage() {
         doc.text(`Página ${currentPage}`, 270, 10, { align: "right" });
         currentPage++;
         
+        // Línea separadora
+        doc.setDrawColor(200, 200, 200);
+        doc.setLineWidth(0.5);
+        doc.line(10, 25, 287, 25);
+        
         return 30; // Posición Y para comenzar a dibujar contenido
       };
       
+      // Función para añadir pie de página
+      const addFooter = () => {
+        const pageHeight = doc.internal.pageSize.height;
+        
+        // Línea separadora
+        doc.setDrawColor(200, 200, 200);
+        doc.setLineWidth(0.5);
+        doc.line(10, pageHeight - 15, 287, pageHeight - 15);
+        
+        // Texto del pie
+        doc.setFontSize(8);
+        doc.setTextColor(100, 100, 100);
+        doc.text(`Fecha de generación: ${new Date().toLocaleString()}`, 14, pageHeight - 10);
+        
+        // Información del centro (ejemplo)
+        doc.text("Centro Educativo - Sistema de Gestión de Guardias", 287, pageHeight - 10, { align: "right" });
+      };
+      
+      // -------------------------
       // Comenzar con primera página
+      // -------------------------
       let yPos = addHeader();
       
-      // SECCIÓN 1: Resumen de Guardias
-      const guardiasData = [
+      // Título de la sección
+      doc.setFontSize(14);
+      doc.setTextColor(0, 0, 0);
+      doc.text("Resumen General", 14, yPos);
+      yPos += 8;
+      
+      // Información general
+      doc.setFontSize(10);
+      doc.text(`Total de guardias en el periodo: ${total}`, 14, yPos);
+      doc.text(`Total de ausencias en el periodo: ${totalAusencias}`, 150, yPos);
+      yPos += 10;
+      
+      // Dibujar gráficos de guardias y ausencias
+      const guardiasData = [pendientes, asignadas, firmadas, anuladas];
+      const guardiasLabels = ["Pendientes", "Asignadas", "Firmadas", "Anuladas"];
+      const guardiasColors = [
+        colors.warning,
+        colors.primary,
+        colors.success,
+        colors.danger
+      ];
+      
+      const ausenciasData = [ausenciasPendientes, ausenciasAceptadas, ausenciasRechazadas];
+      const ausenciasLabels = ["Pendientes", "Aceptadas", "Rechazadas"];
+      const ausenciasColors = [
+        colors.warning,
+        colors.success,
+        colors.danger
+      ];
+      
+      // Gráficos uno al lado del otro
+      drawPieChart(guardiasData, guardiasLabels, 80, yPos + 40, 30, guardiasColors, "Estado de Guardias");
+      drawPieChart(ausenciasData, ausenciasLabels, 210, yPos + 40, 30, ausenciasColors, "Estado de Ausencias");
+      
+      // Ajustar posición Y después de los gráficos
+      yPos += 95;
+      
+      // SECCIÓN: Guardias por tipo
+      if (guardiasPorTipoData.length > 0) {
+        const tipoGuardiaData = guardiasPorTipoData.map(t => t.total);
+        const tipoGuardiaLabels = guardiasPorTipoData.map(t => t.tipo);
+        const tipoGuardiaColors: [number, number, number][] = [
+          colors.primary, 
+          colors.success, 
+          colors.warning, 
+          colors.danger, 
+          colors.dark
+        ];
+        
+        drawHorizontalBarChart(
+          tipoGuardiaData, 
+          tipoGuardiaLabels, 
+          14, 
+          yPos + 20, 
+          120, 
+          15 * tipoGuardiaData.length, 
+          tipoGuardiaColors,
+          "Guardias por Tipo"
+        );
+        
+        yPos += 60;
+      }
+      
+      // SECCIÓN: Resumen numérico de Guardias
+      doc.setFontSize(12);
+      doc.text("Resumen Detallado", 14, yPos);
+      yPos += 10;
+      
+      // Dibujar tabla de guardias
+      const guardiasData2 = [
         ["Estado", "Cantidad", "Porcentaje"],
         ["Pendientes", pendientes.toString(), total > 0 ? `${Math.round((pendientes / total) * 100)}%` : "0%"],
         ["Asignadas", asignadas.toString(), total > 0 ? `${Math.round((asignadas / total) * 100)}%` : "0%"],
@@ -344,21 +669,25 @@ export default function EstadisticasPage() {
         ["Total", total.toString(), "100%"]
       ];
       
-      // Dibujar tabla de guardias
       doc.autoTable({
-        head: [guardiasData[0]],
-        body: guardiasData.slice(1),
+        head: [guardiasData2[0]],
+        body: guardiasData2.slice(1),
         startY: yPos,
         margin: { left: 14 },
         theme: "grid",
-        headStyles: { fillColor: [230, 230, 230], textColor: [0, 0, 0] },
-        styles: { fontSize: 10 }
+        headStyles: { fillColor: [41, 128, 185], textColor: [255, 255, 255] },
+        styles: { fontSize: 10 },
+        columnStyles: {
+          0: { cellWidth: 60 },
+          1: { cellWidth: 40 },
+          2: { cellWidth: 40 }
+        }
       });
       
-      // SECCIÓN 2: Resumen de Ausencias
-      yPos = doc.previousAutoTable.finalY + 10;
+      // SECCIÓN: Resumen numérico de Ausencias
+      yPos = doc.previousAutoTable.finalY + 15;
       
-      const ausenciasData = [
+      const ausenciasData2 = [
         ["Estado", "Cantidad", "Porcentaje"],
         ["Pendientes", ausenciasPendientes.toString(), totalAusencias > 0 ? `${Math.round((ausenciasPendientes / totalAusencias) * 100)}%` : "0%"],
         ["Aceptadas", ausenciasAceptadas.toString(), totalAusencias > 0 ? `${Math.round((ausenciasAceptadas / totalAusencias) * 100)}%` : "0%"],
@@ -366,18 +695,27 @@ export default function EstadisticasPage() {
         ["Total", totalAusencias.toString(), "100%"]
       ];
       
-      // Dibujar tabla de ausencias
       doc.autoTable({
-        head: [ausenciasData[0]],
-        body: ausenciasData.slice(1),
+        head: [ausenciasData2[0]],
+        body: ausenciasData2.slice(1),
         startY: yPos,
         margin: { left: 14 },
         theme: "grid",
-        headStyles: { fillColor: [230, 230, 230], textColor: [0, 0, 0] },
-        styles: { fontSize: 10 }
+        headStyles: { fillColor: [41, 128, 185], textColor: [255, 255, 255] },
+        styles: { fontSize: 10 },
+        columnStyles: {
+          0: { cellWidth: 60 },
+          1: { cellWidth: 40 },
+          2: { cellWidth: 40 }
+        }
       });
       
-      // SECCIÓN 3: Guardias por día y tramo (Nueva página)
+      // Agregar el pie de página
+      addFooter();
+      
+      // -------------------------
+      // SECCIÓN: Guardias por día y tramo (Nueva página)
+      // -------------------------
       doc.addPage();
       yPos = addHeader();
       
@@ -386,12 +724,19 @@ export default function EstadisticasPage() {
       doc.text("Guardias por día y tramo horario", 14, yPos);
       yPos += 10;
       
+      // Información adicional
+      doc.setFontSize(10);
+      doc.setTextColor(80, 80, 80);
+      doc.text(`Total de días en el periodo: ${diasUnicos.length}`, 14, yPos);
+      doc.text(`Total de guardias: ${total}`, 150, yPos);
+      yPos += 15;
+      
       const tablaCabecerasDiaTramo = ["Día", ...tramosHorarios];
       const tablaDatosDiaTramo = guardiasPorDiayTramo.map(dia => {
         const row = [formatDate(dia.fecha)];
         dia.porTramo.forEach(t => {
           if (t.total > 0) {
-            row.push(`A: ${t.asignadas}\nP: ${t.noAsignadas}\n${t.porcentajeAsignadas}%`);
+            row.push(`Total: ${t.total}\nAsig: ${t.asignadas}\nPend: ${t.noAsignadas}\n${t.porcentajeAsignadas}%`);
           } else {
             row.push("-");
           }
@@ -399,18 +744,65 @@ export default function EstadisticasPage() {
         return row;
       });
       
-      // Dibujar tabla de guardias por día y tramo
+      // Dibujar tabla de guardias por día y tramo - con mejor formato
       doc.autoTable({
         head: [tablaCabecerasDiaTramo],
         body: tablaDatosDiaTramo,
         startY: yPos,
         margin: { left: 14 },
         theme: "grid",
-        headStyles: { fillColor: [230, 230, 230], textColor: [0, 0, 0] },
-        styles: { fontSize: 8, cellPadding: 2 }
+        headStyles: { fillColor: [41, 128, 185], textColor: [255, 255, 255] },
+        styles: { fontSize: 8, cellPadding: 2 },
+        // Alternar colores de filas
+        bodyStyles: { fillColor: [249, 249, 249] },
+        alternateRowStyles: { fillColor: [255, 255, 255] }
       });
       
-      // SECCIÓN 4: Guardias por profesor (Nueva página)
+      // Si hay espacio, agregar un gráfico de guardias por tramo
+      if (doc.previousAutoTable.finalY < 150) {
+        yPos = doc.previousAutoTable.finalY + 20;
+        
+        // Preparar datos para el gráfico
+        const tramoData = tramosHorarios.map(tramo => {
+          const guardias = guardiasEnPeriodo.filter(g => g.tramoHorario === tramo);
+          return guardias.length;
+        });
+        
+        // Si hay datos, dibujar el gráfico
+        if (Math.max(...tramoData) > 0) {
+          doc.setFontSize(12);
+          doc.text("Distribución de guardias por tramo horario", 14, yPos);
+          yPos += 10;
+          
+          const tramoColors: [number, number, number][] = [
+            colors.primary, 
+            colors.success, 
+            colors.warning, 
+            colors.danger, 
+            colors.dark,
+            [52, 152, 219]
+          ];
+          
+          drawHorizontalBarChart(
+            tramoData,
+            tramosHorarios,
+            14,
+            yPos,
+            150,
+            15 * tramoData.length,
+            tramoColors,
+            "",
+            Math.max(...tramoData) * 1.2
+          );
+        }
+      }
+      
+      // Agregar el pie de página
+      addFooter();
+      
+      // -------------------------
+      // SECCIÓN: Guardias por profesor (Nueva página)
+      // -------------------------
       doc.addPage();
       yPos = addHeader();
       
@@ -419,40 +811,255 @@ export default function EstadisticasPage() {
       doc.text("Guardias por profesor", 14, yPos);
       yPos += 10;
       
-      const profesoresHeaders = ["Profesor", "Total", "Firmadas", "Horas Totales", "Horas Firmadas", ...tramosHorarios];
+      // Información adicional
+      doc.setFontSize(10);
+      doc.setTextColor(80, 80, 80);
+      doc.text(`Total de profesores con guardias: ${guardiasPorProfesor.length}`, 14, yPos);
+      yPos += 15;
+      
+      // Si tenemos suficientes profesores, mostrar un gráfico de los más activos
+      if (guardiasPorProfesor.length > 0) {
+        // Mostrar solo los 8 profesores con más guardias (o menos si hay menos)
+        const topProfesores = [...guardiasPorProfesor]
+          .sort((a, b) => b.total - a.total)
+          .slice(0, 8);
+        
+        const profesoresData = topProfesores.map(p => p.total);
+        const profesoresLabels = topProfesores.map(p => {
+          const nombre = p.profesorNombre.split(' ')[0]; // Solo el primer nombre para abreviar
+          return nombre.length > 10 ? nombre.substring(0, 10) + '...' : nombre;
+        });
+        
+        // Profesores con más guardias
+        const profesoresColors: [number, number, number][] = [
+          colors.primary, 
+          colors.success, 
+          colors.warning, 
+          colors.danger
+        ];
+        
+        drawHorizontalBarChart(
+          profesoresData,
+          profesoresLabels,
+          14,
+          yPos,
+          150,
+          15 * profesoresData.length,
+          profesoresColors,
+          "Profesores con más guardias",
+          Math.max(...profesoresData) * 1.2
+        );
+        
+        yPos += Math.max(80, 10 * profesoresData.length);
+      }
+      
+      // Tabla de guardias por profesor
+      const profesoresHeaders = ["Profesor", "Total", "Firmadas", "Horas Totales", "Horas Firmadas", "% Firmado"];
       const profesoresData = guardiasPorProfesor.map(prof => {
-        const row = [
+        return [
           prof.profesorNombre,
           prof.total.toString(),
           prof.firmadas.toString(),
           prof.horasTotales.toFixed(1),
-          prof.horasFirmadas.toFixed(1)
+          prof.horasFirmadas.toFixed(1),
+          prof.total > 0 ? `${Math.round((prof.firmadas / prof.total) * 100)}%` : "0%"
         ];
-        
-        tramosHorarios.forEach(tr => {
-          const tramoData = prof.porTramo.find(t => t.tramo === tr);
-          if (tramoData && tramoData.total > 0) {
-            row.push(`${tramoData.total} (${tramoData.horas.toFixed(1)}h)`);
-          } else {
-            row.push("-");
-          }
-        });
-        
-        return row;
       });
       
-      // Dibujar tabla de guardias por profesor
+      // Dibujar tabla de guardias por profesor (reducida, sin tramos)
       doc.autoTable({
         head: [profesoresHeaders],
         body: profesoresData,
         startY: yPos,
         margin: { left: 14 },
         theme: "grid",
-        headStyles: { fillColor: [230, 230, 230], textColor: [0, 0, 0] },
-        styles: { fontSize: 8, cellPadding: 2 }
+        headStyles: { fillColor: [41, 128, 185], textColor: [255, 255, 255] },
+        styles: { fontSize: 8, cellPadding: 2 },
+        // Alternar colores de filas
+        bodyStyles: { fillColor: [249, 249, 249] },
+        alternateRowStyles: { fillColor: [255, 255, 255] }
       });
       
+      // Agregar el pie de página
+      addFooter();
+      
+      // -------------------------
+      // SECCIÓN: Lugares más utilizados (Misma página si cabe, o nueva)
+      // -------------------------
+      if (doc.previousAutoTable.finalY > 180) {
+        doc.addPage();
+        yPos = addHeader();
+      } else {
+        yPos = doc.previousAutoTable.finalY + 20;
+      }
+      
+      doc.setFontSize(14);
+      doc.setTextColor(0, 0, 0);
+      doc.text("Lugares más utilizados", 14, yPos);
+      yPos += 15;
+      
+      // Si tenemos suficientes lugares, mostrar un gráfico
+      if (guardiasPorLugarData.filter(l => l.total > 0).length > 0) {
+        // Tomar los 8 lugares más utilizados
+        const topLugares = [...guardiasPorLugarData]
+          .filter(l => l.total > 0)
+          .sort((a, b) => b.total - a.total)
+          .slice(0, 8);
+        
+        const lugaresData = topLugares.map(l => l.total);
+        const lugaresLabels = topLugares.map(l => l.lugarCodigo);
+        
+        // Dibujar gráfico circular si es adecuado
+        if (topLugares.length <= 5) {
+          // Asegurarse de que los colores son del tipo correcto
+          const lugaresPieColors: [number, number, number][] = [
+            colors.primary,
+            colors.success,
+            colors.warning,
+            colors.danger,
+            colors.dark
+          ];
+          
+          drawPieChart(
+            lugaresData,
+            lugaresLabels,
+            80,
+            yPos + 40,
+            30,
+            lugaresPieColors,
+            "Lugares más utilizados"
+          );
+          yPos += 90;
+        } else {
+          // O gráfico de barras si hay muchos lugares
+          const lugaresBarColors: [number, number, number][] = [
+            colors.primary, 
+            colors.success, 
+            colors.warning, 
+            colors.danger, 
+            colors.dark
+          ];
+          
+          drawHorizontalBarChart(
+            lugaresData,
+            lugaresLabels,
+            14,
+            yPos,
+            150,
+            15 * lugaresData.length,
+            lugaresBarColors,
+            "",
+            Math.max(...lugaresData) * 1.2
+          );
+          
+          yPos += 10 * lugaresData.length + 10;
+        }
+      }
+      
+      // Tabla completa de lugares
+      const lugaresHeaders = ["Código", "Descripción", "Guardias", "Porcentaje"];
+      const lugaresData = guardiasPorLugarData
+        .filter(item => item.total > 0)
+        .map(item => [
+          item.lugarCodigo,
+          item.lugarDescripcion,
+          item.total.toString(),
+          item.total > 0 ? `${Math.round((item.total / total) * 100)}%` : "0%"
+        ]);
+      
+      // Dibujar tabla de lugares
+      doc.autoTable({
+        head: [lugaresHeaders],
+        body: lugaresData,
+        startY: yPos,
+        margin: { left: 14 },
+        theme: "grid",
+        headStyles: { fillColor: [41, 128, 185], textColor: [255, 255, 255] },
+        styles: { fontSize: 8, cellPadding: 2 },
+        // Alternar colores de filas
+        bodyStyles: { fillColor: [249, 249, 249] },
+        alternateRowStyles: { fillColor: [255, 255, 255] }
+      });
+      
+      // Agregar el pie de página
+      addFooter();
+      
+      // -------------------------
+      // SECCIÓN: Ausencias por profesor (Nueva página si es necesario)
+      // -------------------------
+      if (ausenciasPorProfesorData.length > 0) {
+        if (doc.previousAutoTable.finalY > 180) {
+          doc.addPage();
+          yPos = addHeader();
+        } else {
+          yPos = doc.previousAutoTable.finalY + 20;
+        }
+        
+        doc.setFontSize(14);
+        doc.setTextColor(0, 0, 0);
+        doc.text("Ausencias por profesor", 14, yPos);
+        yPos += 15;
+        
+        // Mostrar un gráfico con los profesores con más ausencias
+        const topAusencias = [...ausenciasPorProfesorData]
+          .sort((a, b) => b.total - a.total)
+          .slice(0, 8);
+        
+        const ausenciasProfesoresData = topAusencias.map(p => p.total);
+        const ausenciasProfesoresLabels = topAusencias.map(p => {
+          const nombre = p.profesorNombre.split(' ')[0]; // Solo el primer nombre para abreviar
+          return nombre.length > 10 ? nombre.substring(0, 10) + '...' : nombre;
+        });
+        
+        // Ausencias por profesor
+        const ausenciasColors: [number, number, number][] = [
+          colors.warning, 
+          colors.danger
+        ];
+        
+        drawHorizontalBarChart(
+          ausenciasProfesoresData,
+          ausenciasProfesoresLabels,
+          14,
+          yPos,
+          150,
+          15 * ausenciasProfesoresData.length,
+          ausenciasColors,
+          "Profesores con más ausencias",
+          Math.max(...ausenciasProfesoresData) * 1.2
+        );
+        
+        yPos += Math.max(80, 10 * ausenciasProfesoresData.length);
+        
+        // Tabla de ausencias por profesor
+        const ausenciasProfesoresHeaders = ["Profesor", "Ausencias Aceptadas", "Porcentaje"];
+        const ausenciasProfesoresTableData = ausenciasPorProfesorData.map(p => [
+          p.profesorNombre,
+          p.total.toString(),
+          ausenciasAceptadas > 0 ? `${Math.round((p.total / ausenciasAceptadas) * 100)}%` : "0%"
+        ]);
+        
+        // Dibujar tabla de ausencias por profesor
+        doc.autoTable({
+          head: [ausenciasProfesoresHeaders],
+          body: ausenciasProfesoresTableData,
+          startY: yPos,
+          margin: { left: 14 },
+          theme: "grid",
+          headStyles: { fillColor: [41, 128, 185], textColor: [255, 255, 255] },
+          styles: { fontSize: 8, cellPadding: 2 },
+          // Alternar colores de filas
+          bodyStyles: { fillColor: [249, 249, 249] },
+          alternateRowStyles: { fillColor: [255, 255, 255] }
+        });
+        
+        // Agregar el pie de página
+        addFooter();
+      }
+      
+      // -------------------------
       // Guardar el PDF
+      // -------------------------
       doc.save(`estadisticas-guardias-${new Date().toISOString().split("T")[0]}.pdf`);
       
     } catch (error) {
@@ -492,7 +1099,7 @@ export default function EstadisticasPage() {
     XLSX.utils.book_append_sheet(wb, ausenciasWS, "Resumen Ausencias");
     
     // Datos para guardias por profesor detallado
-    const profesoresHeaders = ["Profesor", "Total Guardias", "Firmadas", "Horas Totales", "Horas Firmadas", "% Firmado"];
+    const profesoresHeaders = ["Profesor", "Total", "Firmadas", "Horas Totales", "Horas Firmadas", "% Firmado"];
     // Añadir tramos horarios como columnas adicionales
     tramosHorarios.forEach(tramo => {
       profesoresHeaders.push(tramo);
