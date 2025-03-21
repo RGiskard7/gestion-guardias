@@ -344,7 +344,6 @@ export default function LugaresPage() {
                     <th style={{ minWidth: '80px' }}>Código</th>
                     <th style={{ minWidth: '120px' }}>Tipo</th>
                     <th style={{ minWidth: '150px' }}>Descripción</th>
-                    <th style={{ minWidth: '100px' }}>Capacidad</th>
                     <th style={{ minWidth: '100px' }} className="text-center">Acciones</th>
                   </tr>
                 </thead>
@@ -359,10 +358,6 @@ export default function LugaresPage() {
                         </span>
                       </td>
                       <td>{lugar.descripcion}</td>
-                      <td>
-                        {/* Capacidad no disponible en el modelo actual */}
-                        <span className="text-muted">N/A</span>
-                      </td>
                       <td>
                         <div className="d-flex justify-content-center gap-2">
                           <button
