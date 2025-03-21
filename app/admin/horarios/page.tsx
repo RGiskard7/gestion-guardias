@@ -294,7 +294,7 @@ export default function HorariosPage() {
         icon="filter"
         className="mb-4"
       >
-        <div className="row g-4">
+        <div className="row g-3">
           <div className="col-md-3">
             <div className="form-group">
               <label htmlFor="selectedProfesor" className="form-label fw-bold">Profesor</label>
@@ -353,9 +353,9 @@ export default function HorariosPage() {
             </div>
           </div>
           <div className="col-md-3">
-            <div className="form-group d-flex flex-column h-100">
+            <div className="form-group d-flex flex-column">
               <label className="form-label fw-bold">Acciones</label>
-              <div className="mt-auto">
+              <div className="mt-2">
                 <button
                   className="btn btn-primary"
                   onClick={() => {
@@ -385,7 +385,7 @@ export default function HorariosPage() {
             </div>
           )}
           <form onSubmit={handleSubmit}>
-            <div className="row g-4">
+            <div className="row g-3">
               <div className="col-md-6">
                 <div className="form-group">
                   <label htmlFor="profesorId" className="form-label fw-bold">
@@ -534,32 +534,34 @@ export default function HorariosPage() {
               <table className="table table-hover">
                 <thead className="table-light">
                   <tr>
+                    <th scope="col" style={{ minWidth: '60px' }}>ID</th>
                     <th>Profesor</th>
                     <th>Día</th>
                     <th>Tramo Horario</th>
-                    <th>Acciones</th>
+                    <th className="text-center">Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
                   {getCurrentPageItems().length > 0 ? (
                     getCurrentPageItems().map((horario: Horario) => (
                       <tr key={horario.id}>
+                        <td className="text-muted small">{horario.id}</td>
                         <td>{getProfesorName(horario.profesorId)}</td>
                         <td>{horario.diaSemana}</td>
                         <td>{horario.tramoHorario}</td>
                         <td>
-                          <div className="btn-group">
+                          <div className="d-flex justify-content-center gap-2">
                             <button
-                              className="btn btn-sm btn-outline-secondary"
+                              className="btn btn-sm btn-outline-primary"
                               onClick={() => handleEdit(horario)}
-                              aria-label="Editar"
+                              title="Editar horario"
                             >
                               <i className="bi bi-pencil"></i>
                             </button>
                             <button
-                              className="btn btn-sm btn-outline-danger"
+                              className="btn btn-sm btn-outline-warning"
                               onClick={() => handleDelete(horario.id)}
-                              aria-label="Eliminar"
+                              title="Eliminar horario"
                             >
                               <i className="bi bi-trash"></i>
                             </button>
@@ -569,7 +571,7 @@ export default function HorariosPage() {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={4} className="text-center py-4">
+                      <td colSpan={5} className="text-center py-4">
                         <i className="bi bi-info-circle me-2"></i>No hay horarios que coincidan con los filtros aplicados.
                       </td>
                     </tr>

@@ -181,7 +181,7 @@ export default function LugaresPage() {
         icon="filter"
         className="mb-4"
       >
-        <div className="row g-4">
+        <div className="row g-3">
           <div className="col-md-4">
             <div className="form-group">
               <label htmlFor="filterTipo" className="form-label fw-bold">Tipo de Lugar</label>
@@ -216,9 +216,9 @@ export default function LugaresPage() {
             </div>
           </div>
           <div className="col-md-4">
-            <div className="form-group d-flex flex-column h-100">
+            <div className="form-group d-flex flex-column">
               <label className="form-label fw-bold">Acciones</label>
-              <div className="mt-auto">
+              <div className="mt-2">
                 <button
                   className="btn btn-primary"
                   onClick={() => {
@@ -242,7 +242,7 @@ export default function LugaresPage() {
           className="mb-4"
         >
           <form onSubmit={handleSubmit}>
-            <div className="row g-4">
+            <div className="row g-3">
               <div className="col-md-6">
                 <div className="form-group">
                   <label htmlFor="codigo" className="form-label fw-bold">
@@ -340,6 +340,7 @@ export default function LugaresPage() {
               <table className="table table-striped table-hover align-middle">
                 <thead className="table-light">
                   <tr>
+                    <th style={{ minWidth: '60px' }}>ID</th>
                     <th style={{ minWidth: '80px' }}>Código</th>
                     <th style={{ minWidth: '120px' }}>Tipo</th>
                     <th style={{ minWidth: '150px' }}>Descripción</th>
@@ -350,6 +351,7 @@ export default function LugaresPage() {
                 <tbody>
                   {getCurrentPageItems().map((lugar) => (
                     <tr key={lugar.id}>
+                      <td className="text-muted small">{lugar.id}</td>
                       <td className="fw-medium">{lugar.codigo}</td>
                       <td>
                         <span className="badge bg-info rounded-pill px-3 py-2">

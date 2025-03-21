@@ -7,6 +7,7 @@ import { Usuario, UsuarioDB as UsuarioDBType, mapUsuarioFromDB, mapUsuarioToDB }
 // Extender el tipo Usuario para incluir password en los formularios
 interface UsuarioConPassword extends Omit<Usuario, "id"> {
   password?: string;
+  confirmPassword?: string;
 }
 
 // Definición del tipo del contexto
@@ -98,7 +99,7 @@ export const UsuariosProvider: React.FC<UsuariosProviderProps> = ({ children }) 
     }
   }
 
-  // Función para añadir un usuario y copiar horarios
+  // Función para añadir un usuario y transferir horarios
   const addUsuarioConHorarios = async (usuario: UsuarioConPassword, usuarioReemplazadoId: number) => {
     try {
       // Convertir al formato de la base de datos

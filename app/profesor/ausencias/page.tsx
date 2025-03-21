@@ -435,7 +435,7 @@ export default function AusenciasPage() {
       <div className="row mb-4">
         <div className="col-md-6">
           <button 
-            className="btn btn-primary btn-sm mb-3 shadow-sm"
+            className="btn btn-primary btn mb-3 shadow-sm"
             onClick={() => {
               if (showForm && !editingId) {
                 // Si el formulario está abierto en modo creación, cerrarlo
@@ -541,7 +541,7 @@ export default function AusenciasPage() {
                   <div className="text-end mt-4">
                     <button 
                       type="button" 
-                      className="btn btn-outline-secondary btn-sm me-2"
+                      className="btn btn-outline-secondary btn me-2"
                       onClick={() => {
                         resetForm()
                         setShowForm(false)
@@ -552,7 +552,7 @@ export default function AusenciasPage() {
                     </button>
                     <button 
                       type="submit" 
-                      className="btn btn-primary btn-sm"
+                      className="btn btn-primary btn"
                       disabled={isSubmitting}
                     >
                       {isSubmitting ? (

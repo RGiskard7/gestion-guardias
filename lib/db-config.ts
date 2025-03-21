@@ -49,12 +49,12 @@ export const DB_CONFIG = {
     PROFESOR: 'profesor' as "profesor"
   },
   
-  // Tipos de guardia disponibles (modificables por el administrador)
+  // Tipos de guardia disponibles en el sistema (valores fijos)
   TIPOS_GUARDIA: [
     'Aula' as "Aula",
     'Patio' as "Patio",
     'Recreo' as "Recreo"
-  ] as string[], // Usar as para permitir la modificación dinámica
+  ],
   
   // Tramos horarios disponibles en el sistema
   TRAMOS_HORARIOS: [

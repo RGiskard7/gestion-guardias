@@ -101,9 +101,9 @@ export async function createUsuario(usuario: Omit<Usuario, 'id'>): Promise<Usuar
 }
 
 /**
- * Crea un nuevo usuario y copia los horarios del profesor reemplazado
+ * Crea un nuevo usuario y transfiere los horarios del profesor reemplazado
  * @param usuario Datos del usuario a crear
- * @param usuarioReemplazadoId ID del usuario al que reemplaza (para copiar sus horarios)
+ * @param usuarioReemplazadoId ID del usuario al que reemplaza (para transferir sus horarios)
  * @returns Usuario creado o null si hubo un error
  */
 export async function createUsuarioConHorarios(
@@ -127,36 +127,30 @@ export async function createUsuarioConHorarios(
     
     if (horarioError) {
       console.error('Error al obtener horarios del profesor reemplazado:', horarioError);
-      return nuevoUsuario; // Devolver el usuario aunque no se hayan copiado los horarios
+      return nuevoUsuario; // Devolver el usuario aunque no se hayan transferido los horarios
     }
     
     if (!horarios || horarios.length === 0) {
-      console.log('El profesor reemplazado no tiene horarios para copiar');
+      console.log('El profesor reemplazado no tiene horarios para transferir');
       return nuevoUsuario;
     }
     
-    // Preparar los horarios para el nuevo profesor
-    const nuevosHorarios = horarios.map(horario => ({
-      profesor_id: nuevoUsuario.id,
-      dia_semana: horario.dia_semana,
-      tramo_horario: horario.tramo_horario
-    }));
-    
-    // Insertar los nuevos horarios
-    const { error: insertError } = await supabase
+    // Actualizar los horarios existentes con el ID del nuevo profesor
+    const { error: updateError } = await supabase
       .from(getTableName('HORARIOS'))
-      .insert(nuevosHorarios);
+      .update({ profesor_id: nuevoUsuario.id })
+      .eq('profesor_id', usuarioReemplazadoId);
     
-    if (insertError) {
-      console.error('Error al copiar horarios al nuevo profesor:', insertError);
-      return nuevoUsuario; // Devolver el usuario aunque no se hayan copiado los horarios
+    if (updateError) {
+      console.error('Error al transferir horarios al nuevo profesor:', updateError);
+      return nuevoUsuario; // Devolver el usuario aunque no se hayan transferido los horarios
     }
     
-    console.log(`Se han copiado ${nuevosHorarios.length} horarios al nuevo profesor`);
+    console.log(`Se han transferido ${horarios.length} horarios al nuevo profesor`);
     return nuevoUsuario;
   } catch (error) {
-    console.error('Error en el proceso de copiar horarios:', error);
-    return nuevoUsuario; // Devolver el usuario aunque no se hayan copiado los horarios
+    console.error('Error en el proceso de transferir horarios:', error);
+    return nuevoUsuario; // Devolver el usuario aunque no se hayan transferido los horarios
   }
 }
 
