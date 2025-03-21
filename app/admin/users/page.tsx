@@ -10,7 +10,7 @@ import { DB_CONFIG } from "@/lib/db-config"
 
 export default function UsersPage() {
   const { usuarios, addUsuario, addUsuarioConHorarios, updateUsuario, deleteUsuario } = useUsuarios()
-  const { horarios, addHorario } = useHorarios()
+  const { horarios, addHorario, updateHorario } = useHorarios()
 
   // Filtrar solo profesores (no admins)
   const profesores = usuarios.filter((u: Usuario) => u.rol === DB_CONFIG.ROLES.PROFESOR)
@@ -158,13 +158,9 @@ export default function UsersPage() {
             // Obtenemos los horarios del profesor seleccionado
             const horariosSeleccionados = horarios.filter(h => h.profesorId === editTransferFromId)
             
-            // Actualizamos cada horario para asignarlo al profesor activado
+            // Actualizamos cada horario para cambiar el profesor_id al nuevo profesor
             for (const horario of horariosSeleccionados) {
-              await addHorario({
-                profesorId: editingId,
-                diaSemana: horario.diaSemana,
-                tramoHorario: horario.tramoHorario
-              })
+              await updateHorario(horario.id, { profesorId: editingId })
             }
             
             alert(`Usuario actualizado correctamente con ${horariosSeleccionados.length} horarios transferidos.`)
@@ -325,14 +321,9 @@ export default function UsersPage() {
           // Obtenemos los horarios del profesor seleccionado
           const horariosSeleccionados = horarios.filter(h => h.profesorId === selectedTransferFromId)
           
-          // Actualizamos cada horario para asignarlo al profesor activado
+          // Actualizamos cada horario para cambiar el profesor_id al profesor activado
           for (const horario of horariosSeleccionados) {
-            // Usamos la función addHorario del contexto de horarios para actualizar el profesor_id
-            await addHorario({
-              profesorId: activatingUserId,
-              diaSemana: horario.diaSemana,
-              tramoHorario: horario.tramoHorario
-            })
+            await updateHorario(horario.id, { profesorId: activatingUserId })
           }
           
           alert(`Usuario activado correctamente con ${horariosSeleccionados.length} horarios transferidos.`)
