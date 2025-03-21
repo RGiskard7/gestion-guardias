@@ -17,13 +17,13 @@ const DataCard: React.FC<DataCardProps> = ({
 }) => {
   return (
     <div className={`card shadow-sm mb-4 ${className}`}>
-      <div className="card-header d-flex justify-content-between align-items-center">
-        <h5 className="mb-0">
+      <div className="card-header d-flex justify-content-between align-items-center flex-wrap gap-3">
+        <h5 className="mb-0 me-auto">
           {icon && <i className={`bi bi-${icon} me-2`}></i>}
           {title}
         </h5>
         {actions && (
-          <div className="card-actions">
+          <div className="card-actions d-flex flex-wrap gap-2">
             {actions}
           </div>
         )}

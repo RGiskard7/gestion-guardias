@@ -546,11 +546,12 @@ export default function GuardiasPage() {
         for (const tramoHorario of formData.tramosHorarios) {
           const lugarId = Number(formData.lugarId);
           
-          // Verificar si ya existe una guardia para esta fecha y tramo
+          // Verificar si ya existe una guardia para esta fecha, tramo y lugar (excluyendo anuladas)
           const guardiaExistente = guardias.find(g => 
             g.fecha === fecha && 
             g.tramoHorario === tramoHorario &&
-            g.lugarId === lugarId
+            g.lugarId === lugarId &&
+            g.estado !== DB_CONFIG.ESTADOS_GUARDIA.ANULADA
           );
           
           if (guardiaExistente) {
@@ -752,7 +753,7 @@ export default function GuardiasPage() {
       fecha: guardia.fecha,
       tramoHorario: guardia.tramoHorario,
       tramosHorarios: [guardia.tramoHorario], // Solo incluimos el tramo actual en modo edición
-      tipoGuardia: guardia.tipoGuardia,
+      tipoGuardia: guardia.tipoGuardia as typeof DB_CONFIG.TIPOS_GUARDIA[number],
       observaciones: guardia.observaciones,
       lugarId: String(guardia.lugarId),
       profesorCubridorId: guardia.profesorCubridorId === null ? "" : String(guardia.profesorCubridorId),
@@ -769,10 +770,10 @@ export default function GuardiasPage() {
     if (guardiasCreadas > 0 && guardiasDuplicadas === 0) {
       alert(`Se han creado ${guardiasCreadas} guardias correctamente para el rango de fechas seleccionado.`)
     } else if (guardiasCreadas > 0 && guardiasDuplicadas > 0) {
-      alert(`Se han creado ${guardiasCreadas} guardias correctamente. Se omitieron ${guardiasDuplicadas} guardias por ya existir en el sistema.`)
+      alert(`Se han creado ${guardiasCreadas} guardias correctamente. Se omitieron ${guardiasDuplicadas} guardias por ya existir en el sistema para los mismos lugares, fechas y tramos (ignorando las anuladas).`)
     } else if (guardiasCreadas === 0 && guardiasDuplicadas > 0) {
-      alert("No se crearon guardias porque todas las combinaciones ya existen en el sistema.")
-        } else {
+      alert("No se crearon guardias porque todas las combinaciones de lugar, fecha y tramo ya existen en el sistema (ignorando las anuladas).")
+    } else {
       alert("No se pudieron crear guardias para el rango seleccionado.")
     }
   }
@@ -1000,7 +1001,7 @@ export default function GuardiasPage() {
         icon="filter"
         className="mb-4"
       >
-        <div className="row g-4">
+        <div className="row g-3">
           <div className="col-md-3">
             <div className="form-group">
               <label htmlFor="filterId" className="form-label fw-bold">ID</label>
@@ -1047,9 +1048,9 @@ export default function GuardiasPage() {
             </div>
           </div>
           <div className="col-md-3">
-            <div className="form-group d-flex flex-column h-100">
+            <div className="form-group d-flex flex-column">
               <label className="form-label fw-bold">Acciones</label>
-              <div className="d-flex gap-2 mt-auto">
+              <div className="d-flex gap-2 mt-2">
                 <button
                   className="btn btn-primary"
                   onClick={() => {
@@ -1064,7 +1065,19 @@ export default function GuardiasPage() {
                 <button
                   className="btn btn-outline-primary"
                   onClick={() => {
-                    resetForm()
+                    // Al activar el modo de rango, resetear el formulario 
+                    // y seleccionar automáticamente todos los tramos horarios
+                    resetForm();
+                    
+                    // Si estamos cambiando al modo de rango
+                    if (!isRangeMode || !showForm) {
+                      // Establecer todos los tramos horarios disponibles automáticamente
+                      setFormData(prev => ({
+                        ...prev,
+                        tramosHorarios: [...tramosHorarios] // Seleccionar todos los tramos
+                      }));
+                    }
+                    
                     setShowForm(!isRangeMode || !showForm)
                     setIsRangeMode(true)
                   }}
@@ -1086,7 +1099,7 @@ export default function GuardiasPage() {
         >
           <form onSubmit={handleSubmit}>
             {isRangeMode ? (
-              <div className="row g-4">
+              <div className="row g-3">
                 <div className="col-md-6">
                   <div className="form-group">
                     <label htmlFor="fechaInicio" className="form-label fw-bold">
@@ -1129,7 +1142,7 @@ export default function GuardiasPage() {
                     <label className="form-label fw-bold">Tramos Horarios</label>
                     <div className="alert alert-info">
                       <i className="bi bi-info-circle me-2"></i>
-                      Se crearán guardias para todos los tramos horarios ({tramosHorarios.join(", ")}) en cada fecha seleccionada dentro del rango (solo días laborables, de lunes a viernes).
+                      <strong>Todos los tramos horarios están seleccionados automáticamente.</strong> Se crearán guardias para todos los tramos horarios ({tramosHorarios.join(", ")}) en cada fecha seleccionada dentro del rango (solo días laborables, de lunes a viernes).
                     </div>
                   </div>
                 </div>
@@ -1219,7 +1232,7 @@ export default function GuardiasPage() {
             ) : (
               // Formulario normal (no rango)
               <div>
-                <div className="row g-4">
+                <div className="row g-3">
                   <div className="col-md-6">
                     <div className="form-group">
                       <label htmlFor="fecha" className="form-label fw-bold">
@@ -1432,7 +1445,7 @@ export default function GuardiasPage() {
                         onClick={() => handleAddTarea(guardias.find(g => g.id === editingId) as Guardia)}
                         title="Añadir nueva tarea"
                       >
-                        <i className="bi bi-plus-circle me-1"></i>
+                        <i className="bi bi-plus-circle me-2"></i>
                         Añadir tarea
                       </button>
                     </h5>
@@ -1922,7 +1935,7 @@ export default function GuardiasPage() {
                   onClick={handleSaveTarea}
                   disabled={!nuevaTarea.trim()}
                 >
-                  <i className="bi bi-save me-1"></i>
+                  <i className="bi bi-save me-2"></i>
                   Guardar Tarea
                 </button>
               </div>
@@ -1974,7 +1987,7 @@ export default function GuardiasPage() {
                     setTareaEditing(null)
                   }}
                 >
-                  <i className="bi bi-x-circle me-1"></i>
+                  <i className="bi bi-x-circle me-2"></i>
                   Cancelar
                 </button>
                 <button 
@@ -1983,7 +1996,7 @@ export default function GuardiasPage() {
                   onClick={handleSaveEditTarea}
                   disabled={!editedTareaText.trim()}
                 >
-                  <i className="bi bi-save me-1"></i>
+                  <i className="bi bi-save me-2"></i>
                   Guardar Cambios
                 </button>
               </div>

@@ -50,11 +50,6 @@ const Sidebar: React.FC<SidebarProps> = ({ role }) => {
                 <i className="bi bi-bar-chart me-2"></i>Estadísticas
               </Link>
             </li>
-            <li className="nav-item">
-              <Link className="nav-link" href="/admin/configuracion">
-                <i className="bi bi-gear me-2"></i>Configuración
-              </Link>
-            </li>
           </>
         ) : (
           <>

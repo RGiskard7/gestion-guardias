@@ -30,7 +30,6 @@ const Navbar: React.FC = () => {
 
   const handleLogout = () => {
     logout()
-    router.push(DB_CONFIG.RUTAS.LOGIN)
   }
 
   // Si no hay usuario autenticado, no renderizar nada

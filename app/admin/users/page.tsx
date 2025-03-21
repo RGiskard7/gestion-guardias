@@ -35,7 +35,18 @@ export default function UsersPage() {
     rol: DB_CONFIG.ROLES.PROFESOR,
     activo: true,
     password: "", // Campo para la contraseña
+    confirmPassword: "", // Campo para confirmar contraseña
   })
+
+  // Estados para el modal de activación con transferencia de horarios
+  const [showActivateModal, setShowActivateModal] = useState(false)
+  const [activatingUserId, setActivatingUserId] = useState<number | null>(null)
+  const [selectedTransferFromId, setSelectedTransferFromId] = useState<number | null>(null)
+  
+  // Estado para controlar la transferencia de horarios en el formulario de edición
+  const [showTransferOptions, setShowTransferOptions] = useState(false)
+  const [editTransferFromId, setEditTransferFromId] = useState<number | null>(null)
+  const [wasInactive, setWasInactive] = useState(false)
 
   const [editingId, setEditingId] = useState<number | null>(null)
   const [showForm, setShowForm] = useState(false)
@@ -91,12 +102,32 @@ export default function UsersPage() {
   // Manejar cambios en el formulario
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target
+    const isCheckbox = type === "checkbox"
+    const newValue = isCheckbox ? (e.target as HTMLInputElement).checked : value
+
+    // Verificar si se está activando un usuario inactivo durante la edición
+    if (name === "activo" && isCheckbox && editingId && !formData.activo && newValue === true) {
+      // Si hay profesores inactivos con horarios para transferir
+      if (profesoresInactivosConHorario.length > 0) {
+        setShowTransferOptions(true)
+        setWasInactive(true)
+      }
+    } else if (name === "activo" && isCheckbox && !newValue) {
+      // Si se está desactivando, ocultar opciones de transferencia
+      setShowTransferOptions(false)
+      setEditTransferFromId(null)
+    }
 
     setFormData((prev) => ({
       ...prev,
-      [name]: type === "checkbox" ? (e.target as HTMLInputElement).checked : value,
+      [name]: newValue,
     }))
   }
+
+  // Comprobar si las contraseñas coinciden para la validación visual
+  const passwordsMatch = !formData.password || !formData.confirmPassword 
+    ? null // No validar si alguno de los campos está vacío
+    : formData.password === formData.confirmPassword;
 
   // Manejar envío del formulario
   const handleSubmit = async (e: React.FormEvent) => {
@@ -106,9 +137,41 @@ export default function UsersPage() {
 
     try {
       if (editingId) {
+        // Validar que las contraseñas coincidan si se ha introducido alguna
+        if (formData.password && formData.password !== formData.confirmPassword) {
+          setError("Las contraseñas no coinciden")
+          setIsSubmitting(false)
+          return
+        }
+        
+        // Eliminar el campo confirmPassword antes de enviarlo al servicio
+        const { confirmPassword, ...userData } = formData
+        
         // Actualizar usuario existente
-        await updateUsuario(editingId, formData)
-        alert("Usuario actualizado correctamente")
+        await updateUsuario(editingId, userData)
+        
+        // Si se está activando un usuario y se ha seleccionado un profesor para transferir horarios
+        if (wasInactive && formData.activo && editTransferFromId) {
+          // Obtener el usuario que estamos activando
+          const usuarioActivado = usuarios.find(u => u.id === editingId)
+          if (usuarioActivado) {
+            // Obtenemos los horarios del profesor seleccionado
+            const horariosSeleccionados = horarios.filter(h => h.profesorId === editTransferFromId)
+            
+            // Actualizamos cada horario para asignarlo al profesor activado
+            for (const horario of horariosSeleccionados) {
+              await addHorario({
+                profesorId: editingId,
+                diaSemana: horario.diaSemana,
+                tramoHorario: horario.tramoHorario
+              })
+            }
+            
+            alert(`Usuario actualizado correctamente con ${horariosSeleccionados.length} horarios transferidos.`)
+          }
+        } else {
+          alert("Usuario actualizado correctamente")
+        }
       } else {
         // Validar datos básicos
         if (!formData.nombre) {
@@ -131,6 +194,11 @@ export default function UsersPage() {
           }
           // Usar contraseña por defecto
           formData.password = "changeme"
+          formData.confirmPassword = "changeme"
+        } else if (formData.password !== formData.confirmPassword) {
+          setError("Las contraseñas no coinciden")
+          setIsSubmitting(false)
+          return
         }
         
         // Verificar restricciones para la creación de usuarios
@@ -140,25 +208,28 @@ export default function UsersPage() {
           return
         }
         
-        // Si hay profesores inactivos con horarios, debe seleccionar uno para heredar
+        // Si hay profesores inactivos con horarios, debe seleccionar uno para transferir
         if (profesoresInactivosConHorario.length > 0 && !inheritFromId) {
-          setError("Debe seleccionar un profesor inactivo del cual heredar los horarios")
+          setError("Debe seleccionar un profesor inactivo del cual transferir los horarios")
           setIsSubmitting(false)
           return
         }
         
-        // Si hay un usuario del que heredar horarios, usar la función correspondiente
+        // Eliminar el campo confirmPassword antes de enviarlo al servicio
+        const { confirmPassword, ...userData } = formData
+        
+        // Si hay un usuario del que transferir horarios, usar la función correspondiente
         if (inheritFromId) {
-          // Añadir usuario con horarios heredados
-          await addUsuarioConHorarios(formData, inheritFromId)
-          alert("Usuario creado correctamente con horarios heredados")
+          // Añadir usuario con horarios transferidos
+          await addUsuarioConHorarios(userData, inheritFromId)
+          alert("Usuario creado correctamente con horarios transferidos")
         } else if (hayProfesoresInactivosSinHorario) {
-          // Añadir usuario normal si no hay horarios que heredar
-          await addUsuario(formData)
-          alert("Usuario creado correctamente sin horarios (no había horarios para heredar)")
+          // Añadir usuario normal si no hay horarios que transferir
+          await addUsuario(userData)
+          alert("Usuario creado correctamente sin horarios (no había horarios para transferir)")
         } else {
           // Este caso no debería ocurrir con las validaciones anteriores
-          setError("Error en la validación de horarios heredados")
+          setError("Error en la validación de horarios transferidos")
           setIsSubmitting(false)
           return
         }
@@ -170,6 +241,10 @@ export default function UsersPage() {
       setError("Error al procesar usuario")
     } finally {
       setIsSubmitting(false)
+      // Resetear estados de transferencia
+      setShowTransferOptions(false)
+      setEditTransferFromId(null)
+      setWasInactive(false)
     }
   }
 
@@ -182,10 +257,14 @@ export default function UsersPage() {
       rol: DB_CONFIG.ROLES.PROFESOR,
       activo: true,
       password: "",
+      confirmPassword: "",
     })
     setEditingId(null)
     setInheritFromId(null)
     setError(null)
+    setShowTransferOptions(false)
+    setEditTransferFromId(null)
+    setWasInactive(false)
   }
 
   // Comenzar edición de usuario
@@ -197,17 +276,78 @@ export default function UsersPage() {
       rol: usuario.rol,
       activo: usuario.activo,
       password: "", // Vacío por defecto, se actualizará solo si se introduce algo
+      confirmPassword: "", // Vacío por defecto, se actualizará solo si se introduce algo
     })
     setEditingId(usuario.id)
     setShowForm(true)
     setInheritFromId(null)
+    setShowTransferOptions(false)
+    setEditTransferFromId(null)
+    setWasInactive(!usuario.activo) // Guardamos si el usuario estaba inactivo
   }
 
   // Manejar activación/desactivación de usuario
   const handleDeactivate = (id: number, isActive: boolean) => {
-    const action = isActive ? "desactivar" : "activar"
-    if (window.confirm(`¿Estás seguro de que quieres ${action} este usuario?`)) {
-      updateUsuario(id, { activo: !isActive })
+    if (isActive) {
+      // Desactivación - proceso simple
+      if (window.confirm(`¿Estás seguro de que quieres desactivar este usuario?`)) {
+        updateUsuario(id, { activo: false })
+      }
+    } else {
+      // Activación - puede incluir transferencia de horarios
+      if (profesoresInactivosConHorario.length > 0) {
+        // Hay profesores inactivos con horarios, mostrar modal para elegir
+        setActivatingUserId(id)
+        setSelectedTransferFromId(null)
+        setShowActivateModal(true)
+      } else {
+        // No hay profesores inactivos con horarios, activar directamente
+        if (window.confirm(`¿Estás seguro de que quieres activar este usuario?`)) {
+          updateUsuario(id, { activo: true })
+        }
+      }
+    }
+  }
+
+  // Función para activar usuario con o sin transferencia de horarios
+  const handleConfirmActivation = async () => {
+    if (!activatingUserId) return
+
+    try {
+      // Primero, activar al usuario
+      await updateUsuario(activatingUserId, { activo: true })
+      
+      // Si se seleccionó un profesor para transferir horarios
+      if (selectedTransferFromId) {
+        // Obtener el usuario que estamos activando
+        const usuarioActivado = usuarios.find(u => u.id === activatingUserId)
+        if (usuarioActivado) {
+          // Obtenemos los horarios del profesor seleccionado
+          const horariosSeleccionados = horarios.filter(h => h.profesorId === selectedTransferFromId)
+          
+          // Actualizamos cada horario para asignarlo al profesor activado
+          for (const horario of horariosSeleccionados) {
+            // Usamos la función addHorario del contexto de horarios para actualizar el profesor_id
+            await addHorario({
+              profesorId: activatingUserId,
+              diaSemana: horario.diaSemana,
+              tramoHorario: horario.tramoHorario
+            })
+          }
+          
+          alert(`Usuario activado correctamente con ${horariosSeleccionados.length} horarios transferidos.`)
+        }
+      } else {
+        alert("Usuario activado correctamente sin horarios transferidos.")
+      }
+      
+      // Limpiar estados del modal
+      setShowActivateModal(false)
+      setActivatingUserId(null)
+      setSelectedTransferFromId(null)
+    } catch (error) {
+      console.error("Error al activar usuario:", error)
+      alert("Error al activar el usuario. Por favor, inténtelo de nuevo.")
     }
   }
 
@@ -264,12 +404,72 @@ export default function UsersPage() {
         </button>
       </div>
       
+      {/* Modal para activación con transferencia de horarios */}
+      {showActivateModal && (
+        <div className="modal show d-block" tabIndex={-1} role="dialog" style={{backgroundColor: 'rgba(0,0,0,0.5)'}}>
+          <div className="modal-dialog modal-dialog-centered" role="document">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">Activar Usuario</h5>
+                <button 
+                  type="button" 
+                  className="btn-close" 
+                  onClick={() => setShowActivateModal(false)}
+                  aria-label="Close"
+                ></button>
+              </div>
+              <div className="modal-body">
+                <p>¿Deseas transferir horarios de algún profesor inactivo a este usuario?</p>
+                
+                <div className="form-group mb-3">
+                  <label htmlFor="transferFromId" className="form-label fw-bold">
+                    Profesor del que transferir horarios (opcional)
+                  </label>
+                  <select
+                    className="form-select"
+                    id="transferFromId"
+                    value={selectedTransferFromId || ""}
+                    onChange={(e) => setSelectedTransferFromId(e.target.value ? Number.parseInt(e.target.value) : null)}
+                  >
+                    <option value="">No transferir horarios</option>
+                    {profesoresInactivosConHorario.map((profesor) => (
+                      <option key={profesor.id} value={profesor.id}>
+                        {profesor.nombre} {profesor.apellido} (inactivo)
+                      </option>
+                    ))}
+                  </select>
+                  <small className="form-text text-muted">
+                    Si seleccionas un profesor, todos sus horarios serán transferidos al usuario que estás activando.
+                  </small>
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button 
+                  type="button" 
+                  className="btn btn-secondary" 
+                  onClick={() => setShowActivateModal(false)}
+                >
+                  Cancelar
+                </button>
+                <button 
+                  type="button" 
+                  className="btn btn-primary"
+                  onClick={handleConfirmActivation}
+                >
+                  Activar Usuario
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
       <DataCard
         title="Filtros y Acciones"
         icon="filter"
         className="mb-4"
       >
-        <div className="row g-4">
+        <div className="row g-3">
           <div className="col-md-4">
             <div className="form-group">
               <label htmlFor="filterNombre" className="form-label fw-bold">Buscar</label>
@@ -301,9 +501,9 @@ export default function UsersPage() {
             </div>
           </div>
           <div className="col-md-4">
-            <div className="form-group d-flex flex-column h-100">
+            <div className="form-group d-flex flex-column">
               <label className="form-label fw-bold">Acciones</label>
-              <div className="mt-auto">
+              <div className="mt-2">
                 <button
                   className="btn btn-primary"
                   onClick={() => {
@@ -343,7 +543,7 @@ export default function UsersPage() {
           className="mb-4"
         >
           <form onSubmit={handleSubmit}>
-            <div className="row g-4">
+            <div className="row g-3">
               <div className="col-md-6">
                 <div className="form-group">
                   <label htmlFor="nombre" className="form-label fw-bold">
@@ -404,7 +604,13 @@ export default function UsersPage() {
                   </label>
                   <input
                     type="password"
-                    className="form-control"
+                    className={`form-control ${
+                      formData.password && formData.confirmPassword
+                        ? passwordsMatch
+                          ? "is-valid border-success" 
+                          : "is-invalid border-danger"
+                        : ""
+                    }`}
                     id="password"
                     name="password"
                     value={formData.password}
@@ -416,6 +622,39 @@ export default function UsersPage() {
                     {editingId 
                       ? "Solo introduzca si desea cambiar la contraseña actual" 
                       : "Contraseña para acceder al sistema"}
+                  </small>
+                </div>
+              </div>
+
+              <div className="col-md-6">
+                <div className="form-group">
+                  <label htmlFor="confirmPassword" className="form-label fw-bold">
+                    {editingId ? "Confirmar Nueva Contraseña" : "Confirmar Contraseña"}
+                  </label>
+                  <input
+                    type="password"
+                    className={`form-control ${
+                      formData.password && formData.confirmPassword
+                        ? passwordsMatch
+                          ? "is-valid border-success" 
+                          : "is-invalid border-danger"
+                        : ""
+                    }`}
+                    id="confirmPassword"
+                    name="confirmPassword"
+                    value={formData.confirmPassword}
+                    onChange={handleChange}
+                    placeholder={editingId ? "Dejar en blanco para no cambiar" : ""}
+                    required={!editingId}
+                  />
+                  <small className={`form-text ${
+                    formData.password && formData.confirmPassword && !passwordsMatch 
+                      ? "text-danger" 
+                      : "text-muted"
+                  }`}>
+                    {formData.password && formData.confirmPassword && !passwordsMatch
+                      ? "Las contraseñas no coinciden"
+                      : "Vuelva a introducir la contraseña para confirmarla"}
                   </small>
                 </div>
               </div>
@@ -441,11 +680,39 @@ export default function UsersPage() {
                 </div>
               </div>
 
+              {/* Opciones de transferencia de horarios en edición */}
+              {editingId && showTransferOptions && profesoresInactivosConHorario.length > 0 && (
+                <div className="col-md-12 mt-3">
+                  <div className="form-group">
+                    <label htmlFor="editTransferFromId" className="form-label fw-bold">
+                      Transferir horarios de otro profesor (opcional)
+                    </label>
+                    <select
+                      className="form-select"
+                      id="editTransferFromId"
+                      value={editTransferFromId || ""}
+                      onChange={(e) => setEditTransferFromId(e.target.value ? Number.parseInt(e.target.value) : null)}
+                    >
+                      <option value="">No transferir horarios</option>
+                      {profesoresInactivosConHorario.map((profesor) => (
+                        <option key={profesor.id} value={profesor.id}>
+                          {profesor.nombre} {profesor.apellido} (inactivo)
+                        </option>
+                      ))}
+                    </select>
+                    <small className="form-text text-muted">
+                      Al activar este usuario, puedes transferirle los horarios de otro profesor inactivo
+                    </small>
+                  </div>
+                </div>
+              )}
+
+              {/* Opciones para crear nuevo usuario */}
               {!editingId && profesoresInactivosConHorario.length > 0 && (
                 <div className="col-md-12 mt-3">
                   <div className="form-group">
                     <label htmlFor="inheritFromId" className="form-label fw-bold">
-                      Profesor del que heredar horarios <span className="text-danger">*</span>
+                      Profesor del que transferir horarios <span className="text-danger">*</span>
                     </label>
                     <select
                       className="form-select"
@@ -462,7 +729,7 @@ export default function UsersPage() {
                       ))}
                     </select>
                     <small className="form-text text-muted">
-                      El nuevo profesor heredará los horarios de guardias del profesor seleccionado
+                      El nuevo profesor recibirá los horarios de guardias del profesor seleccionado
                     </small>
                   </div>
                 </div>
@@ -473,6 +740,16 @@ export default function UsersPage() {
                   <div className="alert alert-info">
                     <i className="bi bi-info-circle me-2"></i>
                     Los profesores inactivos no tienen horarios asignados. El nuevo profesor se creará con un horario vacío.
+                  </div>
+                </div>
+              )}
+              
+              {/* Mensaje informativo para edición cuando no hay profesores con horarios para transferir */}
+              {editingId && wasInactive && formData.activo && profesoresInactivosConHorario.length === 0 && (
+                <div className="col-md-12 mt-3">
+                  <div className="alert alert-info">
+                    <i className="bi bi-info-circle me-2"></i>
+                    No hay profesores inactivos con horarios disponibles para transferir. El usuario se activará sin horarios adicionales.
                   </div>
                 </div>
               )}
@@ -537,6 +814,7 @@ export default function UsersPage() {
               <table className="table table-striped table-hover align-middle">
                 <thead className="table-light">
                   <tr>
+                    <th scope="col" style={{ minWidth: '60px' }}>ID</th>
                     <th scope="col" style={{ minWidth: '150px' }}>Nombre</th>
                     <th scope="col" style={{ minWidth: '180px' }}>Email</th>
                     <th scope="col" style={{ minWidth: '90px' }}>Estado</th>
@@ -546,6 +824,7 @@ export default function UsersPage() {
                 <tbody>
                   {getCurrentPageItems().map((profesor: Usuario) => (
                     <tr key={profesor.id}>
+                      <td className="text-muted small">{profesor.id}</td>
                       <td className="fw-medium">
                         {profesor.nombre} {profesor.apellido || ""}
                       </td>

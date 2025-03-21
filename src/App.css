@@ -472,6 +472,10 @@ body {
   align-items: center;
   justify-content: center;
   gap: 0.4rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 44px;
 }
 
 .btn:hover {
@@ -531,11 +535,54 @@ body {
   padding: 0.3rem 0.7rem;
   font-size: 0.85rem;
   border-radius: var(--radius-sm);
+  min-height: 31px;
 }
 
 .btn-lg {
   padding: 0.7rem 1.5rem;
   font-size: 1.05rem;
+  min-height: 48px;
+}
+
+.btn-icon {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-icon.btn-sm {
+  width: 32px;
+  height: 32px;
+}
+
+.btn-icon.btn-lg {
+  width: 48px;
+  height: 48px;
+}
+
+.btn i, 
+.btn .bi {
+  flex-shrink: 0;
+  display: inline-flex;
+}
+
+.btn i + span,
+.btn .bi + span,
+.btn i.me-1,
+.btn i.me-2,
+.btn i.me-3,
+.btn .bi.me-1,
+.btn .bi.me-2,
+.btn .bi.me-3 {
+  margin-left: 0.35rem;
+}
+
+.btn-group,
+.d-flex.gap-2 {
+  flex-wrap: wrap;
 }
 
 .btn-icon {
@@ -1555,4 +1602,190 @@ a.text-light:hover {
 }
 
 /* Estilos para los estados de las guardias */
+
+/* Ajustes específicos para mejorar botones en dispositivos móviles */
+@media (max-width: 576px) {
+  /* Mejoras para botones en tablas responsivas */
+  .table-responsive .d-flex.justify-content-center.gap-2 {
+    justify-content: flex-start !important;
+  }
+  
+  /* Evitar que los botones se compriman demasiado en móviles */
+  .btn {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+  
+  /* Ajustar botones en modales para dispositivos pequeños */
+  .modal-footer .btn {
+    min-width: 80px;
+  }
+  
+  /* Prevenir que los grupos de botones se deformen */
+  .d-flex.flex-wrap.gap-2 .btn,
+  .card-header .btn,
+  .modal-footer .btn {
+    margin-bottom: 0.5rem;
+  }
+}
+
+/* Mantener proporciones y espaciado en grupos de botones */
+.d-flex.justify-content-end .btn,
+.d-flex.justify-content-between .btn {
+  margin-left: 0.25rem;
+  margin-right: 0.25rem;
+}
+
+.btn-group > .btn {
+  height: 100%;
+  display: flex;
+  align-items: center;
+}
+
+/* Mejorar la apariencia de los botones con iconos */
+.btn-icon-only {
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-icon-only.btn-sm {
+  width: 1.75rem;
+  height: 1.75rem;
+}
+
+/* Mejoras para botones de acción en tablas */
+.table td .d-flex.justify-content-center.gap-2 {
+  flex-wrap: wrap;
+  justify-content: center !important;
+  min-width: 90px; /* Ancho mínimo para evitar deformación */
+}
+
+/* Asegurar que todos los botones en tablas tengan un tamaño consistente */
+.table .btn-sm {
+  width: 31px;
+  height: 31px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 2px;
+}
+
+.table .btn-sm i {
+  font-size: 0.9rem;
+  line-height: 1;
+}
+
+/* Mejorar el espaciado de los botones en contenedores de tablas */
+@media (max-width: 768px) {
+  .table .d-flex.justify-content-center.gap-2 {
+    padding: 0;
+    margin: 0 auto;
+  }
+  
+  .table td {
+    padding: 0.75rem 0.5rem;
+  }
+}
+
+/* Botones y elementos flex */
+
+/* Mejoras específicas para botones en tablas */
+.table td .btn {
+  white-space: nowrap;
+}
+
+/* Prevenir deformación en contenedores flex */
+.d-flex.gap-2,
+.d-flex.gap-3 {
+  flex-wrap: wrap;
+}
+
+/* Corregir el espaciado y alineación de los botones en los formularios */
+.d-flex.justify-content-end.mt-4.pt-3.border-top,
+.d-flex.justify-content-end.mt-4.pt-3.border-top.w-100 {
+  margin-top: 1.5rem !important;
+  padding-top: 1.25rem !important;
+  margin-bottom: 0 !important;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.form-container form,
+.card form {
+  display: flex;
+  flex-direction: column;
+}
+
+.card form .row,
+.form-container form .row {
+  flex: 1 0 auto; /* Asegura que la fila ocupe el espacio necesario */
+}
+
+/* Mejoras para evitar desbordamiento en formularios */
+.form-control, 
+.form-select {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Mejoras para botones de acción en tablas */
+.table td .d-flex.justify-content-center.gap-2 {
+  flex-wrap: wrap;
+  justify-content: center !important;
+  min-width: 90px; /* Ancho mínimo para evitar deformación */
+}
+
+/* Asegurar que todos los botones en tablas tengan un tamaño consistente */
+.table .btn-sm {
+  width: 31px;
+  height: 31px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 2px;
+}
+
+.table .btn-sm i {
+  font-size: 0.9rem;
+  line-height: 1;
+}
+
+/* Ajustes responsivos para contenedores de botones en formularios */
+@media (max-width: 576px) {
+  .d-flex.justify-content-end.mt-4.pt-3.border-top,
+  .d-flex.justify-content-end.mt-4.pt-3.border-top.w-100 {
+    justify-content: center !important;
+  }
+
+  .d-flex.justify-content-end .btn,
+  .d-flex.justify-content-between .btn {
+    margin: 0.25rem;
+    flex-grow: 1;
+    max-width: 45%;
+  }
+  
+  /* Corrección para evitar que los botones se expandan demasiado */
+  .btn {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  
+  /* Mejorar el espaciado de los botones en contenedores de tablas */
+  .table .d-flex.justify-content-center.gap-2 {
+    padding: 0;
+    margin: 0 auto;
+  }
+  
+  .table td {
+    padding: 0.75rem 0.5rem;
+  }
+}
 

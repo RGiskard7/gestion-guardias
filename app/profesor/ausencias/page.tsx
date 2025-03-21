@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { useAusencias } from "@/src/contexts/AusenciasContext"
 import { useLugares } from "@/src/contexts/LugaresContext"
 import { useAuth } from "@/src/contexts/AuthContext"
@@ -8,6 +8,7 @@ import { useGuardias } from "@/src/contexts/GuardiasContext"
 import { useUsuarios } from "@/src/contexts/UsuariosContext"
 import { Ausencia } from "@/src/types"
 import { Pagination } from "@/components/ui/pagination"
+import DataCard from "@/components/common/DataCard"
 import { DB_CONFIG } from "@/lib/db-config"
 
 export default function AusenciasPage() {
@@ -111,27 +112,22 @@ export default function AusenciasPage() {
         return sortDirection === 'asc' ? tramoA - tramoB : tramoB - tramoA
       }
       
-      // Por defecto (no debería llegar aquí)
+      // Por defecto
       return 0
     })
-
-  // Imprimir la cantidad de ausencias encontradas
-  console.log(`Total de ausencias encontradas: ${misAusenciasFiltradas.length}`)
 
   // Estado para la paginación
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage, setItemsPerPage] = useState(10)
 
-  // Calcular el número total de páginas de forma explícita
-  let totalPages = 1
-  if (misAusenciasFiltradas.length > 0) {
-    totalPages = Math.max(1, Math.ceil(misAusenciasFiltradas.length / itemsPerPage))
-  }
+  // Calcular el número total de páginas
+  const totalPages = Math.max(1, Math.ceil(misAusenciasFiltradas.length / itemsPerPage))
 
-  // Calcular los índices de inicio y fin para la paginación
-  const indexOfLastItem = currentPage * itemsPerPage
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage
-  const currentItems = misAusenciasFiltradas.slice(indexOfFirstItem, indexOfLastItem)
+  // Calcular los elementos actuales
+  const currentItems = misAusenciasFiltradas.slice(
+    (currentPage - 1) * itemsPerPage, 
+    currentPage * itemsPerPage
+  )
 
   // Función para cambiar de página
   const paginate = (pageNumber: number) => setCurrentPage(pageNumber)
@@ -246,13 +242,13 @@ export default function AusenciasPage() {
 
   // Función para refrescar los datos
   const handleRefresh = async () => {
-    setIsRefreshing(true);
+    setIsRefreshing(true)
     try {
-      await refreshAusencias();
+      await refreshAusencias()
     } catch (error) {
-      console.error("Error al refrescar los datos:", error);
+      console.error("Error al refrescar los datos:", error)
     } finally {
-      setIsRefreshing(false);
+      setIsRefreshing(false)
     }
   }
 
@@ -355,13 +351,13 @@ export default function AusenciasPage() {
   const getBackgroundColor = (estado: string) => {
     switch (estado) {
       case DB_CONFIG.ESTADOS_AUSENCIA.PENDIENTE:
-        return "bg-warning bg-opacity-10 border-warning";
+        return "bg-warning bg-opacity-10 border-warning"
       case DB_CONFIG.ESTADOS_AUSENCIA.ACEPTADA:
-        return "bg-success bg-opacity-10 border-success";
+        return "bg-success bg-opacity-10 border-success"
       case DB_CONFIG.ESTADOS_AUSENCIA.RECHAZADA:
-        return "bg-danger bg-opacity-10 border-danger";
+        return "bg-danger bg-opacity-10 border-danger"
       default:
-        return "bg-primary bg-opacity-10 border-primary";
+        return "bg-primary bg-opacity-10 border-primary"
     }
   }
 
@@ -369,13 +365,13 @@ export default function AusenciasPage() {
   const getBadgeColor = (estado: string) => {
     switch (estado) {
       case DB_CONFIG.ESTADOS_AUSENCIA.PENDIENTE:
-        return "bg-warning text-dark";
+        return "bg-warning text-dark"
       case DB_CONFIG.ESTADOS_AUSENCIA.ACEPTADA:
-        return "bg-success";
+        return "bg-success"
       case DB_CONFIG.ESTADOS_AUSENCIA.RECHAZADA:
-        return "bg-danger";
+        return "bg-danger"
       default:
-        return "bg-primary";
+        return "bg-primary"
     }
   }
 
@@ -408,380 +404,382 @@ export default function AusenciasPage() {
   }
 
   return (
-    <div className="container-fluid">
-      <style jsx>{`
-        .spin {
-          animation: spin 1s linear infinite;
-        }
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-        .cursor-pointer {
-          cursor: pointer;
-        }
-        .user-select-none {
-          user-select: none;
-        }
-        .sortable-header {
-          transition: background-color 0.2s;
-        }
-        .sortable-header:hover {
-          background-color: rgba(0, 0, 0, 0.05);
-        }
-      `}</style>
-      <h1 className="h3 mb-4">Gestión de Ausencias</h1>
+    <div className="container py-4">
+      <h1 className="mb-4">Gestión de Ausencias</h1>
       
-      <div className="row mb-4">
-        <div className="col-md-6">
-          <button 
-            className="btn btn-primary btn-sm mb-3 shadow-sm"
-            onClick={() => {
-              if (showForm && !editingId) {
-                // Si el formulario está abierto en modo creación, cerrarlo
-                setShowForm(false)
-              } else {
-                // Si está cerrado o en modo edición, abrir en modo creación
-                resetForm()
-                setShowForm(true)
-              }
-            }}
-          >
-            <i className="bi bi-plus-circle me-1"></i>
-            {showForm && !editingId ? "Cancelar" : "Registrar Nueva Ausencia"}
-          </button>
-          
-          {showForm && (
-            <div className="card shadow-sm mb-4">
-              <div className="card-header bg-primary text-white">
-                <h5 className="card-title mb-0">
-                  <i className={`bi ${editingId ? "bi-pencil-square" : "bi-calendar-plus"} me-1`}></i>
-                  {editingId ? "Editar Ausencia" : "Registrar Nueva Ausencia"}
-                </h5>
-              </div>
-              <div className="card-body">
-                <form onSubmit={handleSubmit}>
-                  <div className="mb-3">
-                    <label htmlFor="fecha" className="form-label">Fecha de la ausencia</label>
-                    <input
-                      type="date"
-                      className={`form-control ${formErrors.fecha ? 'is-invalid' : ''}`}
-                      id="fecha"
-                      name="fecha"
-                      value={formData.fecha}
-                      onChange={handleChange}
-                      min={new Date().toISOString().split("T")[0]}
-                      required
-                      disabled={editingId !== null} // No permitir cambiar la fecha al editar
-                    />
-                    {formErrors.fecha && <div className="invalid-feedback">{formErrors.fecha}</div>}
-                  </div>
-                  
-                  <div className="mb-3">
-                    <label className="form-label">Tramos horarios</label>
-                    <div className={`border rounded p-3 ${formErrors.tramosHorarios ? 'border-danger' : ''}`}>
-                      {editingId ? (
-                        // En modo edición, mostrar solo el tramo seleccionado
-                        <div className="alert alert-info mb-0">
-                          <i className="bi bi-info-circle me-2"></i>
-                          Tramo horario: <strong>{formData.tramosHorarios[0]}</strong>
-                          <div className="small mt-1">(No se puede modificar el tramo horario al editar)</div>
-                        </div>
-                      ) : (
-                        // En modo creación, mostrar todos los tramos
-                        <>
-                          <div className="form-check mb-2 border-bottom pb-2">
-                            <input
-                              className="form-check-input"
-                              type="checkbox"
-                              id="todo-el-dia"
-                              name="tramosHorarios"
-                              value="todo-el-dia"
-                              checked={formData.tramosHorarios.length === tramosHorariosOptions.length}
-                              onChange={handleChange}
-                            />
-                            <label className="form-check-label" htmlFor="todo-el-dia">
-                              <strong>Todo el día</strong>
-                            </label>
-                          </div>
-                          {tramosHorariosOptions.map((tramo) => (
-                            <div className="form-check" key={tramo}>
-                              <input
-                                className="form-check-input"
-                                type="checkbox"
-                                id={`tramo-${tramo}`}
-                                name="tramosHorarios"
-                                value={tramo}
-                                checked={formData.tramosHorarios.includes(tramo)}
-                                onChange={handleChange}
-                              />
-                              <label className="form-check-label" htmlFor={`tramo-${tramo}`}>
-                                {tramo}
-                              </label>
-                            </div>
-                          ))}
-                        </>
-                      )}
-                    </div>
-                    {formErrors.tramosHorarios && <div className="text-danger small mt-1">{formErrors.tramosHorarios}</div>}
-                  </div>
-                  
-                  <div className="mb-3">
-                    <label htmlFor="observaciones" className="form-label">Observaciones (opcional)</label>
-                    <textarea
-                      className="form-control"
-                      id="observaciones"
-                      name="observaciones"
-                      value={formData.observaciones}
-                      onChange={handleChange}
-                      rows={3}
-                    ></textarea>
-                  </div>
-                  
-                  <div className="text-end mt-4">
-                    <button 
-                      type="button" 
-                      className="btn btn-outline-secondary btn-sm me-2"
-                      onClick={() => {
-                        resetForm()
-                        setShowForm(false)
-                      }}
-                    >
-                      <i className="bi bi-x-circle me-1"></i>
-                      Cancelar
-                    </button>
-                    <button 
-                      type="submit" 
-                      className="btn btn-primary btn-sm"
-                      disabled={isSubmitting}
-                    >
-                      {isSubmitting ? (
-                        <>
-                          <span className="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
-                          {editingId ? "Actualizando..." : "Registrando..."}
-                        </>
-                      ) : (
-                        <>
-                          <i className={`bi ${editingId ? "bi-check-circle" : "bi-plus-circle"} me-1`}></i>
-                          {editingId ? "Actualizar" : "Registrar"}
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </form>
-              </div>
+      <DataCard
+        title="Filtros y Acciones"
+        icon="filter"
+        className="mb-4"
+      >
+        <div className="row g-3">
+          <div className="col-md-3">
+            <div className="form-group">
+              <label htmlFor="filterId" className="form-label fw-bold">ID</label>
+              <input
+                type="text"
+                className="form-control"
+                id="filterId"
+                value={filterId}
+                onChange={(e) => setFilterId(e.target.value)}
+                placeholder="Buscar por ID exacto"
+              />
+              <small className="form-text text-muted">Filtrar por ID específico</small>
             </div>
-          )}
-        </div>
-        
-        <div className="col-md-6">
-          <div className="card shadow-sm">
-            <div className="card-header bg-primary text-white">
-              <i className="bi bi-funnel me-1"></i>Filtros
+          </div>
+          <div className="col-md-3">
+            <div className="form-group">
+              <label htmlFor="filterFecha" className="form-label fw-bold">Fecha</label>
+              <input
+                type="date"
+                className="form-control"
+                id="filterFecha"
+                value={filterFecha}
+                onChange={(e) => setFilterFecha(e.target.value)}
+              />
+              <small className="form-text text-muted">Filtrar por fecha específica</small>
             </div>
-            <div className="card-body">
-              <div className="row">
-                <div className="col-md-4 mb-3">
-                  <label htmlFor="filterId" className="form-label">ID</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    id="filterId"
-                    value={filterId}
-                    onChange={(e) => setFilterId(e.target.value)}
-                    placeholder="Buscar por ID exacto"
-                  />
-                </div>
-                <div className="col-md-4 mb-3">
-                  <label htmlFor="filterFecha" className="form-label">Fecha</label>
-                  <input
-                    type="date"
-                    className="form-control"
-                    id="filterFecha"
-                    value={filterFecha}
-                    onChange={(e) => setFilterFecha(e.target.value)}
-                  />
-                </div>
-                <div className="col-md-4 mb-3">
-                  <label htmlFor="filterEstado" className="form-label">Estado</label>
-                  <select
-                    className="form-select"
-                    id="filterEstado"
-                    value={filterEstado}
-                    onChange={(e) => setFilterEstado(e.target.value)}
-                  >
-                    <option value="">Todos los estados</option>
-                    {estadosAusencia.map(estado => (
-                      <option key={estado} value={estado}>
-                        {estado}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              <div className="d-flex justify-content-between align-items-center">
-                <button 
-                  className="btn btn-outline-secondary btn-sm"
+          </div>
+          <div className="col-md-3">
+            <div className="form-group">
+              <label htmlFor="filterEstado" className="form-label fw-bold">Estado</label>
+              <select
+                className="form-select"
+                id="filterEstado"
+                value={filterEstado}
+                onChange={(e) => setFilterEstado(e.target.value)}
+              >
+                <option value="">Todos los estados</option>
+                {estadosAusencia.map(estado => (
+                  <option key={estado} value={estado}>
+                    {estado}
+                  </option>
+                ))}
+              </select>
+              <small className="form-text text-muted">Filtrar por estado de la ausencia</small>
+            </div>
+          </div>
+          <div className="col-md-3">
+            <div className="form-group d-flex flex-column">
+              <label className="form-label fw-bold">Acciones</label>
+              <div className="mt-2">
+                <button
+                  className="btn btn-primary"
                   onClick={() => {
-                    setFilterFecha("")
-                    setFilterEstado("")
-                    setFilterId("")
+                    if (showForm && !editingId) {
+                      // Si el formulario está abierto en modo creación, cerrarlo
+                      setShowForm(false)
+                    } else {
+                      // Si está cerrado o en modo edición, abrir en modo creación
+                      resetForm()
+                      setShowForm(true)
+                    }
                   }}
                 >
-                  <i className="bi bi-x-circle me-1"></i>Limpiar filtros
+                  <i className={`bi ${showForm && !editingId ? "bi-x-circle" : "bi-plus-circle"} me-2`}></i>
+                  {showForm && !editingId ? "Cancelar" : "Nueva Ausencia"}
                 </button>
               </div>
             </div>
           </div>
         </div>
-      </div>
-      
-      <div className="card shadow-sm">
-        <div className="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-          <h5 className="mb-0">
-            <i className="bi bi-list-check me-1"></i>
-            Mis Ausencias
-          </h5>
-          <div className="d-flex align-items-center">
-            <button
-              className="btn btn-light btn-sm me-2"
-              onClick={handleRefresh}
-              disabled={isRefreshing}
-              title="Refrescar datos"
-            >
-              <i className={`bi bi-arrow-clockwise ${isRefreshing ? 'spin' : ''}`}></i>
-            </button>
-            <span className="badge bg-light text-dark">
-              Total: {misAusenciasFiltradas.length}
-            </span>
-          </div>
+        
+        <div className="d-flex justify-content-end mt-3 pt-3 border-top">
+          <button 
+            className="btn btn-outline-secondary"
+            onClick={() => {
+              setFilterFecha("")
+              setFilterEstado("")
+              setFilterId("")
+            }}
+          >
+            <i className="bi bi-x-circle me-2"></i>
+            Limpiar filtros
+          </button>
+          <button
+            className="btn btn-outline-primary ms-2"
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+          >
+            {isRefreshing ? (
+              <>
+                <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                Actualizando...
+              </>
+            ) : (
+              <>
+                <i className="bi bi-arrow-clockwise me-2"></i>
+                Actualizar
+              </>
+            )}
+          </button>
         </div>
-        <div className="card-body">
-          {misAusenciasFiltradas.length === 0 ? (
-            <div className="alert alert-info">
-              <i className="bi bi-info-circle me-2"></i>
-              No tienes ausencias registradas
-            </div>
-          ) : (
-            <>
-              <div className="table-responsive">
-                <table className="table table-hover">
-                  <thead>
-                    <tr>
-                      <th 
-                        onClick={() => handleSort('id')}
-                        className="cursor-pointer user-select-none sortable-header"
-                        title="Ordenar por ID"
-                      >
-                        <div className="d-flex align-items-center">
-                          ID
-                          {sortField === 'id' && (
-                            <span className="ms-2 text-primary">
-                              <i className={`bi bi-sort-${sortDirection === 'asc' ? 'up' : 'down'}-alt`}></i>
-                            </span>
-                          )}
-                        </div>
-                      </th>
-                      <th 
-                        onClick={() => handleSort('fecha')}
-                        className="cursor-pointer user-select-none sortable-header"
-                        title="Ordenar por fecha"
-                      >
-                        <div className="d-flex align-items-center">
-                          Fecha
-                          {sortField === 'fecha' && (
-                            <span className="ms-2 text-primary">
-                              <i className={`bi bi-sort-${sortDirection === 'asc' ? 'up' : 'down'}-alt`}></i>
-                            </span>
-                          )}
-                        </div>
-                      </th>
-                      <th 
-                        onClick={() => handleSort('tramoHorario')}
-                        className="cursor-pointer user-select-none sortable-header"
-                        title="Ordenar por tramo"
-                      >
-                        <div className="d-flex align-items-center">
-                          Tramo
-                          {sortField === 'tramoHorario' && (
-                            <span className="ms-2 text-primary">
-                              <i className={`bi bi-sort-${sortDirection === 'asc' ? 'up' : 'down'}-alt`}></i>
-                            </span>
-                          )}
-                        </div>
-                      </th>
-                      <th>Estado</th>
-                      <th>Observaciones</th>
-                      <th>Acciones</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {currentItems.map((ausencia) => (
-                      <tr key={`${ausencia.id}-${ausencia.tramoHorario}`} className={getBackgroundColor(ausencia.estado)}>
-                        <td>{ausencia.id}</td>
-                        <td>{new Date(ausencia.fecha).toLocaleDateString("es-ES")}</td>
-                        <td>{ausencia.tramoHorario}</td>
-                        <td>
-                          <span className={`badge ${getBadgeColor(ausencia.estado)}`}>
-                            {ausencia.estado}
-                          </span>
-                        </td>
-                        <td>
-                          {ausencia.observaciones ? (
-                            <span title={ausencia.observaciones}>
-                              {ausencia.observaciones.length > 50
-                                ? `${ausencia.observaciones.substring(0, 50)}...`
-                                : ausencia.observaciones}
-                            </span>
-                          ) : (
-                            <span className="text-muted">Sin observaciones</span>
-                          )}
-                        </td>
-                        <td>
-                          <div className="d-flex gap-1">
-                            {ausencia.estado === DB_CONFIG.ESTADOS_AUSENCIA.PENDIENTE && (
-                              <>
-                                <button
-                                  className="btn btn-sm btn-outline-primary"
-                                  onClick={() => handleEditAusencia(ausencia)}
-                                  title="Editar ausencia"
-                                >
-                                  <i className="bi bi-pencil"></i>
-                                </button>
-                                <button
-                                  className="btn btn-sm btn-outline-danger"
-                                  onClick={() => handleCancelarAusencia(ausencia)}
-                                  title="Cancelar ausencia"
-                                >
-                                  <i className="bi bi-trash"></i>
-                                </button>
-                              </>
-                            )}
-                            {/* Botón de ver detalles para cualquier estado */}
-                            <button
-                              className="btn btn-sm btn-outline-info"
-                              onClick={() => handleViewAusencia(ausencia)}
-                              title="Ver detalles"
-                            >
-                              <i className="bi bi-eye"></i>
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+      </DataCard>
+      
+      {showForm && (
+        <DataCard
+          title={editingId ? "Editar Ausencia" : "Registrar Nueva Ausencia"}
+          icon={editingId ? "pencil-square" : "calendar-plus"}
+          className="mb-4"
+        >
+          <form onSubmit={handleSubmit}>
+            <div className="row g-3">
+              <div className="col-md-6">
+                <div className="form-group">
+                  <label htmlFor="fecha" className="form-label fw-bold">Fecha de la ausencia</label>
+                  <input
+                    type="date"
+                    className={`form-control ${formErrors.fecha ? 'is-invalid' : ''}`}
+                    id="fecha"
+                    name="fecha"
+                    value={formData.fecha}
+                    onChange={handleChange}
+                    min={new Date().toISOString().split("T")[0]}
+                    required
+                    disabled={editingId !== null} // No permitir cambiar la fecha al editar
+                  />
+                  {formErrors.fecha && <div className="invalid-feedback">{formErrors.fecha}</div>}
+                  <small className="form-text text-muted">Selecciona la fecha de la ausencia</small>
+                </div>
               </div>
               
+              <div className="col-md-6">
+                <div className="form-group">
+                  <label htmlFor="observaciones" className="form-label fw-bold">Observaciones (opcional)</label>
+                  <textarea
+                    className="form-control"
+                    id="observaciones"
+                    name="observaciones"
+                    value={formData.observaciones}
+                    onChange={handleChange}
+                    rows={1}
+                  ></textarea>
+                  <small className="form-text text-muted">Añade información adicional sobre la ausencia</small>
+                </div>
+              </div>
+              
+              <div className="col-12">
+                <div className="form-group">
+                  <label className="form-label fw-bold">Tramos horarios</label>
+                  <div className={`border rounded p-3 ${formErrors.tramosHorarios ? 'border-danger' : ''}`}>
+                    {editingId ? (
+                      // En modo edición, mostrar solo el tramo seleccionado
+                      <div className="alert alert-info mb-0">
+                        <i className="bi bi-info-circle me-2"></i>
+                        Tramo horario: <strong>{formData.tramosHorarios[0]}</strong>
+                        <div className="small mt-1">(No se puede modificar el tramo horario al editar)</div>
+                      </div>
+                    ) : (
+                      // En modo creación, mostrar todos los tramos
+                      <>
+                        <div className="form-check mb-2 border-bottom pb-2">
+                          <input
+                            className="form-check-input"
+                            type="checkbox"
+                            id="todo-el-dia"
+                            name="tramosHorarios"
+                            value="todo-el-dia"
+                            checked={formData.tramosHorarios.length === tramosHorariosOptions.length}
+                            onChange={handleChange}
+                          />
+                          <label className="form-check-label" htmlFor="todo-el-dia">
+                            <strong>Todo el día</strong>
+                          </label>
+                        </div>
+                        <div className="row row-cols-1 row-cols-md-3 g-2">
+                          {tramosHorariosOptions.map((tramo) => (
+                            <div className="col" key={tramo}>
+                              <div className="form-check">
+                                <input
+                                  className="form-check-input"
+                                  type="checkbox"
+                                  id={`tramo-${tramo}`}
+                                  name="tramosHorarios"
+                                  value={tramo}
+                                  checked={formData.tramosHorarios.includes(tramo)}
+                                  onChange={handleChange}
+                                />
+                                <label className="form-check-label" htmlFor={`tramo-${tramo}`}>
+                                  {tramo}
+                                </label>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                  {formErrors.tramosHorarios && (
+                    <div className="text-danger small mt-1">{formErrors.tramosHorarios}</div>
+                  )}
+                  <small className="form-text text-muted mt-1">
+                    Selecciona los tramos horarios para la ausencia
+                  </small>
+                </div>
+              </div>
+            </div>
+
+            <div className="d-flex justify-content-end mt-4 pt-3 border-top">
+              <button 
+                type="button" 
+                className="btn btn-outline-secondary me-2"
+                onClick={() => {
+                  resetForm()
+                  setShowForm(false)
+                }}
+              >
+                <i className="bi bi-x-circle me-2"></i>
+                Cancelar
+              </button>
+              <button 
+                type="submit" 
+                className="btn btn-primary"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? (
+                  <>
+                    <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                    {editingId ? "Actualizando..." : "Guardar"}
+                  </>
+                ) : (
+                  <>
+                    <i className={`bi ${editingId ? "bi-check-circle" : "bi-plus-circle"} me-2`}></i>
+                    {editingId ? "Actualizar" : "Guardar"}
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
+        </DataCard>
+      )}
+      
+      <DataCard
+        title={`Mis Ausencias (${misAusenciasFiltradas.length})`}
+        icon="list-check"
+        className="mb-4"
+      >
+        {misAusenciasFiltradas.length === 0 ? (
+          <div className="alert alert-info">
+            <i className="bi bi-info-circle me-2"></i>
+            No tienes ausencias registradas
+          </div>
+        ) : (
+          <>
+            <div className="table-responsive">
+              <table className="table table-striped table-hover align-middle">
+                <thead className="table-light">
+                  <tr>
+                    <th 
+                      onClick={() => handleSort('id')}
+                      className="cursor-pointer user-select-none"
+                      style={{ minWidth: '60px' }}
+                    >
+                      <div className="d-flex align-items-center">
+                        ID
+                        {sortField === 'id' && (
+                          <i className={`bi bi-sort-${sortDirection === 'asc' ? 'up' : 'down'}-alt ms-1`}></i>
+                        )}
+                      </div>
+                    </th>
+                    <th 
+                      onClick={() => handleSort('fecha')}
+                      className="cursor-pointer user-select-none"
+                      style={{ minWidth: '100px' }}
+                    >
+                      <div className="d-flex align-items-center">
+                        Fecha
+                        {sortField === 'fecha' && (
+                          <i className={`bi bi-sort-${sortDirection === 'asc' ? 'up' : 'down'}-alt ms-1`}></i>
+                        )}
+                      </div>
+                    </th>
+                    <th 
+                      onClick={() => handleSort('tramoHorario')}
+                      className="cursor-pointer user-select-none"
+                      style={{ minWidth: '120px' }}
+                    >
+                      <div className="d-flex align-items-center">
+                        Tramo Horario
+                        {sortField === 'tramoHorario' && (
+                          <i className={`bi bi-sort-${sortDirection === 'asc' ? 'up' : 'down'}-alt ms-1`}></i>
+                        )}
+                      </div>
+                    </th>
+                    <th style={{ minWidth: '90px' }}>Estado</th>
+                    <th style={{ minWidth: '150px' }}>Observaciones</th>
+                    <th className="text-center" style={{ minWidth: '120px' }}>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {currentItems.map((ausencia) => (
+                    <tr key={`${ausencia.id}-${ausencia.tramoHorario}`} className={getBackgroundColor(ausencia.estado)}>
+                      <td className="text-muted small">{ausencia.id}</td>
+                      <td>{new Date(ausencia.fecha).toLocaleDateString("es-ES")}</td>
+                      <td>{ausencia.tramoHorario}</td>
+                      <td>
+                        <span className={`badge ${getBadgeColor(ausencia.estado)}`}>
+                          {ausencia.estado}
+                        </span>
+                      </td>
+                      <td>
+                        {ausencia.observaciones ? (
+                          <span title={ausencia.observaciones}>
+                            {ausencia.observaciones.length > 30
+                              ? `${ausencia.observaciones.substring(0, 30)}...`
+                              : ausencia.observaciones}
+                          </span>
+                        ) : (
+                          <span className="text-muted">Sin observaciones</span>
+                        )}
+                      </td>
+                      <td>
+                        <div className="d-flex justify-content-center gap-2">
+                          {ausencia.estado === DB_CONFIG.ESTADOS_AUSENCIA.PENDIENTE && (
+                            <>
+                              <button
+                                className="btn btn-sm btn-outline-primary"
+                                onClick={() => handleEditAusencia(ausencia)}
+                                title="Editar ausencia"
+                              >
+                                <i className="bi bi-pencil"></i>
+                              </button>
+                              <button
+                                className="btn btn-sm btn-outline-warning"
+                                onClick={() => handleCancelarAusencia(ausencia)}
+                                title="Cancelar ausencia"
+                              >
+                                <i className="bi bi-trash"></i>
+                              </button>
+                            </>
+                          )}
+                          <button
+                            className="btn btn-sm btn-outline-info"
+                            onClick={() => handleViewAusencia(ausencia)}
+                            title="Ver detalles"
+                          >
+                            <i className="bi bi-eye"></i>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            
+            <div className="d-flex justify-content-between align-items-center mt-4 pt-3 border-top">
+              <div className="text-muted small">
+                Mostrando <span className="fw-bold">{(currentPage - 1) * itemsPerPage + 1}-{Math.min(currentPage * itemsPerPage, misAusenciasFiltradas.length)}</span> de <span className="fw-bold">{misAusenciasFiltradas.length}</span> ausencias
+              </div>
               <Pagination
                 currentPage={currentPage}
                 totalPages={totalPages}
                 onPageChange={paginate}
               />
-            </>
-          )}
-        </div>
-      </div>
+            </div>
+          </>
+        )}
+      </DataCard>
 
       {/* Modal para mostrar detalles de la ausencia */}
       {showModal && selectedAusencia && (
@@ -807,14 +805,14 @@ export default function AusenciasPage() {
                 <div className="row mb-4">
                   <div className="col-md-6">
                     <h6 className="fw-bold">
-                      <i className="bi bi-hash me-1"></i>
+                      <i className="bi bi-hash me-2"></i>
                       ID de la Ausencia
                     </h6>
                     <p className="mb-0">{selectedAusencia.id}</p>
                   </div>
                   <div className="col-md-6">
                     <h6 className="fw-bold">
-                      <i className="bi bi-flag-fill me-1"></i>
+                      <i className="bi bi-flag-fill me-2"></i>
                       Estado
                     </h6>
                     <p className="mb-0">
@@ -828,7 +826,7 @@ export default function AusenciasPage() {
                 <div className="row mb-4">
                   <div className="col-md-6">
                     <h6 className="fw-bold">
-                      <i className="bi bi-person-fill me-1"></i>
+                      <i className="bi bi-person-fill me-2"></i>
                       Profesor
                     </h6>
                     <p className="mb-0">
@@ -837,7 +835,7 @@ export default function AusenciasPage() {
                   </div>
                   <div className="col-md-6">
                     <h6 className="fw-bold">
-                      <i className="bi bi-calendar-event me-1"></i>
+                      <i className="bi bi-calendar-event me-2"></i>
                       Fecha
                     </h6>
                     <p className="mb-0">{new Date(selectedAusencia.fecha).toLocaleDateString('es-ES', { 
@@ -852,14 +850,14 @@ export default function AusenciasPage() {
                 <div className="row mb-4">
                   <div className="col-md-6">
                     <h6 className="fw-bold">
-                      <i className="bi bi-clock me-1"></i>
+                      <i className="bi bi-clock me-2"></i>
                       Tramo Horario
                     </h6>
                     <p className="mb-0">{selectedAusencia.tramoHorario}</p>
                   </div>
                   <div className="col-md-6">
                     <h6 className="fw-bold">
-                      <i className="bi bi-card-text me-1"></i>
+                      <i className="bi bi-card-text me-2"></i>
                       Observaciones
                     </h6>
                     {selectedAusencia.observaciones ? (
@@ -872,7 +870,7 @@ export default function AusenciasPage() {
                 
                 <div className="mb-3">
                   <h6 className="fw-bold border-bottom pb-2 mb-3">
-                    <i className="bi bi-shield-fill me-1"></i>
+                    <i className="bi bi-shield-fill me-2"></i>
                     Información de Guardia Asociada
                   </h6>
                   {(() => {
@@ -883,14 +881,14 @@ export default function AusenciasPage() {
                           <div className="row mb-3">
                             <div className="col-md-6">
                               <h6 className="card-subtitle mb-1 text-muted">
-                                <i className="bi bi-hash me-1"></i>
+                                <i className="bi bi-hash me-2"></i>
                                 ID de Guardia
                               </h6>
                               <p className="card-text">{guardia.id}</p>
                             </div>
                             <div className="col-md-6">
                               <h6 className="card-subtitle mb-1 text-muted">
-                                <i className="bi bi-flag-fill me-1"></i>
+                                <i className="bi bi-flag-fill me-2"></i>
                                 Estado
                               </h6>
                               <p className="card-text">
@@ -906,14 +904,14 @@ export default function AusenciasPage() {
                           <div className="row mb-3">
                             <div className="col-md-6">
                               <h6 className="card-subtitle mb-1 text-muted">
-                                <i className="bi bi-tag-fill me-1"></i>
+                                <i className="bi bi-tag-fill me-2"></i>
                                 Tipo de Guardia
                               </h6>
                               <p className="card-text">{guardia.tipoGuardia}</p>
                             </div>
                             <div className="col-md-6">
                               <h6 className="card-subtitle mb-1 text-muted">
-                                <i className="bi bi-geo-alt-fill me-1"></i>
+                                <i className="bi bi-geo-alt-fill me-2"></i>
                                 Lugar
                               </h6>
                               {(() => {
@@ -923,7 +921,7 @@ export default function AusenciasPage() {
                                     <strong>{lugar.codigo}</strong> - {lugar.descripcion}
                                     <br />
                                     <span className="text-muted small">
-                                      <i className="bi bi-building me-1"></i>
+                                      <i className="bi bi-building me-2"></i>
                                       {lugar.tipoLugar}
                                     </span>
                                   </p>
@@ -937,14 +935,14 @@ export default function AusenciasPage() {
                           {guardia.profesorCubridorId && (
                             <div className="mb-3">
                               <h6 className="card-subtitle mb-1 text-muted">
-                                <i className="bi bi-person-fill me-1"></i>
+                                <i className="bi bi-person-fill me-2"></i>
                                 Profesor Cubridor
                               </h6>
                               {(() => {
                                 const profesor = getUsuarioById(guardia.profesorCubridorId)
                                 return profesor ? (
                                   <p className="card-text">
-                                    <i className="bi bi-person-badge me-1"></i>
+                                    <i className="bi bi-person-badge me-2"></i>
                                     {profesor.nombre}
                                     <span className="text-muted small ms-2">(ID: {profesor.id})</span>
                                   </p>
@@ -958,7 +956,7 @@ export default function AusenciasPage() {
                           {guardia.observaciones && (
                             <div>
                               <h6 className="card-subtitle mb-1 text-muted">
-                                <i className="bi bi-chat-left-text me-1"></i>
+                                <i className="bi bi-chat-left-text me-2"></i>
                                 Observaciones de la Guardia
                               </h6>
                               <p className="card-text">{guardia.observaciones}</p>
