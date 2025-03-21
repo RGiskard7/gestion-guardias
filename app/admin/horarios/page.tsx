@@ -597,7 +597,7 @@ export default function HorariosPage() {
                 <>
                   <h4 className="mb-3">{getProfesorName(selectedProfesor)}</h4>
                   <div className="table-responsive" style={{ overflow: 'auto', maxWidth: '100%' }}>
-                    <table className="table table-bordered table-hover">
+                    <table className="table table-bordered shadow-sm">
                       <thead className="table-light">
                         <tr>
                           <th style={{ minWidth: "100px" }}>Tramo / Día</th>
