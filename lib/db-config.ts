@@ -20,12 +20,12 @@ export const DB_CONFIG = {
   
   // Nombres de las tablas
   TABLES: {
-    USUARIOS: 'Usuarios',
-    GUARDIAS: 'Guardias',
-    HORARIOS: 'Horarios',
-    LUGARES: 'Lugares',
-    TAREAS_GUARDIA: 'Tareas_guardia',
-    AUSENCIAS: 'Ausencias'
+    USUARIOS: 'usuarios',
+    GUARDIAS: 'guardias',
+    HORARIOS: 'horarios',
+    LUGARES: 'lugares',
+    TAREAS_GUARDIA: 'tareas_guardia',
+    AUSENCIAS: 'ausencias'
   },
   
   // Estados posibles para las guardias
